@@ -254,7 +254,7 @@ The launcher must be updated to 1.7.9b in either edition; unpatched base v0 is n
 
 The Sinnoh map keeps your position and destination visible; Party exposes move order and PP; Battle presents native commands and opponent information.
 
-Requires Eden Duo 1.2.0 or newer.
+Requires Eden Duo 1.2.1 or newer.
 
 Keep the map, party and battle controls on the second screen.
 
@@ -287,7 +287,7 @@ Limitations:
 
 The Shining Pearl companion shows the Sinnoh map, party details and its own Pokétch, here with Luminescent Platinum.
 
-Requires Eden Duo 1.2.0 or newer.
+Requires Eden Duo 1.2.1 or newer.
 
 It has the same Map, Party, Bag, Pokédex, Pokétch and Battle pages as the Brilliant Diamond companion. Install this package for Shining Pearl, vanilla or with Luminescent Platinum 2.2F.
 
