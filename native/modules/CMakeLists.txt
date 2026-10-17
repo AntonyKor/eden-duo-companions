@@ -732,3 +732,6 @@ if(NOT ANDROID)
     target_include_directories(farming-simulator-presentation-check PRIVATE
         "${CMAKE_CURRENT_LIST_DIR}" "${EDEN_SOURCE_ROOT}/src")
 endif()
+
+# VA-11 Hall-A (title 010086500D3C8000): the VAllhalla bartending panel, contributed by Mati.
+include("${CMAKE_CURRENT_LIST_DIR}/va11_hall_a.cmake")
