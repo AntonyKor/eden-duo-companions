@@ -5,7 +5,7 @@
 // The Binding of Isaac: Repentance: asset-free art. Every image is decoded at runtime from the
 // player's own romfs (PCX sheets cropped by the game's .anm2 frames); nothing of the game ships.
 // Called from load_image on the runtime's asset worker thread. Owner: ASSETS lane.
-// The key grammar is fixed in research/isaac/CONTRACT.md ("isaac:..." without "module:").
+// The key grammar is fixed: "isaac:..." (without the "module:" prefix).
 // Keys are self-describing: an image depends only on its key (and the romfs), never on reader
 // state, so the host cache can keep it.
 //
@@ -30,8 +30,7 @@
 //                                   one fixed canvas per animation (round 6, loading page)
 //   isaac:logo                                  the title screen's logo (titlemenu.anm2 Idle 0,
 //                                   layers LogoShadow + Logo), 480x164
-// The sources and code sites of every rule are in isaac_assets.cpp / isaac_map.h and
-// research/isaac/assets/REPORT.md.
+// The sources and code sites of every rule are in isaac_assets.cpp / isaac_map.h.
 
 #include "core/mods/dsmod_module_abi.h"
 #include "core/mods/dsmod_module_extensions.h"

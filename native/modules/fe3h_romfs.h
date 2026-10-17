@@ -4,7 +4,7 @@
 
 // Fire Emblem: Three Houses (010055D009F78000) romfs access for the asset-free package: the
 // game's LINKDATA archive, read from the player's own romfs through host.read_romfs in ranges.
-// Layouts (checked against the whole 1.2.0 romfs, research/fe3h/data/REPORT.md §1):
+// Layouts (checked against the whole 1.2.0 romfs):
 //
 //   DATA0.bin   31160 x 0x20 {u64 offset in DATA1, u64 plain size, u64 stored size,
 //               u64 compressed flag}; size 0 = empty slot.

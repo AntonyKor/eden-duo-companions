@@ -10,7 +10,7 @@
 // Load() returned true; Load() may take a while (call it from a worker thread, never from
 // sample()).
 //
-// Text chain (research/isaac/data/REPORT.md §2.4): items.xml <passive|active|familiar|trinket
+// Text chain: items.xml <passive|active|familiar|trinket
 // name="#KEY" description="#KEY"> -> stringtable category "Items"; pocketitems.xml <card|rune|
 // pilleffect> -> "PocketItems"; stages.xml <stage name> -> "Stages". A key's <string> list is the
 // <languages> order without the "Key" column: en, jp, kr, zh, ru, de, es, fr (= Lang); an empty

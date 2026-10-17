@@ -11,7 +11,6 @@
 // Supported update: launcher B6E5BDB9DC12E1D1A25CBFDA17F4BE24B4754EF5 (v524288),
 // Repentance.nro 91C73FDD575061318D68886316AFEAC72388B2AB or AfterbirthPlus.nro
 // 0F65948274CE60ECA59C1E55B09C54D0607F3C57 when the DLC is absent.
-// Module actions: see research/isaac/CONTRACT.md.
 
 #include "core/mods/dsmod_module_abi.h"
 #include "core/mods/dsmod_module_extensions.h"

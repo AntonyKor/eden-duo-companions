@@ -7,8 +7,8 @@
 //   FieldLandMakingUnitModelParam
 //     land-making units, layer 0 terrain + layer 1 roads) from Model/*.Nin_NX_NVN.zs (BFRES),
 //     raster top-down, highest surface wins (the pass's depth test);
-//   * colour: the compiled Park_UBER gsys_assign_user2 fragment programs (decoded, see
-//     research/acnh/impl/map/COLORS.md): per-material const_color params, height gradient
+//   * colour: the compiled Park_UBER gsys_assign_user2 fragment programs (decoded directly):
+//     per-material const_color params, height gradient
 //     t = sat((y - 0) / 35);
 //   * composition: LMap P_Map_00 material black #0a0a0a / white #ffffff applied in linear space;
 //     RT alpha 0 (rivers, hidden coast rock) shows the page's sea (transparent pixel).
@@ -28,8 +28,8 @@
 namespace acnh {
 
 // ---- island input ---------------------------------------------------------------------------
-// GSaveMain (main.dat) offsets of the Smmh 655400_655362 schema = every 3.0.x save
-// (research/acnh/schema/SCHEMA.md). The live lane copies the same byte ranges from RAM.
+// GSaveMain (main.dat) offsets of the Smmh 655400_655362 schema = every 3.0.x save.
+// The live lane copies the same byte ranges from RAM.
 inline constexpr uint32_t kSaveLandMakingMap =
     0x30AB00; // Land.MainField.LandMakingMap.Map[112][96]
 inline constexpr std::size_t kLandMakingSize = 112u * 96u * 0xEu;

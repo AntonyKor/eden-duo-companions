@@ -57,7 +57,7 @@ constexpr std::array<IconDef, static_cast<size_t>(MapIconKind::Count)> kIcons{{
     {MapIconKind::Player, "player", "LMapIconPlayer", "P_Player_00", 48, 64, false},
 }};
 
-// StructureInfoParam UniqueID -> icon (CODE, research/acnh/impl/fix/map.md "icons"): the
+// StructureInfoParam UniqueID -> icon (CODE): the
 // StructureList reader 0x1260490 turns the u16 uid into the StructureInfoParam row (uid == row for
 // 0..29, uid 42 = row 37 Hotel); the Map app's icon lists (static init 0x2a6c6b0) are rows 1..8
 // player houses, 9..18 villager houses and the facilities 19 Market, 20 Office, 21 Museum,

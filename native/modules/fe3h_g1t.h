@@ -3,8 +3,7 @@
 #pragma once
 
 // Koei Tecmo G1T texture containers as FE3H 1.2.0 stores them (Switch, platform 0x0A), decoded
-// to straight RGBA8 (mip 0, first layer). Layout (research/fe3h/data/REPORT.md §4, the Python
-// reference is research/fe3h/data/tools/fe3h_g1t.py):
+// to straight RGBA8 (mip 0, first layer). Layout (verified against a Python reference decoder):
 //
 //   0x00 'GT1G', 0x04 version (ascii, '0600'), 0x08 u32 file size, 0x0C u32 table offset,
 //   0x10 u32 texture count N, 0x14 u32 platform, 0x18 u32 extra-header size, 0x1C u32[N] flags;

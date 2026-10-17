@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: Copyright 2026 Eden DSMod fork
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Chained Echoes 1.41 exploration reader (Field Home slice). Contract: research/chained-echoes/
-// contracts/field-readers.md. Read-only: no guest write anywhere in this file.
+// Chained Echoes 1.41 exploration reader (Field Home slice). Read-only: no guest write anywhere
+// in this file.
 //
 // What it reads (all re-resolved by IL2CPP class name; the scene objects are validated through
 // the native GameObject back-pointer):

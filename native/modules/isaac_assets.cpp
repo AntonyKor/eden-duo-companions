@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // The Binding of Isaac: Repentance: asset-free art (see isaac_assets.h). Owner: ASSETS lane.
-// Every key -> image rule cites its source; research/isaac/assets/REPORT.md has the full table.
+// Every key -> image rule cites its source inline.
 
 #include "isaac_assets.h"
 
@@ -455,7 +455,7 @@ void Shadow(Image& dst, const Image& piece, int x, int y) {
 // the sheet's drop shadow, the sheet's torn black outline -- with the sheet's paper interior
 // transparent. Drawn above the map image, it clips the map to the paper. Outline = black pixels
 // 4-connected (through black) to the transparent surroundings of the cut sheet; interior = every
-// other opaque sheet pixel (research/isaac/r3/tools/sheet_interior.py does the same offline).
+// other opaque sheet pixel (verified against an offline reference implementation of the same rule).
 constexpr int FrameAt[2] = {125, 74};
 constexpr int FrameW = 495, FrameH = 466;
 

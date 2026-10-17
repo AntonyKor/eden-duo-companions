@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // The Binding of Isaac: Repentance game-memory reader (see isaac_reader.h). Every offset below is
-// an nro+X / G+X / P+X location from research/isaac/code/REPORT.md (+ verify corrections C1-C7)
-// or from the routine named next to it; the routines whose rules are reproduced are
+// an nro+X / G+X / P+X location, reverse-engineered directly from the binary (+ verify
+// corrections C1-C7) or from the routine named next to it; the routines whose rules are reproduced are
 // fingerprinted in isaac_pins.inc.
 
 #include "isaac_reader.h"

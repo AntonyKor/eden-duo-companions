@@ -146,7 +146,7 @@ constexpr u64 ActCount = 0xFA8, ActList = 8, ActActive = 8, ActHide1 = 0xD2, Act
 // +0x178 talk distance, +0xBE parent actor index (0x12C = none), +0x6C..+0xB2 event ids
 constexpr u64 ActNoMarker = 0x158, ActTalk = 0xB4, ActTalkDist = 0x178, ActParent = 0xBE,
               ActEvents = 0x6C, ActEventsEnd = 0xB4;
-/// The map icon sprites in the fixed, append-only order of research/fe3h/re4/ICON_LIST.md
+/// The map icon sprites, in a fixed, append-only order matching the game's own sprite table
 /// (gps.p{i}.icon_k / gps.i{k}.icon_k): every sprite FacilityMarkerSprite (0x5D9290) and the
 /// quest icon rule (0x5D9CF0 / 0x5D9F80) can return, then the glow and the visitor bubble.
 constexpr int IconSprites[] = {0x79D, 0x79E, 0x79F, 0x7A0, 0x7A1, 0x7A2, 0x7A3, 0x7A5,

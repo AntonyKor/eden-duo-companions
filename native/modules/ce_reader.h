@@ -1,10 +1,9 @@
 // SPDX-FileCopyrightText: Copyright 2026 Eden DSMod fork
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Chained Echoes 1.41 live reader (build 17B6A110CC529FBE). Contracts: research/chained-echoes/
-// contracts/battle-readers.md (roots, battle phase, actor, turn queue, party, enemies, bestiary)
-// and contracts/hud-hide.md (top-screen turn strip, party panel, Overdrive gauge, Ultra bar and
-// Sky Armor gear badge visibility writes).
+// Chained Echoes 1.41 live reader (build 17B6A110CC529FBE). Covers the battle readers (roots,
+// battle phase, actor, turn queue, party, enemies, bestiary) and the HUD-hide writes (top-screen
+// turn strip, party panel, Overdrive gauge, Ultra bar and Sky Armor gear badge visibility).
 //
 // Every root is resolved by IL2CPP class name on every refresh (TypeInfo slot -> klass, name at
 // [klass+0x10], statics at [klass+0xB8]); nothing is cached across a failed refresh, so a scene

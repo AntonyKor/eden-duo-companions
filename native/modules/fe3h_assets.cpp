@@ -133,8 +133,8 @@ int32_t CMod(int32_t a, int32_t m) {
 }
 
 // 0x3E79A0: whether a face row takes the per-unit variant offset. Rows 0x10D..0x255 go through
-// the jump table at main+0xCE8B84; these are the ones whose target returns 0 (read from the
-// 1.2.0 main with research/fe3h tools; every other row in that range returns 1).
+// the jump table at main+0xCE8B84; these are the ones whose target returns 0 (read directly from
+// the 1.2.0 main; every other row in that range returns 1).
 bool RowTakesVariant(int32_t row) {
     if (row < 0x64 || (row >= 0x226 && row < 0x233))
         return false;
@@ -960,7 +960,7 @@ struct SpriteSlot {
 // Group g of the atlas manager [[GOT 0x1AA8748]] + 8 * g; rect table = [GOT 0x1AB0B78 + 8 * g]
 // (getter 0x6A84E0 + 0x60 * g: adrp x8 / ldr x8, [x8, #slot] / add x0, x8, w1, sxtw #4 / ret).
 // Texture files: group 0 / 3 / 4 = per-language atlases (base + language); 5 / 6 / 7 / 9 = one
-// file (loader 0x69B880 / 0x69B6C0, research/fe3h/re4 §0).
+// file (loader 0x69B880 / 0x69B6C0).
 constexpr SpriteSlot SpriteSlots[] = {
     {0x0000, 0x2D6, 6026, true, 725, 0xD52D64, 0x1AB0B78, 0x6A84E0, 0xF945BD08},  // g0 common UI
     {0x05B8, 0x127, 6050, true, 295, 0xD588D4, 0x1AB0B90, 0x6A8600, 0xF945C908},  // g3 battle UI
@@ -1489,8 +1489,8 @@ bool LibraryImpl::Nine(const EdenDsmodHostApi* host, std::string_view key, fe3h_
 }
 
 // ---- the v5 redesign's composed keys (LibraryImpl::Styled) --------------------------------------
-// The approved redesign (research/fe3h/redesign: STYLE.md, notes-*.md, mock/page_*.py) defines these
-// images with Pillow 12 + numpy. The keys reproduce that pipeline with Pillow's own arithmetic so a
+// The approved redesign defines these images with Pillow 12 + numpy. The keys reproduce that
+// pipeline with Pillow's own arithmetic so a
 // key renders like its mockup component (checked against the mock code by
 // packaging/fe3h/assets-test/refgen_styled.py):
 //   resize   Resample.c: separable convolution (bilinear / lanczos filters, support scaled when

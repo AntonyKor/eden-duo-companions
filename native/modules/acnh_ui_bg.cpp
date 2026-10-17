@@ -6,7 +6,7 @@
 //   0       "Original" (owner default): the round-2 mocks' per-page look = LCmnBg (cream, wash,
 //           CmnBgDot) plus the page's full-content panel baked in on map / critters / diy
 //   1..20   the round-3 theme sheet, in its order: catalog #7, #1, #113, #202, #225, #70, #71,
-//           #104..#112, #32, #33, #72, #90 (research/acnh/catalog/BACKGROUNDS.md). On these the
+//           #104..#112, #32, #33, #72, #90. On these the
 //           page is the swatch alone; ui/panel/<page> draws the content panel on top.
 // A swatch is drawn exactly like acnh_mock.theme_bg (BACKGROUNDS.tsv rules from
 // tools/acnh_bgsheet.py): texture tinted out = black + (white - black) * tex, times the mean

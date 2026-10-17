@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Read-only battle reader for Dragon Quest III HD-2D Remake, Switch 1.1.0.0 (build
-// 4F41309B39EEBE5E). Research contracts (research/dragon-quest-iii-hd-2d-remake/contracts):
-// BATTLE-ROSTER.md, BATTLE-UNITS.md, BATTLE-UNITS-BOOT2.md, FIELD-STATUS-CODE.md.
+// 4F41309B39EEBE5E).
 //
 // Routes (main-relative code, checked word by word at resolve time):
 //   0x6e5834  GetUnitById: bl GetG; ldr x8,[x0,#0x38]; ldr x8,[x8,#0x150]; ldr x8,[x8,#0x28];

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Chained Echoes 1.41 crystal / equipment reader and the Crystals page state (planner, transfer
-// checklist, smith mirror). Contract: research/chained-echoes/contracts/crystal-readers.md.
+// checklist, smith mirror).
 // Read-only: no guest write anywhere in this file. Plans are module-local.
 //
 // What it reads (roots re-resolved by IL2CPP class name every refresh):

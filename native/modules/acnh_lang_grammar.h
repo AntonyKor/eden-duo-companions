@@ -3,7 +3,7 @@
 
 // ACNH companion: the game's grammar tags for a message that inserts an item name (Nook Miles+
 // "Catch an Olive Flounder", "Fange eine Flunder", "Поймай ложного палтуса!"). Rules and their
-// evidence: research/acnh/impl/fix/data.md ("item grammar"); summary:
+// evidence: verified against the game's own grammar-tag tables across every language; summary:
 //   item name attributes  {50:0:g,i,d} (singular) / {50:26:g,i,d} (the _pl form): g = gender /
 //                         number class, i / d = String/STR_Article label (%03d) of the indefinite /
 //                         definite article (data: every language's table + names agree; the

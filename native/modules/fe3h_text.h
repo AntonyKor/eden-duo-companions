@@ -7,7 +7,7 @@
 //   languages: 0 JPN, 1 ENG_U, 2 ENG_E, 3 GER, 4 FRA_E, 5 FRA_U, 6 ESP_E, 7 ESP_U, 8 ITA, 9 KOR,
 //              10 TWN, 11 CHN
 //   ENG_U parts: 0 system dialogs (100), 1 help (6806), 2 names / descriptions (15397),
-//                3 DLC / shop (442). Part-2 index map: research/fe3h/data/REPORT.md §2
+//                3 DLC / shop (442). Part-2 index map
 //                (1157 + name id persons, 3453 + class id, 3756 + weapon id, 10652 calendar ...).
 //   XL: 'XL', u16 0x13 | u16 size, u16 cols | u16 count (at 8), u16 | u32 header size (at 0xC)
 //       | u32; u32 offset[count] at the header size; string at header size + offset, NUL-

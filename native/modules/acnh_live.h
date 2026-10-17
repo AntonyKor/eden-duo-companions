@@ -3,8 +3,7 @@
 
 // Animal Crossing: New Horizons 3.0.3 live reader (live lane). Resolves the game's roots from its
 // own code (pinned instruction words in acnh_live_pins.inc, globals decoded from ADRP+ADD/LDR) and
-// samples them into a LiveSnapshot. Every domain fails closed on its own; research notes:
-// research/acnh/impl/live/ROOTS.md.
+// samples them into a LiveSnapshot. Every domain fails closed on its own.
 //
 // Roots (main-relative code offsets of the 3.0.3 main, build ff1d1c05670db602...):
 //   save        SaveDataMgr singleton (accessor 0x6e19d8): mgr+0x10 = save set; set[0] (or, with
@@ -23,8 +22,7 @@
 //   scene       NookPhone sequence state machine (0x2b74c10), the player's action state machine
 //               (0x2287068) and the camera's CamState machine (0x80499c / 0x7aa4e8); state names
 //               come from the machines' own name tables (0x3dbb0d8).
-// The save layouts (offsets below) are the game's Smmh 655400_655362 schema (romfs System/Smmh),
-// research/acnh/schema/SCHEMA.md.
+// The save layouts (offsets below) are the game's Smmh 655400_655362 schema (romfs System/Smmh).
 #pragma once
 
 #include <array>

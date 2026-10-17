@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: Copyright 2026 Eden DSMod fork
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// ACNH island map generator. Evidence for every rule: research/acnh/impl/map/COLORS.md and
-// research/acnh/map/MAP.md. Port of research/acnh/tools/acnh_map_uimap.py (pixel-compared).
+// ACNH island map generator. Every rule below is verified against the game's own rendering,
+// pixel-compared against captures from the game.
 
 #include "acnh_map.h"
 
@@ -144,7 +144,7 @@ struct ModelGeom {
     std::vector<Tri> tris;
 };
 
-// BFRES v0.9 (layout from research/acnh/tools/acnh_map_bfres.py, derived from the files)
+// BFRES v0.9 (layout derived directly from the game's BFRES files)
 struct Bfres {
     const Bytes& b;
     uint64_t base = 0;

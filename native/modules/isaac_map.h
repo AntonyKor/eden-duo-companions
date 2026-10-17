@@ -25,7 +25,7 @@
 //                    (2x1 +8 x, 1x2 +7 y, 2x2 both: half a cell, 0x41BD70) + (8,7) (half a
 //                    cell, the 1-icon slot) - (6,6), floored (0x41BCD4..0x41C028), i.e.
 //                    cell + (7,6) for a 1x1 room.
-// Not reproduced (the STATE encoding does not carry them; see research/isaac/assets/REPORT.md):
+// Not reproduced (the STATE encoding does not carry them):
 // the saved-pickup icons of visited rooms (0x41B748), mirror/minecart icons (Data subtype +
 // Level::HasMirrorDimension / HasAbandonedMineshaft), greed-mode treasure icons, The Void's
 // merged-boss-room outline rules (stage 12). Optional flag bits 2/3 (below) enable the red
@@ -42,7 +42,7 @@
 namespace isaac_map {
 
 inline constexpr int PitchX = 17, PitchY = 15;
-// Round 3 (research/isaac/r3/REPORT.md): the map image is the MAP page's whole map box = the big
+// Round 3: the map image is the MAP page's whole map box = the big
 // sheet clipped to the 1240x1080 canvas (canvas (250,148), 990x932), drawn 1:1 at zoom 1. The
 // floor is fitted (largest integer scale k <= MaxScale) into FitX/FitY/FitW/FitH = the largest
 // rectangle inside the sheet's paper interior (r3/tools/sheet_interior.py on bg/wiiu/sheet:
@@ -71,7 +71,7 @@ struct Floor {
     std::vector<Room> rooms;
 };
 
-/// STATE's hex (research/isaac/CONTRACT.md): header byte (bit0 lost) + 6 bytes per room.
+/// STATE's hex format: header byte (bit0 lost) + 6 bytes per room.
 bool DecodeHex(std::string_view hex, Floor& out);
 
 struct Sprite {

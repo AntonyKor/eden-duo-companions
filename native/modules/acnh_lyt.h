@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // ACNH UI layouts (Layout/<Name>.Nin_NX_NVN.zs: blyt/*.bflyt v9, anim/*.bflan,
-// timg/__Combined.bntx) for the companion's art recipes. Port of research/acnh/tools/acnh_bflyt.py,
-// acnh_bflan.py and acnh_compose.py (section layouts from Switch-Toolbox, a LEAD, verified there by
-// every section size summing to the file size for all 960 layouts):
+// timg/__Combined.bntx) for the companion's art recipes. Ported from BFLYT/BFLAN/BFRES decoders
+// (section layouts cross-checked against Switch-Toolbox, a LEAD, verified there by every section
+// size summing to the file size for all 960 layouts):
 //   - pane tree (pan1/pic1/txt1/wnd1/prt1/bnd1...), transforms, flags, alpha, pic1 vertex colours
 //   - materials: name, black/white colour, texture names of the texmaps
 //   - BFLAN pai1: FLVI (visibility), FLMC (material colour: targets 0-3 black RGBA, 4-7 white),

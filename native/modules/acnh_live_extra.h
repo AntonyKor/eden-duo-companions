@@ -2,21 +2,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // ACNH companion, data lane: live values the main reader (acnh_live.h) does not sample, each from
-// its own pinned code (acnh_live_extra.cpp XPin*, a mismatch closes only that part). Research
-// notes: research/acnh/impl/fix/data.md.
+// its own pinned code (acnh_live_extra.cpp XPin*, a mismatch closes only that part).
 //
 //   Critterpedia  PlayerOther.ItemCollectBit (what the game's Critterpedia shows as caught).
 //                 (The open Critterpedia page's tab / focused entry reader, page =
 //                 [[[UI root]+0x90 home seq]+0x988]+0x12d0, tab page+0x38198, entry list+0x43c, was
-//                 removed in round 8: nothing read it. research/acnh/impl/fix/data.md.)
+//                 removed in round 8: nothing read it.)
 //   Nook Miles+   BonusVDaily[512] (personal 0x12728) and player flag DailyQuestFivePointQuest:
 //                 the x5 task = IsFivePoint 0x269f560 = BonusDaily && (BonusVDaily || flag == uid).
 //   Visitors      the game's special-visitor list 0x24aa590 (after the day's VisitorNpc):
 //                 Celeste 0x27d6104 (game-day weekday == Land.VisitorNpc+0x74, not online),
 //                 Daisy Mae 0x27d4428 (Land.Shop.ShopLevel >= 2 on a calendar Sunday),
 //                 Harvey 0x27d6250 (Land flags SpnVisitMainField != 0, TodayGlobalEventId ==
-//                 0xffff, not online). K.K. (0x27d4550, round 7:
-//                 research/acnh/impl/fix/r7-pages.md) needs the Land EventFlag array, the LandTemp
+//                 0xffff, not online). K.K. (0x27d4550, round 7) needs the Land EventFlag array, the LandTemp
 //                 flag array and each player's TotakekeLiveCount / BirthdayLiveDate: the reader
 //                 collects them (kk_*), the publisher decides with the calendar table
 //                 (Publisher::KkDay) and drops Celeste / Harvey on a K.K. day.

@@ -6,7 +6,7 @@
 // effect / forecast layouts (LINKDATA 30776..30827 and 31527: nx/ui/layout/*.arc) -- a SARC of
 // blyt/*.bflyt, anim/*.bflan and one timg/__Combined.bntx. Only the textures are decoded here;
 // the pane geometry the module needs (forecast name plates, portrait diamonds) is quoted from the
-// layouts in fe3h_assets.h. Python reference: research/fe3h/catalog/tools/uilib.py.
+// layouts in fe3h_assets.h. Cross-checked against a Python reference implementation.
 //
 //   SARC   'SARC' | u16 header 0x14 | u16 BOM | u32 size | u32 data offset | ...; 'SFAT' at 0x14:
 //          u16 header, u16 count, u32 hash key; count x {u32 hash, u32 attr (bit 24: name at

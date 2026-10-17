@@ -4,10 +4,10 @@
 
 // The Binding of Isaac (Switch): the game's PCX sheets and a small straight-RGBA image type.
 // PCX = standard ZSoft v5, RLE (encoding 1), 8 bits/plane; the game's files are 4 planes stored
-// R,G,B,A planar per scanline (research/isaac/data/REPORT.md §2.1). 1 plane + 256-colour palette
+// R,G,B,A planar per scanline. 1 plane + 256-colour palette
 // and 3 planes (RGB) are decoded too. Fails closed. Owner: ASSETS lane.
 // The compositing helpers reproduce Pillow's integer maths (Image.alpha_composite), so the
-// module's output matches the offline Python prototypes (research/isaac/mock) pixel for pixel.
+// module's output matches an offline Python reference implementation pixel for pixel.
 
 #include <cstddef>
 #include <cstdint>

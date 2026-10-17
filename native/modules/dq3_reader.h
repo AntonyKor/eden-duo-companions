@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Read-only field party reader for Dragon Quest III HD-2D Remake, Switch 1.1.0.0
-// (build 4F41309B39EEBE5E). Research contracts: FIELD-PARTY.md, FIELD-PARTY-LOWLEVEL.md,
-// FIELD-STATUS.md, FIELD-STATUS-CODE.md, CHEAT-LEADS.md (research/dragon-quest-iii-hd-2d-remake).
+// (build 4F41309B39EEBE5E).
 //
 // Routes (main-relative code offsets; every word below is checked before anything is read):
 //   0x87437c  GD accessor:  adrp x8,G@page; add x8,x8,G@off; ldr x8,[x8]; ldr x8,[x8,#0x528];

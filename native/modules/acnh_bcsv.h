@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2026 Eden DSMod fork
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// ACNH BCSV tables (romfs Bcsv/<Table>.bcsv), research/acnh/catalog/DATA.md §2:
+// ACNH BCSV tables (romfs Bcsv/<Table>.bcsv):
 //   +0 u32 rows, +4 u32 row length, +8 u16 columns, +10 u8 has-header ("VSCB" header -> the field
 //   table sits at 0x1C instead of 0x0C); field table = columns x (u32 key, u32 offset in the row);
 //   rows follow the field table. A cell's width is the gap to the next offset (last: row length).

@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: Copyright 2026 Eden DSMod fork
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Chained Echoes 1.41 Skills / progression reader. Contract: research/chained-echoes/contracts/
-// skill-readers.md. Read-only: no guest write anywhere in this file.
+// Chained Echoes 1.41 Skills / progression reader. Read-only: no guest write anywhere in this
+// file.
 //
 // What it reads (roots re-resolved by IL2CPP class name every refresh):
 //   SaveDataOwn          partyMembers (SP, Grimoire Shards, emblem, learnablePassives),

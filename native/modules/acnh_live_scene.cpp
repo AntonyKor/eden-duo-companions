@@ -1,8 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2026 Eden DSMod fork
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// ACNH 3.0.3 stage names -> the building a stage is the inside of (r9 indoor lane;
-// research/acnh/impl/fix/r9-indoor.md).
+// ACNH 3.0.3 stage names -> the building a stage is the inside of (r9 indoor lane).
 
 #include "acnh_live.h"
 

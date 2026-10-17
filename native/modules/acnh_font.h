@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2026 Eden DSMod fork
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// ACNH's own fonts from the player's romfs (research/acnh/catalog/UI_FONTS.md §1):
+// ACNH's own fonts from the player's romfs:
 //
 // Scalable fonts: Font/ScalableFont.sarc.zs (zstd SARC, member names without folder):
 //   nintendoP_Seurat-B.bfttf             main UI face (SystemB_00 Latin face, TrueType)

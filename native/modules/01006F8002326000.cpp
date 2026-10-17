@@ -341,7 +341,7 @@ public:
         // CJK languages get their texts' code points, the others stay Latin. LIMIT: a boot where
         // the language is still unreadable after ~30 s (the game's "language changed" prompt, a
         // debugger-held start) keeps the Latin set until the package is reloaded on runtime 15-17
-        // hosts (research/acnh/impl/fix/rt18-proposal.md).
+        // hosts.
         // Text-only mode (another build): at once, every language's flavour lines.
         // A runtime 18 host (EDEN_DSMOD_CAP_FONT_EPOCH) asks again when "__font_epoch" changes:
         // decode at once with what is known (the Latin set before the language is read) and count

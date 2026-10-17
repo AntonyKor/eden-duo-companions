@@ -4,8 +4,7 @@
 // The LMap layout passes that turn the UI-map render target into the NookPhone map image
 // (map lane). Everything comes from the player's romfs (Layout/LMap: bflyt mat1 parameters,
 // __Combined.bntx textures); the rules are the layout's archive shader (bgsh, disassembled) and
-// the nn::ui2d uniforms the game uploads for these panes, read live from GPU memory
-// (research/acnh/impl/fix/map.md "LMap passes"):
+// the nn::ui2d uniforms the game uploads for these panes, read live from GPU memory:
 //   capture target cleared to the N_Capture_00 user data colour (alpha 0), then in pane order
 //   P_Map_00          rgb = black + (white-black) * RT.rgb, alpha thresholded between black.a and
 //                     white.a (ThresholdingAlphaInterpolation), blend srcA/invSrcA, alpha max

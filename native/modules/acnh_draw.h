@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: Copyright 2026 Eden DSMod fork
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Raster primitives for the ACNH UI art recipes: the C++ port of the helpers in
-// research/acnh/tools/acnh_mock.py (which uses Pillow). Where Pillow's integer arithmetic is
+// Raster primitives for the ACNH UI art recipes: a C++ port of a Python reference
+// implementation built on Pillow. Where Pillow's integer arithmetic is
 // cheap to reproduce it is reproduced exactly (alpha_composite, paste-with-mask, the material
 // tint's float32 rounding); resampling is Pillow's Lanczos-3 coefficient scheme on premultiplied
 // alpha, so resized art differs from the mock only by small rounding (tests document the bound).

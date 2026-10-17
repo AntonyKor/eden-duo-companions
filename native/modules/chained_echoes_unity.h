@@ -3,7 +3,7 @@
 
 // Unity asset reader for the Chained Echoes 1.41 companion (0100C510166F0000, Unity 2020.3.36f1,
 // Switch). Decodes the player's own installed romfs at runtime; nothing decoded is persisted or
-// shipped. Contract and measurements: research/chained-echoes/contracts/unity-assets.md.
+// shipped.
 //
 //   Bundles: Data/StreamingAssets/aa/Switch/<name>.bundle (Addressables; 637 bundles, every one
 //     UnityFS format 7, "5.x.x" / "2020.3.36f1", header flags 0x243 = block info LZ4HC (3),

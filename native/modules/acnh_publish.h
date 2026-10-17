@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // ACNH companion: everything the live lane publishes (CONTRACT.md "Published names" plus the
-// names the pages need, research/acnh/impl/ui/REPORT.md). Values come from the live snapshot
+// names the pages need). Values come from the live snapshot
 // (acnh_live.h) joined with the game's tables and text (acnh_catalog.h, the GAME language).
 //
 // Lazy: the open page (module action ui_open 1..6, echoed as ui.page) decides what is read and

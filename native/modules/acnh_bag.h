@@ -2,9 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // ACNH 3.0.3 Bag page actions (bag lane): rearranging the pockets and changing the held tool by
-// guarded direct writes, so the main screen never blips. Research: research/acnh/impl/write/PLAN.md
-// (the recipes, byte-exact, from the game's code and native-move diffs) and
-// research/acnh/impl/bag/REPORT.md (this lane).
+// guarded direct writes, so the main screen never blips. The recipes below are byte-exact,
+// derived from the game's code and native-move diffs.
 //
 // What the game does (main-relative code of the 3.0.3 main, build ff1d1c05670db602...):
 //   SwapSlots 0x26fd1d8(Baggage = personal+0x37BF0, i, j): global index i < min(ItemPocket count,

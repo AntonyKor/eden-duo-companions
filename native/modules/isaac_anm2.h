@@ -6,8 +6,7 @@
 // (id -> path), layers (id -> name, sheet), animations -> per-layer keyframes {crop, pivot,
 // position, scale, delay, visible}. A frame number is a time: keyframe i starts at the sum of the
 // earlier keyframes' Delay (ANM2::SetFrame(name, n)). Sheet paths are relative to the .anm2's
-// directory, `\` separated, ".png" on disk as lower-case ".pcx" (research/isaac/data/REPORT.md
-// §2.2). Owner: ASSETS lane.
+// directory, `\` separated, ".png" on disk as lower-case ".pcx". Owner: ASSETS lane.
 
 #include <cstdint>
 #include <string>

@@ -4,8 +4,7 @@
 
 // The Binding of Isaac: the game's fonts (resources*/font/*.fnt = binary BMFont v3, "BMF\x03":
 // block 1 info, 2 common {lineHeight, base, ...}, 3 page file names, 4 chars (20-byte records),
-// 5 kerning pairs; pages are "<name>_N.png" -> .pcx next to the .fnt). research/isaac/data/
-// REPORT.md §2.3. Owner: ASSETS lane.
+// 5 kerning pairs; pages are "<name>_N.png" -> .pcx next to the .fnt). Owner: ASSETS lane.
 //
 // Host mapping (EdenDsmodFontGlyph, glyph top = baseline - bearing_y): x, y, w, h as stored;
 // bearing_x = xoffset; bearing_y = base - yoffset; advance = xadvance; glyphs run densely from

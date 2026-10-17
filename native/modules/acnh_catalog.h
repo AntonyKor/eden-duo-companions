@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Game tables and text for the ACNH companion, read lazily from the player's romfs (BCSV + MSBT).
-// Joins (research/acnh/catalog/DATA.md, all from data):
+// Joins (all derived directly from the game's own data tables):
 //   item pocket icon   ItemParam.ItemMenu (enum cell) == CRC32(ItemMenuIcon.Label)
 //                      -> Model/Layout_MenuIcon_<ItemMenuIcon.ResName>
 //   item full art      Layout_{FtrIcon,ClosetIcon,DIYRecipeIcon,CookingIcon,GardeningIcon,

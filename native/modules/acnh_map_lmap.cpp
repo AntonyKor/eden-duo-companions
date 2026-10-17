@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2026 Eden DSMod fork
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// LMap layout passes over the UI-map RT. Evidence: research/acnh/impl/fix/map.md ("LMap passes"):
+// LMap layout passes over the UI-map RT. Evidence:
 // the bflyt mat1 bytes (decoded below), the layout archive shader (bgsh: vertex texgen + the
 // EachIndirect fragment program) and the uniform blocks the game uploaded for P_Map_00,
 // P_MapPattern_00/01/02 and P_Capture_00 while the Map app was open (live, gdb read of GPU memory).

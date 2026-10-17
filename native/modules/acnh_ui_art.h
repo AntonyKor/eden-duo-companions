@@ -2,14 +2,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Every image the ACNH companion serves as module:acnh/<key>, built at runtime from the player's
-// romfs (nothing shipped). The recipes port research/acnh/tools/acnh_mock.py (round 3 mocks,
-// research/acnh/design/MOCKS.md); colour literals there are material/FLMC colours of the named
+// romfs (nothing shipped). The recipes come from the round 3 mock-ups; colour literals there are
+// material/FLMC colours of the named
 // panes (DATA), samples of the game's screen (LIVE) or our composition (LAYOUT), as tagged in
 // the comments next to each recipe.
 //
 // Key grammar: "<path>[?<k>=<v>&...]". Sizes are canvas pixels; colours are "rrggbb[aa]" without
 // '#'. Unknown parameters are ignored; a malformed key yields no image. Full list with defaults:
-// research/acnh/impl/core/REPORT.md ("Image keys"), and Art::Keys() for tests/tools.
+// Art::Keys() (used by tests/tools).
 //
 //   icon/item/<id>              pocket icon (Model/Layout_MenuIcon_<ItemMenuIcon.ResName>)
 //   icon/itemart/<id>           full item art (FtrIcon/ClosetIcon/DIYRecipeIcon/...; else pocket)

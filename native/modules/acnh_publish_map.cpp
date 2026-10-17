@@ -56,8 +56,8 @@ int64_t BornKey(const live::LiveSnapshot::Resident& r) {
 // ---- map pin (r9 indoor) -----------------------------------------------------------------------
 // Outdoors (scene MainField) the pin is the player's world position. Inside a building the
 // position is in room coordinates (LIVE: (160, 205) in the player's house), so the pin goes on that
-// building's map icon centre, where the game's own Map app puts it (LIVE, research/acnh/impl/fix/
-// r9-indoor.md: player house, Cole's house, Nook's Cranny, Able Sisters, ...): the scene's stage
+// building's map icon centre, where the game's own Map app puts it (LIVE: player house, Cole's
+// house, Nook's Cranny, Able Sisters, ...): the scene's stage
 // name -> its structure (live::SceneStructure) -> the icon BuildMap placed for it. Any other scene
 // (dream, Redd's ship, tours, Kapp'n's island, HHP, photo studio) or a building without an icon:
 // no pin (the marker skips a slot with no position).

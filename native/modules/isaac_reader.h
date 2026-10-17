@@ -9,8 +9,8 @@
 // global's GOT slot. FNV-1a 64 fingerprints (isaac_pins.inc) of every routine whose rule the
 // reader reproduces guard each domain; a mismatch fails only that domain.
 // Without DLC, isaac_afterbirth.inc validates and reads AfterbirthPlus.nro independently.
-// Publishes the output names of research/isaac/CONTRACT.md (v1.2 + round 2: ITEMS selection
-// isel.*, ROOM nearest pedestal room.* / ped.i.near, see research/isaac/r2/REPORT.md).
+// Publishes the output contract (v1.2 + round 2: ITEMS selection
+// isel.*, ROOM nearest pedestal room.* / ped.i.near).
 //
 // Outputs (ints unless noted, "t" = text):
 //   gate     dlc.available (host aoc: availability; -1 unknown, 0 absent/disabled, 1 present)
