@@ -399,6 +399,8 @@ ISAAC_LINUX_SO=... ISAAC_ANDROID_SO=... tools/build_release.sh dist
 
 See [`tools/README.md`](tools/README.md) for the details. Link's Awakening needs no native module.
 
+Everything a companion needs is in this repository: the package source, the native module source, the generators and the documentation. The Eden Duo runtime itself is game-agnostic — it has no title IDs, offsets or game names of its own — so a companion is the only place a game's details live. A companion can be built and run on a desktop with `eden-cli` and its virtual second screen (`--aux-virtual`) before it goes to a device; see [`docs/PORTING_A_GAME.md`](docs/PORTING_A_GAME.md). The maintainer's reverse-engineering notes and working files are not published; the comments in each module state what a value is and how it was derived.
+
 ## Reporting Problems
 
 Open an issue and include:
