@@ -21,6 +21,10 @@ Parser locations (all in the [Eden Duo](https://github.com/igawa6/eden-duo) repo
 - `mod_guest_bridge.cpp`: `ResolveCallArg`
 - `mod_module.cpp`: `GameModule::Load`
 - `mod_load_plan.cpp`: `DiscoverModLoadPlan`, `ParseWrites`
+- `mod_input_tokens.h`: `InputTokens::ParseChord`, `ParseStick` (action `button` / `button_neg`
+  chords and stick vectors, runtime 20)
+- `mod_host_values.h`/`.cpp`: `@device.*` / `@perf.*` values (runtime 21)
+- `mod_view_default.h`: pan/zoom bound views and `pan_bounds` (`ClampPanAxis`, runtime 21)
 - Android (`src/android/.../utils/DualScreenPackageInstaller.kt`):
   `DualScreenPackageInstaller.validateExtractedPackage`
 
@@ -119,6 +123,7 @@ cell means runtime 13 or earlier. A package that uses a key from runtime N shoul
 | `settings` | array | — | 17 | Rows of the built-in `@settings` page (§3.18) |
 | `tables` | object | — | | name → string array, used by value widgets' `table` |
 | `sprite_map` | object | — | | key → image source, used by `src_bind` |
+| `preload` | string array | — | 22 | Picture sources (any image source prefix, §3.11), decoded once right after the package loads, behind the first page's own requests; up to 1024 |
 | `haptics` | bool / object | — | | `ParseHaptics` |
 | `nav` | bool / object | on with `min_runtime` ≥ 17, else off | 17 | Controller navigation of the second screen (§3.17) |
 | `enforce`, `enforce_gate` | array / object | — | | Periodic actions (§3.9) |
@@ -128,6 +133,13 @@ cell means runtime 13 or earlier. A package that uses a key from runtime N shoul
 | `_about`, `_note`, `_*` | any | — | | Ignored (comments) |
 
 A manifest with no pages (and no `debug_page`) is rejected with "has no pages".
+
+**`preload`** (runtime 22). Decoding is queued once `PumpNxAssets` has run a second tick, so it
+never races the first page's own requests on the single decode worker:
+
+```json
+"preload": ["file:img/hud_frame.png", "romfs:/textures/gui/icon_atlas.bntx#icons"]
+```
 
 ### 3.2 `module` (`GameModule::Load`)
 
@@ -173,16 +185,22 @@ Names that binds, derived values and `$refs` can use:
 | `@map_sel:<group>` | | The selected map marker |
 | `@last:<group>` | | The last selection in a group |
 | `@scroll:<id>`, `@scroll_max:<id>`, `@scroll_count:<id>`, `@scroll_first:<id>` | | Scroll-region state |
+| `@scroll_x:<id>`, `@scroll_max_x:<id>` | 22 | Two-axis scroll region: x offset / largest x offset (§3.6). Absent on a region whose `axes` does not include `x` |
 | `@drag`, `@drag_payload`, `@drag_x`, `@drag_y`, `@drag_hover` | | Drag state. Since runtime 16, on the tick a drag is dropped they describe the dropped drag while its drop action runs (`@drag_x` / `@drag_y` = the release point) |
 | `@map_tap_x`, `@map_tap_y` | | The last map tap position (float and int) |
 | `@map_tap_seq` | 14 | Bumped on every map tap, so a reader can tell a new tap from the last one. Modules can read all three `@map_tap_*` values through `get_i64` / `get_f64` |
+| `@map_view_cx:<area>`, `_cy`, `_ppw`, `_x`, `_y`, `_w`, `_h` | 20 | A map widget's view as last drawn: world centre, canvas px per world unit, and the widget's canvas rect, one tick behind. Lets a package place something over a world point the way the map draws it (screen = rect centre + (world − centre) × ppw, y up). A module reads the same fields through `get_i64` / `get_f64` too (MODULE_GUIDE.md §1.3) |
+| `@map_view_rot:<area>` | 22 | The area's `view_rotate_bind` turn, degrees clockwise, as last drawn (0 on an untouched or north-up map) |
 | `@clock.hour`, `.minute`, `.second`, `.day`, `.month`, `.year`, `.wday`, `.epoch` | 16 | Device local time (`wday`: Sunday = 0; `epoch`: Unix seconds, UTC). Change at most once a second. Published only when the manifest or data file mentions them: any string or key containing `@clock.` or `@game.`, or a `countdown` entry |
 | `@game.seconds` | 16 | Whole seconds since the emulated system started. Same publishing rule as `@clock.*` |
+| `@device.battery_present`, `@device.battery_pct`, `@device.charging` | 21 | Device battery: present (1/0), level 0–100 (−1 when unknown or absent), charging (1/0). Read at most once a second on Android, every 10 s elsewhere. Published only when the manifest or data file mentions `@device.` (same rule as `@clock.*`) |
+| `@perf.fps`, `@perf.speed_pct`, `@perf.frametime_ms`, `@perf.frametime_x10` | 21 | Game FPS, emulation speed in percent, host time per emulated frame excluding waits (ms), and `frametime_ms` × 10 rounded (a `value` widget draws integers only). Computed over 500 ms windows, so they change at most twice a second; nothing is published before the first window. Published only when the manifest or data file mentions `@perf.`. A module reads every `@device.*` / `@perf.*` value through `get_i64` / `get_f64` regardless of whether the manifest names them (MODULE_GUIDE.md §1.3) |
 | `@nav.active`, `@nav.index`, `@nav.count`, `@nav.x`, `@nav.y`, `@nav.w`, `@nav.h` | 17 | Controller focus state (§3.17) |
 | `@chart:<key>` | 17 | Number of samples a chart widget has taken (§3.16) |
 | `@<counter>` | | Button-action counters |
 | `@fade:<name>` | | Fade progress |
 | `view_custom:<key>` | | Custom view state |
+| `@view_zoom:<id>`, `@view_pan_x:<id>`, `@view_pan_y:<id>` | 22 | A `pan_zoom` widget's view as drawn (zoom; pan in widget px at zoom 1, already clamped to `pan_bounds`), next to `view_custom:<id>`. A module reads them from `sample()` too, one tick behind (MODULE_GUIDE.md §1.3) |
 
 ### 3.4 Pages
 
@@ -231,6 +249,7 @@ any widget.
 | `color_markup` | false | 14 | Label/value: `{c:#AARRGGBB}…{/c}` colour spans in the text (§3.14) |
 | `outline_copy` | false | 15 | Label/value: this widget is an outline or shadow copy of another (§3.14) |
 | `auto_w`, `pad` | false, 0 | 17 | Label/button: the width follows the text plus `pad` px on each side (§3.14) |
+| `slant_deg`, `italic` | 0, false | 22 | Game-font and built-in text: lean the glyphs forward by `slant_deg` degrees (`italic: true` = 9°), sheared about the baseline (§3.14) |
 
 **Per type**
 
@@ -245,10 +264,10 @@ any widget.
 | `image` | `src`, `src_bind`, `src_names`, `src_thresholds` (`[{le, src}]`), `src_format` (printf of the value), `src_rect` (normalised UV), `empty_src`, `empty_rect`, `fill_bind`, `flip_x`, `flip_y`, `spin` (deg/s), `shake`; `rotate`, `rotate_bind`, `pivot`, `scale_bind`, `tint`, `tint_bind`, `tint_colors`, `fill`, `slice` (16, §3.15) |
 | `map` | `area`, `area_bind`, `room_bind`, marker keys (`marker_x_bind`, `marker_y_bind`, `marker_icon`, …), actor keys, `follow_window`, `label_offset` (15). Map-only (`ParseMapWidgetExtras`): `groups`, `label_style`, `on_map_tap`, `on_marker_tap`, `marker_hit_px`, `marker_tap_groups`; `image_bind`, `overlays`, `view_rect_*_bind`, `view_rect_pad` (14). See §3.12 |
 | `chart` | `bind`, `samples`, `interval_ms`, `style`, `min`, `max`, `color`, `bg` (17, §3.16) |
-| any | Pan/zoom: `pan_zoom`, `min_zoom`, `max_zoom`, `view_idle_ms`; on a non-map `pan_zoom` widget, `view_zoom_bind`, `view_cx_bind`, `view_cy_bind`, `view_reset_bind` (15, §3.15) |
+| any | Pan/zoom: `pan_zoom`, `min_zoom`, `max_zoom`, `view_idle_ms`; on a non-map `pan_zoom` widget, `view_zoom_bind`, `view_cx_bind`, `view_cy_bind`, `view_reset_bind` (15, §3.15); image `pan_bounds` (21, §3.15) |
 | any | Repeat: `repeat`, `repeat_bind`, `repeat_div`, `repeat_dx`, `repeat_dy`, `repeat_cols`, `repeat_row_dy`, `pack`. `{i}` becomes the element index (see below) |
-| any | Scroll: `scroll`, set to a region id or an inline region object |
-| any | Drag and drop: `payload`, `select_group`, `draggable`, `drag_scale`, `drop_action`, `accept_group`, `highlight_src`, `highlight_color`, `drag_under_*` |
+| any | Scroll: `scroll`, set to a region id or an inline region object; `scroll_follow` (22, §3.6) |
+| any | Drag and drop: `payload` (also `"$tap"`, 22, §3.6 — the tap point relative to the widget's content), `select_group`, `draggable`, `drag_scale`, `drop_action`, `accept_group`, `highlight_src`, `highlight_color`, `drag_under_*` |
 
 **`{i}` in repeat templates.** `{i}` is the element index, and `{i+N}` / `{i-N}` the index offset
 by a constant (a payload that also encodes a tab: `"{i+1000}"`). Since runtime 17 it is replaced in every string field of a
@@ -295,13 +314,50 @@ apart, inside the region `mem_ui.skm`:
 | `show_bind`, `reset_bind` | — | Gate; a value whose change resets the scroll position |
 | `fling`, `friction` | true, 0.135 | Friction is clamped to 0.0001–0.99 |
 | `bar`, `bar_track`, `bar_w` | 0, 0, 6 | Scrollbar colours (0 = none) and width |
+| `axes` | `"y"` | Runtime 22. `"x"`, `"y"` or `"xy"`: which axes a finger drags the content on. An unrecognised string warns and keeps `"y"` |
+| `lock_axis` | false | Runtime 22, with `axes: "xy"`: a two-axis drag follows only the axis it started along, so a frozen header row or label column stays readable |
+| `content_w`, `content_h` | 0, 0 | Runtime 22. Content extent in canvas px on that axis, replacing the `row_h` × rows computation — lets one element wider or taller than the rect (a module-rendered pane picture) scroll over its full extent |
+| `content_w_bind`, `content_h_bind` | — | Runtime 22. The same, read from a published value (a live content size) instead of a fixed number |
 
 ```json
 {"id":"mem_ui.skm","rect":[24,132,472,640],"count_bind":"roster.count","row_h":92,
  "bar":"#FFE5191C","bar_track":"#33FFFFFF","bar_w":6,"show_bind":"roster.ready"}   // Persona5Royal
 ```
 
-The region publishes `@scroll:<id>` and related values (§3.3).
+The region publishes `@scroll:<id>` and related values (§3.3), plus `@scroll_x:<id>` /
+`@scroll_max_x:<id>` when `axes` includes `x`.
+
+**Two-axis scroll regions (runtime 22).** Without `content_w[_bind]` / `content_h[_bind]`, the x
+or y extent is whatever the region's templates span (each template's own offset plus
+`(n − 1) × repeat_dx` / `repeat_dy`, or its grid columns/rows). `reset_bind` resets both axes;
+`follow_bind` keeps following a row on y only. `fling` and `friction` apply to both axes, and a
+finger landing on a gliding region stops both. A two-axis region draws a horizontal scrollbar
+thumb along its bottom edge in addition to the usual vertical one on its right edge (`bar_track`
+behind both; `bar_src` game-art is vertical-only). A region with an `x` axis owns horizontal
+drags, so `on_swipe_left` / `on_swipe_right` never arm over it. Controller navigation
+(`nav_order` / geometric) still only scrolls rows on y.
+
+A repeat template inside a two-axis region can be told to follow only one of the region's axes
+with the widget key `scroll_follow` (§3.5): `"y"` for a frozen label column, `"x"` for a frozen
+header row; the default `"xy"` follows both. A tappable widget's `payload` may also be the
+literal string `"$tap"`, which hands its action the tap point relative to the widget's content —
+inside a scroll region, relative to the region's content origin (its rect plus the current
+offsets); elsewhere relative to the widget's rect — instead of a fixed payload. It is packed as
+one integer, `x` in the high 32 bits and `y` in the low 32, both signed.
+
+A two-axis region, illustrative (not from a shipped package):
+
+```json
+{"scrolls":[{"id":"fs.prices","rect":[160,300,1060,700],"axes":"xy","lock_axis":true,
+             "content_w_bind":"fs.prices.w","content_h_bind":"fs.prices.h",
+             "bar":"#80FFFFFF","bar_track":"#33000000","bar_w":6}]}
+{"type":"image","src":"module:fs:prices/pane","rect":[160,300,2400,1800],
+ "scroll":"fs.prices","on_tap":"fs.prices.cell","payload":"$tap"}
+{"type":"image","src":"module:fs:prices/header","rect":[160,240,2400,60],
+ "scroll":"fs.prices","scroll_follow":"x"}
+{"type":"image","src":"module:fs:prices/stations","rect":[20,300,140,1800],
+ "scroll":"fs.prices","scroll_follow":"y"}
+```
 
 ### 3.7 Actions (`actions`, name → object)
 
@@ -314,7 +370,7 @@ dragged or selected widget's payload), `"$<name>"` (any published value, e.g. `$
 
 | Kind | Keys | Real example |
 |---|---|---|
-| `button` | `button` (A B X Y L R ZL ZR Plus Minus DUp DDown DLeft DRight; a stick shove `LX+`, `LY-`, `RX+`, …; since runtime 15 a two-button chord such as `"L+R"`, both pressed on the same tick), `frames` (4), `repeat`, `counter`, `target`, `modulo`, `delta`, `button_neg`, `gap` (18 ticks), `hold_map` | `{"kind":"button","button":"Minus","frames":8}` (HollowKnight) |
+| `button` | `button` (A B X Y L R ZL ZR Plus Minus DUp DDown DLeft DRight; a stick shove `LX+`, `LY-`, `RX+`, …; since runtime 15 a two-button chord such as `"L+R"`, all pressed on the same tick; since runtime 20 an arbitrary stick vector or diagonal alias, and chords mixing sticks with buttons — see below), `frames` (4), `repeat`, `counter`, `target`, `modulo`, `delta`, `button_neg` (the same chord syntax), `gap` (18 ticks), `hold_map` | `{"kind":"button","button":"Minus","frames":8}` (HollowKnight) |
 | `page` | `page`, `transition` (slide_up, slide_down, grow, shrink, fade, none), `duration_ms` (≤2000), `easing`, `shadow`, `origin`. Since runtime 17, `page` may be `"@settings"` (the built-in settings page) or `"@back"` (the page shown when `@settings` opened; §3.18) | `{"kind":"page","page":"map","transition":"fade","duration_ms":200,"easing":"ease_in"}` (LinksAwakening) |
 | `module` | `action` (string passed to the module's `on_action`), `argument`. Since runtime 16, a module that returns false (or throws) **refuses** the action: the `refused` haptic plays and nothing after it runs | `{"kind":"module","action":"calendar_select","argument":"$payload","enabled_bind":"calendar.ready"}` (Persona5Royal) |
 | `flag` / `set_value` | `flag`, `value` (omit to toggle), `cycle` | `{"kind":"flag","flag":"pin_panel"}` (LinksAwakening) |
@@ -325,6 +381,24 @@ dragged or selected widget's payload), `"$<name>"` (any published value, e.g. `$
 | `view_reset` | `view` (widget id) | `{"kind":"view_reset","view":"dread_map"}` (MetroidDread) |
 | `map_select` | `group`, `value` | No example in a shipped package |
 
+- **Input chords and stick vectors (runtime 20, `mod_input_tokens.h`).** A `button` /
+  `button_neg` value is tokens joined by `+`, all pressed on the same tick (`InputTokens::ParseChord`).
+  A token is a named button, a single-axis shove (`LX+`, `LY-`, `RX+`, `RY-`), a normalized
+  diagonal alias combining both axes of one stick written as one token (`LX+LY-`, `RX-RY+`, …),
+  or an arbitrary analog vector `LStick(x, y)` / `RStick(x, y)` (each axis a decimal number; the
+  vector is clamped to the unit disk, direction preserved, if it is longer than 1). A `+` right
+  after an axis name is read as that axis's sign, not a chord separator, so a positive axis
+  followed immediately by another token needs a doubled `+`: `"LX++A"` parses (stick `LX+`
+  chorded with button `A`); `"LX+A"` does not (one broken token); `"A+LX+"` does (the `+` there
+  is unambiguous). Writing to the same stick twice in one chord is rejected. A chord that does
+  not parse is logged once and the whole action is skipped whenever it runs.
+
+  ```json
+  {"kind":"button","button":"RStick(0.6,-0.8)","frames":10}
+  {"kind":"button","button":"LX++A","frames":6}
+  ```
+
+  Both examples are illustrative; no shipped package uses them yet.
 - **Guest calls under NCE.** `call` and `sequence` run guest code through a breakpoint bridge that
   only works with the Dynarmic CPU backend. Under NCE (the Android default) they are disabled,
   and a warning is logged.
@@ -516,7 +590,7 @@ Real examples:
 
 The style keys and their defaults are in the `MapStyle` struct in `mod_types_map.h`.
 
-**Map widget extras (runtime 14, `ParseMapWidgetExtras`).**
+**Map widget extras (runtimes 14, 22, `ParseMapWidgetExtras`).**
 
 | Key | Type | Default | Description |
 |---|---|---|---|
@@ -525,6 +599,13 @@ The style keys and their defaults are in the `MapStyle` struct in `mod_types_map
 | `view_rect_x0_bind`, `view_rect_y0_bind`, `view_rect_x1_bind`, `view_rect_y1_bind` | names | — | A bound default view in world units: when all four resolve, the base view (zoom 1, no pan) fits that rect instead of the whole area. Only some of the four: ignored with a warning |
 | `view_rect_pad` | number | 0 | Padding around the view rect, in world units |
 | `label_offset` | `[right, up]` px | `[12, 24]` | Since runtime 15: the area name's offset from the widget's bottom-left corner |
+| `marker_rotate_bind` | name | — | A published angle in degrees, clockwise, that turns the live follow-marker's picture (`marker_src`) about its anchor — a map heading, where 0 points up on a north-up map. Missing or non-finite = 0 |
+| `view_rotate_bind` | name | — | Since runtime 22: a published angle in degrees that turns the *whole map view* clockwise about the widget centre (a compass minimap whose up is the camera — publish the negated camera yaw). The base picture, `image_bind` and `overlays` turn and clip to the widget rect; markers, labels, pins and dynamic markers keep their map position but stay upright; a `marker_rotate_bind` heading becomes relative to the turned map, so it still points the right way; taps, drags and pinches are mapped back into the map frame before anything else uses them. Missing or non-finite = 0 (north-up); older runtimes ignore the key and draw north-up |
+
+A turned view is repainted on the CPU whenever the bound angle changes, so publish it rounded to
+whole degrees and only when it actually moves — an 800 px window over native tiles costs several
+times what an unturned repaint does. A wrong JSON type for `image_bind`, `marker_rotate_bind` or
+`view_rotate_bind` is skipped with a warning rather than failing the manifest.
 
 ```json
 {"type":"map","rect":[0,0,1240,1080],"area":"overworld","pan_zoom":true,
@@ -538,8 +619,17 @@ The style keys and their defaults are in the `MapStyle` struct in `mod_types_map
 A map tap publishes `@map_tap_x` / `@map_tap_y` and bumps `@map_tap_seq` (runtime 14), which a
 module can read to tell a new tap from the last one.
 
-**Per-slot dynamic markers (runtime 14).** A `dynamic_markers` entry can style each slot from
-array points, with `{i}` replaced as in `x` / `y` / `kind`:
+A compass minimap that turns with the camera (runtime 22, illustrative — not from a shipped
+package):
+
+```json
+{"type":"map","rect":[0,0,800,800],"area":"overworld","follow_window":900,
+ "marker_src":"file:arrow.png","marker_rotate_bind":"player.yaw_deg",
+ "view_rotate_bind":"camera.turn_deg"}
+```
+
+**Per-slot dynamic markers (runtimes 14, 22).** A `dynamic_markers` entry can style each slot
+from array points, with `{i}` replaced as in `x` / `y` / `kind`:
 
 | Key | Default | Description |
 |---|---|---|
@@ -550,11 +640,23 @@ array points, with `{i}` replaced as in `x` / `y` / `kind`:
 | `dim_bind` | — | Gate: the slot draws dimmed |
 | `frame_color_bind`, `frame_px` | —, 0 | Int point holding an ARGB frame colour (0 or missing = no frame); thickness in px (0 = a sixteenth of the icon, at least 2) |
 | `tint_bind` | — | Int point holding an ARGB colour that multiplies the icon (0 or missing = none) |
+| `frames` | — | Since runtime 22: image keys (up to 256) cycled on the clock — every slot draws `frames[(t / frame_ms) % n]` instead of its icon / `icon_src_bind` picture; per-slot `tint_bind` still applies (one flame serves every pin colour). A frame not yet decoded falls back to the slot's own picture |
+| `frame_ms` | 100 | Since runtime 22, with `frames`: milliseconds per frame, clamped 1–60000 |
+| `pulse` | — | Since runtime 22: `{"period_ms": P, "alpha": [lo, hi], "scale": [lo, hi], "mode": "breathe" \| "grow"}` (each number 0–8, `period_ms` clamped 1–60000). `breathe` (default): alpha and scale cosine between lo and hi. `grow`: size lo→hi over the first 75% of the period, alpha hi→0 over the last third (a quest-marker ring). Multiplies the slot's own `opacity` and size |
 
 ```json
 {"group":"units","count":24,"x":"unit{i}.x","y":"unit{i}.y","icon_src_bind":"unit{i}.portrait",
  "size_world":48,"bar_bind":"unit{i}.hp","bar_max_bind":"unit{i}.hp_max","dim_bind":"unit{i}.done",
  "frame_color_bind":"unit{i}.team_color"}
+```
+
+Animated markers (runtime 22, illustrative — not from a shipped package):
+
+```json
+{"group":"torches","count":8,"x":"torch{i}.x","y":"torch{i}.y","icon_default":"pin_flame",
+ "frames":["pin_flame_a","pin_flame_b","pin_flame_c"],"frame_ms":120}
+{"group":"quest","count":4,"x":"quest{i}.x","y":"quest{i}.y","icon_default":"pin_quest",
+ "pulse":{"period_ms":900,"alpha":[1.0,0.0],"scale":[1.0,1.6],"mode":"grow"}}
 ```
 
 **`map.style` atlas naming, blink and pin keys (runtime 15).** The defaults are the conventions of
@@ -615,7 +717,7 @@ being published before the taps (§3.3), an `enabled_bind` can judge a drop befo
 "actions": {"drop_on_slot": {"kind":"module","action":"bag.move","argument":"$payload","enabled_bind":"drop_ok"}}
 ```
 
-### 3.14 Text: outline, colour spans, boxes, grouped numbers, paged fonts (runtimes 14–17)
+### 3.14 Text: outline, colour spans, boxes, grouped numbers, paged fonts, slant (runtimes 14–17, 22)
 
 | Key | Type | Default | Since | On | Description |
 |---|---|---|---|---|---|
@@ -628,6 +730,8 @@ being published before the taps (§3.3), an `enabled_bind` can judge a drop befo
 | `pad` | int px | 0 | 17 | label, button with `auto_w` | Padding around the text. On a **value** widget `pad` still means zero-padding |
 | `group` | bool | false | 17 | value | Thousands separators (`12,345`, `-1,234`; with `pad: 6`, `1234` shows `001,234`). With `max_sep` + `max_bind` the maximum is grouped too |
 | `group_sep` | string | `","` | 17 | value | The separator, e.g. `"."`, `" "` or `""` |
+| `slant_deg` | number, degrees | 0 | 22 | game-font and built-in text | Lean the glyphs forward by this many degrees (−30..30), sheared about the baseline — a BFLYT text pane's italic. Advances and measuring are unchanged; a line's top overhangs to the right by `cap_height × tan(slant)` |
+| `italic` | bool | false | 22 | game-font and built-in text | `true` sets the common 9° lean; `slant_deg` wins when both are set |
 
 - **`auto_w` on a button.** With `"align": "center"` the box grows about the declared rect's
   centre and is text + 2·pad wide; otherwise it grows from the left edge and is `text_inset` +
@@ -645,9 +749,12 @@ being published before the taps (§3.3), an `enabled_bind` can judge a drop befo
 {"type":"label","rect":[40,300,0,0],"bind_text":"quest.title","color_markup":true,"wrap_width":600,"max_lines":2}
 {"type":"button","rect":[300,20,0,48],"text":"Items","align":"center","auto_w":true,"pad":18,"pill":true,"bg":"#FF2E7D32"}
 {"type":"value","rect":[40,160,0,0],"bind":"wallet.money","group":true,"suffix":" G"}
+{"type":"label","rect":[60,500,0,0],"text":"Tip of the day","italic":true,"color":"#FFFFE08A"}
+{"type":"value","rect":[60,560,0,0],"bind":"combo","slant_deg":12,"text_scale":6}
 ```
 
-The second label's `bind_text` might hold `"Bring {c:#FFFF4040}3 apples{/c} home"`.
+The second label's `bind_text` might hold `"Bring {c:#FFFF4040}3 apples{/c} home"`. The last two
+examples (runtime 22) are illustrative; no shipped package uses `slant_deg` / `italic` yet.
 
 **Paged font atlases (runtime 17, `mod_font_pages.cpp`).** With `{p}` in `font_atlas` and
 `font_page_h` > 0, the atlas is split into pages of `font_page_h` rows. Glyph y counts down
@@ -666,7 +773,7 @@ still reports y in the virtual stacked atlas.
 "font":"module:game_font_metrics","font_atlas":"module:game_font_page_{p}","font_page_h":1024
 ```
 
-### 3.15 Images, bars and views (runtimes 15–16)
+### 3.15 Images, bars and views (runtimes 15–16, 21)
 
 All keys are optional; without them a widget draws exactly as before.
 
@@ -685,6 +792,7 @@ All keys are optional; without them a widget draws exactly as before.
 | `image` | image source | — | 16 | bar | A picture for the filled part instead of flat `color`; uses `src_rect`, `fill`, `slice`, `tint`. With stretch or tile the picture spans the bar and the fill reveals it; with slice the 9-slice is laid out on the filled part. Unloadable = `color`. The frame is still drawn in `color` (`frame: 0` turns it off) |
 | `view_zoom_bind`, `view_cx_bind`, `view_cy_bind` | names | — | 15 | non-map `pan_zoom` | The view's bound home: zoom (clamped to `min_zoom`–`max_zoom`) centred on (cx, cy) in 0–1 of the picture. All three are required, else ignored with a warning |
 | `view_reset_bind` | name | — | 15 | same | A change snaps the view to its home even if the user moved it |
+| `pan_bounds` | `[u0, v0, u1, v1]` | whole picture | 21 | `pan_zoom` image | Limits the pan/zoom window to this part of the picture (fractions of `src_rect`, each clamped 0..1), instead of the whole picture. The bound default view and `view_custom:<id>` follow the same bounds. Ignored, with a warning, when it is not four numbers, is inverted (`u1<=u0` or `v1<=v0`), or is on a widget that is not a `pan_zoom` image |
 
 - **Transforms.** `spin` adds to the angle; `flip_x` / `flip_y` mirror the picture before it is
   turned; `src_rect` and pan/zoom crop as before. `fill_bind` (the bottom-up gauge) ignores the
@@ -703,7 +811,17 @@ All keys are optional; without them a widget draws exactly as before.
 {"type":"image","rect":[20,20,300,120],"src":"file:panel.png","fill":"slice","slice":[12,12,12,12]}
 {"type":"bar","rect":[20,200,24,120],"bind":"stamina","max":100,"fill_dir":"up","image":"file:stamina_fill.png","fill":"slice","slice":[0,6,0,6],"bg":"#40000000","frame":0}
 {"type":"image","rect":[0,0,1240,900],"src":"file:world.png","id":"world","pan_zoom":true,"max_zoom":4,"view_zoom_bind":"world.zoom","view_cx_bind":"world.cx","view_cy_bind":"world.cy"}
+{"type":"image","id":"field_map","rect":[0,0,1240,900],"src":"file:img/map_sheet.png",
+ "pan_zoom":true,"min_zoom":1,"max_zoom":6,"pan_bounds":[0.08,0.05,0.92,0.95],
+ "view_zoom_bind":"map.zoom","view_cx_bind":"map.cx","view_cy_bind":"map.cy"}
 ```
+
+The last example (`pan_bounds`, runtime 21) is illustrative; no shipped package uses it yet.
+
+A `pan_zoom` widget's view, as drawn, is also published every tick as `@view_zoom:<id>` /
+`@view_pan_x:<id>` / `@view_pan_y:<id>` (runtime 22, §3.3), next to `view_custom:<id>`, and a
+native module can read the same three through `get_f64` from its own `sample()`
+(MODULE_GUIDE.md §1.3).
 
 ### 3.16 Chart widget (runtime 17, `mod_chart.h`)
 
@@ -867,8 +985,8 @@ package metadata and every `file:` reference, but not the manifest's semantics.
 
 ## 6. Runtime history and `min_runtime`
 
-`DualScreenRuntimeVersion` is currently **19** (Eden Duo 1.2.0), with **module ABI 1 unchanged**.
-Eden Duo 1.1.0 provides runtime 18. What each version adds to the
+`DualScreenRuntimeVersion` is currently **22** (Eden Duo 1.3.0), with **module ABI 1 unchanged**.
+Eden Duo 1.2.0 provides runtime 19, and 1.1.0 provides runtime 18. What each version adds to the
 package format:
 
 | Runtime | Added for packages |
@@ -883,6 +1001,9 @@ package format:
 | 17 | `chart` widget; derived `expr`; `auto_w`, value `group` / `group_sep`; `{i}` in every repeat field; `font_page_h`; `nav`, page `nav_order`, `@nav.*`; `user:` source; `settings`, the `@settings` page and the `@back` target |
 | 18 | Font refresh epochs; fitted/centered labels; image scrollbars; marker size caps; parser and rendering fixes |
 | 19 | Format-2 guest helpers with separate RX code, main/code relocations and mailbox epochs; Ready/page/auxiliary helper lifecycle; exact bounded metadata reads and transactional reload validation. Metadata 4 MiB, plans 1 MiB, native libraries 64 MiB; ABI 1 unchanged |
+| 20 | `button` / `button_neg` chords: an arbitrary analog stick vector (`LStick(x,y)` / `RStick(x,y)`) or a normalized two-axis diagonal alias (`LX+LY-`, …) as one token, and chords mixing sticks with buttons (a `+` right after an axis name is its sign, not a separator: a positive axis before another token needs `++`, e.g. `"LX++A"`); write-extension batches of up to 32 ops (16 before); a map widget's drawn view, `@map_view_cx` / `_cy` / `_ppw` / `_x` / `_y` / `_w` / `_h:<area>` (undocumented until now) |
+| 21 | Device and emulator values: `@device.battery_present` / `battery_pct` / `charging` and `@perf.fps` / `speed_pct` / `frametime_ms` / `frametime_x10`, published for a package that names them and answered to a module's `get_i64` / `get_f64` regardless; image `pan_bounds`, limiting a `pan_zoom` picture's pan/zoom window to part of it |
+| 22 | Map `view_rotate_bind` turns the whole view clockwise about the widget centre (markers, labels and pins stay upright; the pre-existing `marker_rotate_bind` becomes relative to the turned map); two-axis scroll regions (`axes`, `lock_axis`, `content_w[_bind]` / `content_h[_bind]`, widget `scroll_follow`, `@scroll_x` / `@scroll_max_x`); tap payload `"payload": "$tap"`; text `slant_deg` / `italic`; dynamic-marker `frames` / `frame_ms` / `pulse`; manifest `preload`; `@map_view_rot:<area>` and module read access to every `@map_view_*` key and to `@view_zoom` / `@view_pan_x` / `@view_pan_y:<id>` (also newly published), one tick behind |
 
 Runtimes 14 and 15 were first released together, so the outline, rise and chord keys, whose exact
 version the source does not record, are listed under 15.

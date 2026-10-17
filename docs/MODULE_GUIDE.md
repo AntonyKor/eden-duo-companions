@@ -132,7 +132,7 @@ Return null to reject a host. The returned `EdenDsmodModuleApi` must contain:
 | `read_romfs(path, off, out, size)` | Paths without a prefix mean `romfs:`. `file:` means the package's `dualscreen/` folder. Since runtime 15, `base:` (the unpatched program romfs) and `aoc:` (the DLC data romfs) work too, and since 17 `user:` (files the player supplies; read-only, 32 MiB per file). Since runtime 15 an unknown prefix returns 0 (it used to be read as a romfs path that could only miss); `module:` is not readable here. `out == NULL` returns the size. `#` sub-paths read into containers. Paths ≤4096 characters, capped at 64 MiB per call |
 | `publish_i64/f64/text/address(name, v)` | Writes into the snapshot under the bare `name`. Names ≤256 bytes, text ≤1 MiB. Non-finite doubles are dropped |
 | `publish_map(frame)` | Map fog, water, walls and points for an area declared in the manifest. The visibility grid is 650×300 with values 0/1/2 |
-| `get_i64/f64/text(name, …)` | Reads the current snapshot, including `@` values such as `@map_tap_x` / `@map_tap_y` / `@map_tap_seq` (runtime 14) and `@clock.*` (runtime 16; published only when the package's manifest or data file mentions `@clock.` / `@game.` or uses `countdown`). Special names: `get_i64("__relocation_delta")`, `get_text("__sequence:<name>")`, and since runtime 15 `get_i64("__source:<prefix>")`: 1 = the source is available, 0 = known but unavailable (no DLC installed; for `user:`, the folder cannot be created), the fallback = a prefix this host does not know (an older runtime) |
+| `get_i64/f64/text(name, …)` | Reads the current snapshot during `sample` / `tick`, including `@map_tap_x` / `@map_tap_y` / `@map_tap_seq` (runtime 14). `@clock.*` / `@game.seconds` are **not** in that snapshot: the runtime publishes them only after your `sample` / `tick` returns (and `on_action` gets no snapshot at all, since it runs outside the tick's module call), so take the time from the C library instead. Since runtime 21, `@device.battery_present` / `@device.battery_pct` / `@device.charging` (`get_i64`) and `@perf.fps` / `@perf.speed_pct` / `@perf.frametime_ms` (`get_f64`, or `get_i64` rounded) / `@perf.frametime_x10` (`get_i64`) are answered straight from the host's latest sample, whether or not the manifest names them; the fallback means no value yet (the first 500 ms of play, or always from `create`) or an older host. Since runtime 22, `@map_view_cx` / `_cy` / `_ppw` / `_x` / `_y` / `_w` / `_h` / `_rot:<area>` and `@view_zoom` / `@view_pan_x` / `@view_pan_y:<id>` fall through to the last-drawn records too, one tick behind like the published keys; the fallback means an unknown area/id or records left over from another page. Special names: `get_i64("__relocation_delta")`, `get_text("__sequence:<name>")`, and since runtime 15 `get_i64("__source:<prefix>")`: 1 = the source is available, 0 = known but unavailable (no DLC installed; for `user:`, the folder cannot be created), the fallback = a prefix this host does not know (an older runtime) |
 | `get_heap_begin/end` | Read from the live page table. Correct under NCE, where the heap is elsewhere |
 | `begin_output`, `end_output` | Present in the struct, but **no-ops** in the current host |
 | `queue_guest_call`, `poll_guest_result` | Present in the struct, but **never set by the current host** (always null). `CAP_GUEST_CALL` is never granted. Do not rely on them |
@@ -150,6 +150,16 @@ if ((host->capabilities & EDEN_DSMOD_CAP_SOURCE_AOC) != 0 &&
     path = "aoc:data/table.bin";
 }
 size_t size = host->read_romfs(host->userdata, path, 0, NULL, 0);
+```
+
+```c
+/* Runtime 21: the fallback is returned by older hosts and before the first sample. */
+const int64_t battery = host->get_i64(host->userdata, "@device.battery_pct", -1);
+const int64_t charging = host->get_i64(host->userdata, "@device.charging", 0);
+const double fps = host->get_f64(host->userdata, "@perf.fps", -1.0);
+if (fps >= 0.0 && fps < 25.0) {
+    host->publish_i64(host->userdata, "hud.low_fps", 1);
+}
 ```
 
 ### 1.4 How module values reach the page
@@ -256,12 +266,14 @@ module uses this extension yet.
 ### 2.4 Write batch: `eden_dsmod_get_write_extensions`
 
 Constants: `EDEN_DSMOD_WRITE_EXT_VERSION 1`, `EDEN_DSMOD_WRITE_EXT_HASH 0x5e3b9d17a2c4f680`,
-`EDEN_DSMOD_WRITE_BATCH_MAX_OPS 16`, `EDEN_DSMOD_WRITE_BATCH_MAX_BYTES 64`.
+`EDEN_DSMOD_WRITE_BATCH_MAX_OPS 32` (16 before runtime 20), `EDEN_DSMOD_WRITE_BATCH_MAX_BYTES 64`.
 
 `configure(inst, const EdenDsmodHostWriteApi*)` is called once, right after `create`; copy the
-struct. It hands you `write_batch(userdata, ops, count)`, which applies up to 16
-`EdenDsmodWriteOp`s as one unit. Each op is `{address, size (1–64), reserved (0), expect, value}`;
-a null `expect` skips the check for that op.
+struct. It hands you `write_batch(userdata, ops, count)`, which applies up to
+`EDEN_DSMOD_WRITE_BATCH_MAX_OPS` `EdenDsmodWriteOp`s as one unit. Each op is `{address, size
+(1–64), reserved (0), expect, value}`; a null `expect` skips the check for that op. A batch
+longer than the limit is never applied, so retrying it is pointless; a package whose module sends
+more than 16 ops in one batch should declare `"min_runtime": 20`.
 
 - **Validate first.** Every op is checked before anything is stored: size and `reserved`, a
   non-null `value`, and a mapped range.
@@ -647,6 +659,11 @@ matches x86-64. `dsmod-dread` and `dsmod-dread-rfl` read a real romfs when `DREA
 - [ ] Optional sources (`aoc:`, `user:`) are checked with `__source:<prefix>` and have a fallback.
 - [ ] A module that sets `TICK_WHEN_HIDDEN` / `NO_TICK_WHEN_HIDDEN` ships in a package with
       `"min_runtime": 15`.
+- [ ] A module whose `write_batch` calls can exceed 16 ops ships in a package with
+      `"min_runtime": 20`.
+- [ ] A module that relies on `@device.*` / `@perf.*`, or on `@map_view_*` / `@view_zoom` /
+      `@view_pan_x` / `@view_pan_y` from `get_i64` / `get_f64`, ships in a package with
+      `"min_runtime": 21` or `22` respectively.
 - [ ] Linux and Android builds are done, hashes are pinned, and the package is rebuilt.
 - [ ] Sample cost is measured.
 

@@ -178,9 +178,12 @@ A value that cannot pass these steps is not published.
 3. **Native module** (optional). Add one when chains are not enough; see
    [MODULE_GUIDE.md](MODULE_GUIDE.md).
 4. **`min_runtime`.** Set it to the highest runtime version whose features you use. Eden Duo
-   1.2.0 has runtime 19 (module ABI 1); Eden Duo 1.1.0 has runtime 18.
+   1.3.0 has runtime 22 (module ABI 1); 1.2.0 has runtime 19, and 1.1.0 has runtime 18.
    Format-2 helpers and helper metadata above 1 MiB require 19. For example, `chart`, `expr`
-   or `settings` need 17. The table of which
+   or `settings` need 17; an analog stick vector or chord in a `button` action needs 20; the
+   device/perf values or image `pan_bounds` need 21; a turned map (`view_rotate_bind`), a
+   two-axis scroll region, `slant_deg` / `italic`, animated dynamic markers or `preload` need
+   22. The table of which
    runtime added which key is in
    [PACKAGE_FORMAT.md §6](PACKAGE_FORMAT.md#6-runtime-history-and-min_runtime). An older runtime
    ignores keys it does not know and shows its update page only when `min_runtime` is higher
@@ -225,7 +228,7 @@ A companion that *changes* game state has three options.
 
 | Route | How | Pros | Cons |
 |---|---|---|---|
-| **Button presses** | `button` actions, or module-published gates + `enforce` rules that press them (a verified state machine over the game's menu) | The game makes the change itself, with every side effect. Works under **NCE and Dynarmic** | Slow and visible. Needs menu-state RE. Can be derailed by unexpected dialogs |
+| **Button presses** | `button` actions (including analog stick vectors and chords, runtime 20), or module-published gates + `enforce` rules that press them (a verified state machine over the game's menu) | The game makes the change itself, with every side effect. Works under **NCE and Dynarmic** | Slow and visible. Needs menu-state RE. Can be derailed by unexpected dialogs |
 | **Direct writes** | `write` / `slot_write` actions, or module `write_memory` / `write_batch`, guarded by expect-bytes | Instant. **NCE-safe** | You must reproduce every side effect of the native routine exactly. HUDs or caches can go stale |
 | **Guest calls** | `call` / `sequence`: a breakpoint at a per-frame hook borrows a game thread to call a game function | The game's own code runs, with exact semantics | **Dynarmic only.** Does not work under NCE, the Android default |
 
@@ -312,6 +315,10 @@ env EDEN_VSYNC=0 EDEN_DSMOD_CMD=/tmp/run/cmd.in \
 | A module stops loading on an older APK after adding `TICK_WHEN_HIDDEN` | Hosts before runtime 15 refuse unknown capability bits | `"min_runtime": 15`, or use the manifest's `module_tick_hidden` instead |
 | A drop or tap runs although the module rejected it | Runtimes before 16 ignore `on_action`'s return value | `"min_runtime": 16` |
 | The game ignores the controller while the companion shows a frame | Controller focus mode is on (runtime 17) | Press the `nav.toggle` chord (default `LS+RS`) or B; set `"nav": false` to opt out (packages below `min_runtime` 17 are off unless they set `nav`) |
+| A `button` action's stick vector or chord (`LStick(x,y)`, `LX+LY-`, `LX++A`, …) does nothing on one device | That device runs a runtime older than 20, which does not parse the token | Declare `"min_runtime": 20` (PACKAGE_FORMAT.md §3.7) |
+| The device battery or FPS/speed/frametime values never show up | The host is older than runtime 21, or the manifest never writes out the `@device.` / `@perf.` key anywhere | Reference the key once in the manifest or data file so it is published; declare `"min_runtime": 21` |
+| A map ignores `view_rotate_bind` and always draws north-up | That host is older than runtime 22 | Declare `"min_runtime": 22` |
+| A scroll region only moves vertically, `scroll_follow` has no effect, and a `"payload": "$tap"` payload is always missing | That host is older than runtime 22, which ignores `axes`, `lock_axis`, `content_w`/`content_h`[`_bind`], `scroll_follow` and `"$tap"` | Declare `"min_runtime": 22` |
 | "checksum mismatch; reinstall the package" | Module rebuilt without rebuilding the package | Rebuild with the builder, which rewrites the hashes |
 | Android installer rejects the zip | A non-`.so` file under `modules/`, an upper-case hash, or `package.json` ≠ manifest `module` | Move data files out of `modules/`; use the builder |
 | Direct `adb push` into the app's data dir fails, or files are unreadable | Ownership and permissions of shell-pushed files | Stage via `/data/local/tmp`, copy, then fix permissions; prefer the in-app installer |
