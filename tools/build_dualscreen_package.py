@@ -15,8 +15,10 @@ timestamp, so rebuilding the same input produces byte-for-byte identical output.
 from __future__ import annotations
 
 import argparse
+import getpass
 import hashlib
 import json
+import os
 import re
 import shutil
 import tempfile
@@ -109,6 +111,40 @@ def ensure_no_symlinks(root: Path) -> None:
     for path in root.rglob("*"):
         if path.is_symlink():
             raise PackageError(f"source package may not contain symlinks: {path}")
+
+
+def check_module_hygiene(platform: str, path: Path) -> None:
+    """Native modules ship compiled, so a build host's home-directory path or username can only
+    reach the archive through the binary itself -- usually DWARF debug info (comp_dir, per-lambda
+    source paths) left in by an unstripped build. Found the hard way (2026-10-17): a Yoru Tomosu
+    Android module shipped unstripped and leaked the owner's local username. Checking at
+    packaging time means this can never again depend on every build script remembering to strip.
+    """
+    data = path.read_bytes()
+    needles: list[bytes] = [b"/home/"]
+    username = (os.environ.get("USER") or os.environ.get("LOGNAME") or "").strip()
+    if not username:
+        try:
+            username = getpass.getuser()
+        except Exception:
+            username = ""
+    if len(username) >= 3:
+        needles.append(username.encode())
+    for needle in needles:
+        if needle in data:
+            raise PackageError(
+                f"module {platform} ({path}) contains a private path or username "
+                f"({needle!r}); strip debug info (llvm-strip --strip-all) and rebuild with "
+                f"-fdebug-prefix-map before packaging"
+            )
+    # A stripped shared library keeps .dynsym/.dynstr (needed to load) but drops the debug
+    # sections and the non-dynamic symbol table; their section-name strings disappear with them.
+    for debug_section in (b".debug_info", b".debug_str", b".debug_line", b".symtab"):
+        if debug_section in data:
+            raise PackageError(
+                f"module {platform} ({path}) is not fully stripped (found "
+                f"{debug_section!r} section); run llvm-strip --strip-all before packaging"
+            )
 
 
 def parse_module(value: str) -> tuple[str, Path]:
@@ -291,6 +327,7 @@ def build_package(
         if parsed_modules:
             libraries = {}
             for platform, source in parsed_modules:
+                check_module_hygiene(platform, source)
                 # The metadata path is relative to dualscreen/. The archive member receives the
                 # dualscreen/ prefix when this staged tree is zipped.
                 module_relative = PurePosixPath("modules", platform, f"{expected_title}.so")

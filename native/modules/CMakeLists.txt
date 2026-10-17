@@ -8,6 +8,19 @@ if(ANDROID AND NOT ANDROID_STL STREQUAL "c++_static")
     message(FATAL_ERROR "Native DSMod modules must use -DANDROID_STL=c++_static")
 endif()
 
+# Farming Simulator Nintendo Switch Edition: accepted-A private desktop development slice.
+# Reuse the companion DDS decoder; the game's SDF font is rasterised in its page compositor.
+set(FARMING_SIMULATOR_SOURCES farming_simulator_assets.cpp farming_simulator_font.cpp
+    farming_simulator_view.cpp farming_simulator_animals.cpp farming_simulator_shop_views.cpp
+    p5r_romfs_assets.cpp)
+set(FARMING_SIMULATOR_READER)
+set(FARMING_SIMULATOR_DEFINITIONS)
+if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/farming_simulator_reader.cpp")
+    list(APPEND FARMING_SIMULATOR_READER farming_simulator_reader.cpp)
+    list(APPEND FARMING_SIMULATOR_DEFINITIONS FARMING_SIMULATOR_HAS_READER=1)
+endif()
+# Declared after dsmod_add_module below.
+
 # This directory is intentionally usable as an independent CMake source tree. Android packages
 # build it outside Gradle's .cxx tree, so the resulting title module is never auto-packaged into
 # the generic Eden APK.
@@ -642,3 +655,80 @@ endif()
 
 # Chained Echoes: Unity asset reader (no module target yet).
 include("${CMAKE_CURRENT_LIST_DIR}/chained_echoes.cmake")
+
+# Yoru Tomosu 1.0.0: read-only native history/unlocks and effective-ROMFS composition.
+dsmod_add_module(dsmod-yoru EXCLUDE_FROM_ALL TITLE 0100C2901153C000
+    SOURCES yoru_module.cpp yoru_reader.cpp yoru_assets.cpp yoru_view.cpp acnh_tex.cpp
+        "${EDEN_SOURCE_ROOT}/externals/bc_decoder/bc_decoder.cpp"
+    EXPORTS eden_dsmod_get_module eden_dsmod_get_extensions
+    INCLUDE_DIRECTORIES "${EDEN_SOURCE_ROOT}/externals/bc_decoder")
+# Hardening (2026-10-17): never let an absolute path under the build host's home directory
+# survive into DWARF (comp_dir, per-lambda source paths) -- this is what leaked the owner's local
+# username into a shipped .so. Belt-and-suspenders with packaging/yoru-tomosu/rebuild.sh's own
+# llvm-strip step and tools/build_dualscreen_package.py's packaging-time hygiene check.
+target_compile_options(dsmod-yoru PRIVATE "-fdebug-prefix-map=$ENV{HOME}=~")
+if(BUILD_TESTING AND NOT ANDROID)
+    dsmod_add_test(dsmod-yoru-reader KEEP_ASSERTS
+        SOURCES yoru_reader_test.cpp yoru_reader.cpp
+        COMPILE_OPTIONS -Wall -Wextra)
+endif()
+
+
+# Diablo III: Eternal Collection (2.7.7.92380): reader, CPK/texture/font decoders, composed views.
+# Reuses the Dread module's RFC 1951 inflate (dread_mapgen_util.cpp) for the CPK zlib chunks.
+set(D3_MODULE_SOURCES
+    01001B300B9BE000.cpp
+    d3_build.cpp d3_build.h
+    d3_reader.cpp d3_reader.h
+    d3_cpk.cpp d3_cpk.h
+    d3_tex.cpp d3_tex.h
+    d3_font.cpp d3_font.h
+    d3_img.h
+    d3_assets.cpp d3_assets.h
+    d3_view.cpp d3_view.h
+    d3_activities.cpp d3_activities.h
+    d3_hg_mem.cpp d3_hg_mem.h d3_hg_text.cpp d3_hg_text.h d3_hg_draw.h d3_hg_tabs.cpp d3_hg_tabs.h
+    d3_page_hero.cpp d3_page_hero.h d3_page_gear.cpp d3_page_gear.h d3_gear_drive.cpp d3_gear_drive.h
+    d3_skills.cpp d3_skills.h d3_options.cpp d3_options.h
+    dread_mapgen_util.cpp dread_mapgen_util.h
+    "${EDEN_SOURCE_ROOT}/externals/bc_decoder/bc_decoder.cpp")
+dsmod_add_module(dsmod-d3 EXCLUDE_FROM_ALL
+    TITLE 01001B300B9BE000
+    SOURCES ${D3_MODULE_SOURCES}
+    EXPORTS eden_dsmod_get_module eden_dsmod_get_extensions
+    INCLUDE_DIRECTORIES "${EDEN_SOURCE_ROOT}/externals/bc_decoder")
+target_compile_options(dsmod-d3 PRIVATE -Wall -Wextra -Wno-missing-field-initializers)
+set_source_files_properties("${EDEN_SOURCE_ROOT}/externals/bc_decoder/bc_decoder.cpp" PROPERTIES COMPILE_OPTIONS -w) # upstream file
+if(NOT ANDROID)
+    add_executable(dsmod-d3-tool EXCLUDE_FROM_ALL d3_view_tool.cpp d3_build.cpp d3_cpk.cpp d3_tex.cpp
+        d3_font.cpp d3_assets.cpp d3_view.cpp d3_activities.cpp d3_skills.cpp d3_hg_text.cpp
+        d3_hg_mem.cpp dread_mapgen_util.cpp
+        "${EDEN_SOURCE_ROOT}/externals/bc_decoder/bc_decoder.cpp")
+    target_compile_features(dsmod-d3-tool PRIVATE cxx_std_20)
+    target_include_directories(dsmod-d3-tool PRIVATE "${EDEN_SOURCE_ROOT}/src"
+        "${EDEN_SOURCE_ROOT}/externals/bc_decoder")
+endif()
+
+
+# Farming Simulator Nintendo Switch Edition (title 0100D04004176000).
+dsmod_add_module(dsmod-farming-simulator EXCLUDE_FROM_ALL TITLE 0100D04004176000
+    SOURCES 0100D04004176000.cpp ${FARMING_SIMULATOR_SOURCES} ${FARMING_SIMULATOR_READER}
+    EXPORTS eden_dsmod_get_module eden_dsmod_get_extensions eden_dsmod_get_write_extensions
+    COMPILE_DEFINITIONS ${FARMING_SIMULATOR_DEFINITIONS})
+if(NOT ANDROID)
+    add_executable(farming-simulator-presentation-check EXCLUDE_FROM_ALL
+        farming_simulator_test.cpp ${FARMING_SIMULATOR_SOURCES})
+    if(BUILD_TESTING)
+        dsmod_add_test(dsmod-farming-simulator-reader KEEP_ASSERTS
+            SOURCES farming_simulator_reader_test.cpp)
+        dsmod_add_test(dsmod-farming-simulator-time-control KEEP_ASSERTS
+            SOURCES farming_simulator_time_control_test.cpp)
+        dsmod_add_test(dsmod-farming-simulator-density KEEP_ASSERTS
+            SOURCES farming_simulator_density_test.cpp)
+        dsmod_add_test(dsmod-farming-simulator-game-calls KEEP_ASSERTS
+            SOURCES farming_simulator_game_calls_test.cpp)
+    endif()
+    target_compile_features(farming-simulator-presentation-check PRIVATE cxx_std_20)
+    target_include_directories(farming-simulator-presentation-check PRIVATE
+        "${CMAKE_CURRENT_LIST_DIR}" "${EDEN_SOURCE_ROOT}/src")
+endif()

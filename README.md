@@ -31,6 +31,9 @@ This repository holds the companion source code, packages, documentation and scr
 | 11 | [Crash Team Racing Nitro-Fueled](#crash-team-racing-nitro-fueled) | `0100F9F00C696000` | 1.0.15 | [.dsmod.zip](https://github.com/igawa6/eden-duo-companions/releases/tag/crash-team-racing-nitro-fueled-1.0.0) | |
 | 12 | [Dragon Quest III HD-2D Remake](#dragon-quest-iii-hd-2d-remake) | `01003E601E324000` | 1.1.0.0 | [.dsmod.zip](https://github.com/igawa6/eden-duo-companions/releases/tag/dragon-quest-iii-hd-2d-remake-1.0.0) | 🥇 <a href="https://ko-fi.com/G0I027XSOG"><img src="https://img.shields.io/badge/jzc-F16061?style=flat-square&logo=ko-fi&logoColor=white" style="vertical-align: middle;" alt="jzc"></a> |
 | 13 | [Chained Echoes](#chained-echoes) | `0100C510166F0000` | 1.41 | [.dsmod.zip](https://github.com/igawa6/eden-duo-companions/releases/tag/chained-echoes-1.0.0) | 🥇 <a href="https://ko-fi.com/U7U31RLL6S"><img src="https://img.shields.io/badge/Jadesigns-F16061?style=flat-square&logo=ko-fi&logoColor=white" style="vertical-align: middle;" alt="Jadesigns"></a> |
+| 14 | [Yoru Tomosu](#yoru-tomosu) | `0100C2901153C000` | 1.0.0 | [.dsmod.zip](https://github.com/igawa6/eden-duo-companions/releases/tag/yoru-tomosu-1.0.0) | 🥇 <a href="https://ko-fi.com/igawa6/commissions"><img src="https://img.shields.io/badge/Anon.-F16061?style=flat-square&logo=ko-fi&logoColor=white" style="vertical-align: middle;" alt="Anon."></a> |
+| 15 | [Diablo III: Eternal Collection](#diablo-iii-eternal-collection) | `01001B300B9BE000` | 2.7.7, 2.7.6 | [.dsmod.zip](https://github.com/igawa6/eden-duo-companions/releases/tag/diablo-iii-eternal-collection-1.0.0) | 🥇 <a href="https://ko-fi.com/Z2B723BQK6"><img src="https://img.shields.io/badge/shy-F16061?style=flat-square&logo=ko-fi&logoColor=white" style="vertical-align: middle;" alt="shy"></a> |
+| 16 | [Farming Simulator: Nintendo Switch Edition](#farming-simulator-nintendo-switch-edition) | `0100D04004176000` | 1.5.0.1 | [.dsmod.zip](https://github.com/igawa6/eden-duo-companions/releases/tag/farming-simulator-nintendo-switch-edition-1.0.0) | 🥇 <a href="https://ko-fi.com/igawa6/commissions"><img src="https://img.shields.io/badge/Anon.-F16061?style=flat-square&logo=ko-fi&logoColor=white" style="vertical-align: middle;" alt="Anon."></a> |
 
 ⭐ Companion contributor. Big thanks for your mods creation!
 
@@ -373,6 +376,64 @@ Limitations:
 - Skill and crystal plans guide changes in the native menu; the companion does not independently apply smith fusion or equipment edits.
 
 ---
+
+## Yoru Tomosu
+
+🥇 <a href="https://ko-fi.com/igawa6/commissions"><img src="https://img.shields.io/badge/Anon.-F16061?style=flat-square&logo=ko-fi&logoColor=white" style="vertical-align: middle;" alt="Anon."></a>
+
+`0100C2901153C000` · game version 1.0.0 · companion 1.0.0
+
+| Log | Option | CG |
+|:---:|:---:|:---:|
+| <img src="screenshots/yoru-tomosu/log.png" width="300" alt="Yoru Tomosu: Log"> | <img src="screenshots/yoru-tomosu/option.png" width="300" alt="Yoru Tomosu: Option"> | <img src="screenshots/yoru-tomosu/cg.png" width="300" alt="Yoru Tomosu: CG"> |
+
+Browse past dialogue and unlocked art on the second screen while the story stays on the main one.
+
+- **Log.** The game's own retained dialogue history, newest past line first, with the current line left off the list. Drag or fling to scroll, drag the scrollbar, jump with Latest and Oldest, and set the text size from the header.
+- **Option.** Scroll speed, follow-newest, and the installed English patch's two controller diagrams.
+- **CG.** A scrolling grid of unlocked art; tap a thumbnail to view it full screen, then tap again to return to the grid.
+- Start and waiting screens, and haptic feedback on the second screen.
+- Read-only: the companion sends no inputs, calls or memory writes to the game.
+
+The companion ships no game art: dialogue, fonts and pictures are read from your own game files and patch.
+
+## Diablo III: Eternal Collection
+
+🥇 <a href="https://ko-fi.com/Z2B723BQK6"><img src="https://img.shields.io/badge/shy-F16061?style=flat-square&logo=ko-fi&logoColor=white" style="vertical-align: middle;" alt="shy"></a>
+
+`01001B300B9BE000` · game version 2.7.7 or 2.7.6 · companion 1.0.0
+
+| Map | Hero | Gear |
+|:---:|:---:|:---:|
+| <img src="screenshots/diablo-iii-eternal-collection/map.png" width="300" alt="Diablo III: Eternal Collection: Map"> | <img src="screenshots/diablo-iii-eternal-collection/hero.png" width="300" alt="Diablo III: Eternal Collection: Hero"> | <img src="screenshots/diablo-iii-eternal-collection/gear.png" width="300" alt="Diablo III: Eternal Collection: Gear"> |
+
+Keep the map, hero sheet and gear beside the action, read live from the running game.
+
+- **Map.** A hero-centred, smooth-panning map with the game's own markers: waypoints, exits, shrines, chests, and bounty and rift objectives. A skill rail sits alongside it, and nearby elites and champions show their name and affixes on tap.
+- **Hero.** Name, class, level and paragon, health and primary resource, gold, blood shards and other currencies, active buffs, core stats, Kanai's Cube powers, and the current difficulty and area.
+- **Activities.** Act bounties and their state, and Nephalem/Greater Rift progress with the Rift Guardian.
+- **Gear.** The 13-slot paperdoll and backpack grid with item tooltips. Equip and Unequip apply instantly; Drop drives the native inventory menu.
+- **Options.** Turn skill-rail tap-to-use on or off.
+
+The companion ships no game art: portraits, item icons and map art are read from your own game files.
+
+## Farming Simulator: Nintendo Switch Edition
+
+🥇 <a href="https://ko-fi.com/igawa6/commissions"><img src="https://img.shields.io/badge/Anon.-F16061?style=flat-square&logo=ko-fi&logoColor=white" style="vertical-align: middle;" alt="Anon."></a>
+
+`0100D04004176000` · game version 1.5.0.1 · companion 1.0.0
+
+| Map | Garage | Prices |
+|:---:|:---:|:---:|
+| <img src="screenshots/farming-simulator/map.png" width="300" alt="Farming Simulator: Nintendo Switch Edition: Map"> | <img src="screenshots/farming-simulator/garage.png" width="300" alt="Farming Simulator: Nintendo Switch Edition: Garage"> | <img src="screenshots/farming-simulator/prices.png" width="300" alt="Farming Simulator: Nintendo Switch Edition: Prices"> |
+
+Run the farm's menus on the second screen while the field stays on the main one.
+
+- **Map.** A pan/zoom field map that keeps your own position marked even while you pan or zoom, with the game's own icons for vehicles, harvesters, trailers, tools, selling points and field jobs. A Filters popup picks which of the 7 marker categories show, Expand fills the screen, and Reset glides back to following you. Crops, growth and soil layers overlay the map on the supported build.
+- **Garage.** Your owned vehicles with their specs; Enter and Reset apply instantly, with no menu to drive through.
+- **Operations, Prices, Finances, Statistics, Animals, Shop and Guide.** The rest of the game's menus, including a five-day price history and finances, session and total statistics, and a static English guide, all on native two-axis scrolling panes.
+
+The companion ships no game art: icons, maps and text are read from your own game files.
 
 ## Contribute to Another Game
 
