@@ -146,7 +146,7 @@ if want fe3h; then
 fi
 if want isaac; then
   # shellcheck disable=SC2046
-  pkg BindingOfIsaac BindingOfIsaacDS "${ISAAC_VERSION:-1.0.1}" --min-runtime 18 \
+  pkg BindingOfIsaac BindingOfIsaacDS "${ISAAC_VERSION:-1.0.2}" --min-runtime 18 \
     --module "android-arm64-v8a=$ISAAC_ANDROID_SO" --module "linux-x86_64=$ISAAC_LINUX_SO" \
     $(build_ids BindingOfIsaac)
 fi
