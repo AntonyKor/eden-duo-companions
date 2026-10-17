@@ -177,8 +177,11 @@ std::vector<farming_simulator::MapMarker> ReadMapMarkers(
       auto category=numeric(hotspot,{"category"},0,65535);
       // Field definition objects are represented by the checked native field
       // labels in Assets::Map; rendering them again as generic icons duplicates
-      // the native number markers.
-      if(category && *category==1)continue;
+      // the native number markers. Only an unnamed category 1 is that internal
+      // field-definition hotspot: this build names no FIELD_DEFINITION constant, and a
+      // named category (e.g. a vehicle category numbered 1) must never be dropped here --
+      // doing so hid every harvester from the map.
+      if(category && *category==1 && !category_names.count(*category))continue;
       MapMarker marker;
       marker.object_id=uint32_t(numeric(hotspot,{"objectId"},1,4294967295.).value_or(0));
       auto x=numeric(hotspot,{"xMapPos"},-1024,1024),

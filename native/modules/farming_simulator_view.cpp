@@ -710,14 +710,17 @@ void View::Operations(Image &out, const ViewState &state) {
 int MapMarkerFilterIndex(const MapMarker &marker) {
   // Order matches UX-SPEC's native filter table (InGameMenu.xml line ~149):
   // Steerable, Combine, Trailer, Tool, TipStations, FieldJobs, Other.
-  if (CiContains(marker.kind, "STEER") || CiContains(marker.kind, "VEHICLE"))
-    return 0;
+  // The specific vehicle types first: the native kinds are VEHICLE_COMBINE / VEHICLE_TRAILER /
+  // VEHICLE_TOOL / VEHICLE_STEERABLE, so a generic "VEHICLE" test must come last or every
+  // trailer, tool and harvester lands in Vehicles.
   if (CiContains(marker.kind, "COMBINE") || CiContains(marker.kind, "HARVEST"))
     return 1;
   if (CiContains(marker.kind, "TRAILER"))
     return 2;
   if (CiContains(marker.kind, "TOOL"))
     return 3;
+  if (CiContains(marker.kind, "STEER") || CiContains(marker.kind, "VEHICLE"))
+    return 0;
   if (CiContains(marker.kind, "TIP") || CiContains(marker.kind, "SELL"))
     return 4;
   if (CiContains(marker.kind, "FIELDJOB") || CiContains(marker.kind, "JOB"))

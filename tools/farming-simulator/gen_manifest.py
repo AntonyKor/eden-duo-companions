@@ -326,16 +326,14 @@ for i in range(MARKER_CAP):
 # (View::Operations' MapSelectionCard branch, CardH grown 500->646 to fit the taller rows
 # below the header/art -- see that function's own comment), same 304-wide stack.
 map_enter=action('map_sel_enter','garage_enter',0,haptic='confirm')
-map_reset=action('map_sel_reset','garage_reset',0,haptic='click')
+# No map-card Reset: Reset is Garage-only (owner, 2026-10-18 -- one stray tap on the map
+# card sent the selected vehicle to the shop lot). Vehicles get Enter only here.
 map_visit=action('map_sel_visit','map_visit',0,haptic='confirm')
 map_tag=action('map_sel_tag','map_tag',0,haptic='click')
 for suffix,bx,by in (('pane',916,732),('card',732+(492-304)//2,96+390)):
     widgets.append({'type':'image','rect':[bx,by,304,236],'src_bind':'fs.ui.map_selection.buttons_src',
                     'need_bind':f'fs.ui.map_sel.{suffix}_active'})
-    hit([bx,by,304,112],map_enter,f'fs.ui.map_sel.{suffix}_both_vehicle')
-    hit([bx,by+124,304,112],map_reset,f'fs.ui.map_sel.{suffix}_both_vehicle')
     hit([bx,by,304,112],map_enter,f'fs.ui.map_sel.{suffix}_enter_only')
-    hit([bx,by,304,112],map_reset,f'fs.ui.map_sel.{suffix}_reset_only')
     hit([bx,by,304,112],map_visit,f'fs.ui.map_sel.{suffix}_both_place')
     hit([bx,by+124,304,112],map_tag,f'fs.ui.map_sel.{suffix}_both_place')
     hit([bx,by,304,112],map_visit,f'fs.ui.map_sel.{suffix}_visit_only')

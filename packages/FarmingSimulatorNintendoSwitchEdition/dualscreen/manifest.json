@@ -572,12 +572,6 @@
       "argument": 0,
       "haptic": "confirm"
     },
-    "map_sel_reset": {
-      "kind": "module",
-      "action": "garage_reset",
-      "argument": 0,
-      "haptic": "click"
-    },
     "map_sel_visit": {
       "kind": "module",
       "action": "map_visit",
@@ -2912,49 +2906,7 @@
           "color": "#00000000",
           "frame": 0,
           "on_tap": "map_sel_enter",
-          "need_bind": "fs.ui.map_sel.pane_both_vehicle"
-        },
-        {
-          "type": "rect",
-          "rect": [
-            916,
-            856,
-            304,
-            112
-          ],
-          "bg": "#00000000",
-          "color": "#00000000",
-          "frame": 0,
-          "on_tap": "map_sel_reset",
-          "need_bind": "fs.ui.map_sel.pane_both_vehicle"
-        },
-        {
-          "type": "rect",
-          "rect": [
-            916,
-            732,
-            304,
-            112
-          ],
-          "bg": "#00000000",
-          "color": "#00000000",
-          "frame": 0,
-          "on_tap": "map_sel_enter",
           "need_bind": "fs.ui.map_sel.pane_enter_only"
-        },
-        {
-          "type": "rect",
-          "rect": [
-            916,
-            732,
-            304,
-            112
-          ],
-          "bg": "#00000000",
-          "color": "#00000000",
-          "frame": 0,
-          "on_tap": "map_sel_reset",
-          "need_bind": "fs.ui.map_sel.pane_reset_only"
         },
         {
           "type": "rect",
@@ -3035,49 +2987,7 @@
           "color": "#00000000",
           "frame": 0,
           "on_tap": "map_sel_enter",
-          "need_bind": "fs.ui.map_sel.card_both_vehicle"
-        },
-        {
-          "type": "rect",
-          "rect": [
-            826,
-            610,
-            304,
-            112
-          ],
-          "bg": "#00000000",
-          "color": "#00000000",
-          "frame": 0,
-          "on_tap": "map_sel_reset",
-          "need_bind": "fs.ui.map_sel.card_both_vehicle"
-        },
-        {
-          "type": "rect",
-          "rect": [
-            826,
-            486,
-            304,
-            112
-          ],
-          "bg": "#00000000",
-          "color": "#00000000",
-          "frame": 0,
-          "on_tap": "map_sel_enter",
           "need_bind": "fs.ui.map_sel.card_enter_only"
-        },
-        {
-          "type": "rect",
-          "rect": [
-            826,
-            486,
-            304,
-            112
-          ],
-          "bg": "#00000000",
-          "color": "#00000000",
-          "frame": 0,
-          "on_tap": "map_sel_reset",
-          "need_bind": "fs.ui.map_sel.card_reset_only"
         },
         {
           "type": "rect",

@@ -699,9 +699,10 @@ struct Module {
                                  [&](const auto &x) { return x.root_node == m.object_id; });
           if (it != vehicles.end()) {
             map_selection_active = true;
-            map_selection_kind = it->can_enter ? (it->can_reset ? 1 : 2)
-                                 : it->can_reset ? 3
-                                                 : 0;
+            // Map card offers Enter only. Reset sends the vehicle to the shop lot across the
+            // map, so it lives in Garage alone (owner, 2026-10-18: one accidental tap on the
+            // map card teleported the selected vehicle away).
+            map_selection_kind = it->can_enter ? 2 : 0;
           }
         } else if (m.enabled && m.can_visit) {
           map_selection_place = true;
@@ -1665,7 +1666,9 @@ struct Module {
         // raw x.id == state.vehicle_selected lookup finds nothing when vehicle_selected is
         // still the default empty string).
         v = SelectedVehicle(state);
-      } else if (state.page == Page::Operations && state.map_marker_selected >= 0) {
+      } else if (state.page == Page::Operations && state.map_marker_selected >= 0 &&
+                 std::string_view{action} == "garage_enter") {
+        // Reset is Garage-only; never reset a vehicle from the map card.
         const auto &markers = state.snapshot.map_markers;
         if (size_t(state.map_marker_selected) < markers.size()) {
           const auto &m = markers[size_t(state.map_marker_selected)];

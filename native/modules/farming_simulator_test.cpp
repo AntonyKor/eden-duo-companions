@@ -463,6 +463,14 @@ int main(int argc, char **argv) {
     unknown.kind = "DEFAULT";
     Check(MapMarkerFilterIndex(unknown) == 6,
           "an unrecognized category falls back to Other, same as the native filterButtonOther catch-all");
+    for (auto [kind, expected] : {std::pair<const char *, int>{"VEHICLE_COMBINE", 1},
+                                  {"VEHICLE_TRAILER", 2}, {"VEHICLE_TOOL", 3},
+                                  {"VEHICLE_STEERABLE", 0}}) {
+      MapMarker vehicle;
+      vehicle.kind = kind;
+      Check(MapMarkerFilterIndex(vehicle) == expected,
+            "native VEHICLE_* kinds classify by their specific type, not as generic Vehicles");
+    }
     state.snapshot.map_markers.push_back(field_job);
     Check(!state.map_filters_open, "filters start closed");
     Check(std::all_of(state.map_filters.begin(), state.map_filters.end(),
