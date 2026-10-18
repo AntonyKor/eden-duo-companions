@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "farming_simulator_view.h"
 #include <algorithm>
+#include <numeric>
 #include <cctype>
 #include <cmath>
 #include <iomanip>
@@ -728,6 +729,13 @@ int MapMarkerFilterIndex(const MapMarker &marker) {
   return 6; // Other: DEFAULT/TRIGGERS/unrecognized categories, matching the
             // native filterButtonOther catch-all.
 }
+int MapMarkerDrawRank(const MapMarker &marker) {
+  switch (MapMarkerFilterIndex(marker)) {
+  case 2: case 3: return 0;
+  case 0: case 1: return 2;
+  default: return 1;
+  }
+}
 void View::MapFiltersRows(Image &out, const ViewState &state, int x, int y,
                           int w, int row_h) {
   static constexpr std::array<std::string_view, 7> labels{
@@ -838,7 +846,14 @@ bool View::RenderMapBase(const ViewState &state, Image &out) {
       Circle(out, x, y, 19, Black);
       Blit(out, *atlas, x - 15, y - 15, 30, 30, h.sx, h.sy, h.w, h.h, h.colour);
     }
-  for (size_t marker_index = 0; marker_index < s.map_markers.size(); ++marker_index) {
+  // Tools/trailers first, drivable vehicles last: a harvester's header shares the
+  // combine's position and used to cover its marker completely.
+  std::vector<size_t> draw_order(s.map_markers.size());
+  std::iota(draw_order.begin(), draw_order.end(), size_t{0});
+  std::stable_sort(draw_order.begin(), draw_order.end(), [&](size_t a, size_t b) {
+    return MapMarkerDrawRank(s.map_markers[a]) < MapMarkerDrawRank(s.map_markers[b]);
+  });
+  for (size_t marker_index : draw_order) {
     const auto &marker = s.map_markers[marker_index];
     if (!marker.enabled || marker.image.empty() || !std::isfinite(marker.x) ||
         !std::isfinite(marker.z))

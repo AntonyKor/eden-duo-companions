@@ -765,6 +765,10 @@ private:
 // Falls back to 6 (Other) for anything unrecognized, matching the native
 // filter row's own catch-all.
 int MapMarkerFilterIndex(const MapMarker &marker);
+// Stacking order on the map: 0 tools/trailers, 1 everything else, 2 vehicles/harvesters.
+// An attached header or trailer sits on its tractor/combine's own position, so the
+// drivable vehicle must draw (and take the tap) on top of it.
+int MapMarkerDrawRank(const MapMarker &marker);
 bool OnViewAction(ViewState &state, std::string_view action, int64_t argument,
                   size_t topic_count, size_t animal_scroll_max = size_t(-1));
 // Runtime on_pan payload: signed32 dx in the high word, signed32 dy in the low

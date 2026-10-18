@@ -676,6 +676,22 @@ struct Module {
           marker_selectable[i] =
               m.enabled && (m.can_visit || m.kind.starts_with("VEHICLE_"));
         }
+        // A marker drawn under a higher-ranked one (a header under its combine) gives up its
+        // hit region, so a tap on the stack picks the marker the player actually sees.
+        constexpr double kCoverPx = 24;
+        for (size_t i = 0; i < kMarkerCap && i < markers.size(); ++i) {
+          if (!marker_selectable[i] ||
+              !state.map_filters[size_t(MapMarkerFilterIndex(markers[i]))])
+            continue;
+          for (size_t j = 0; j < kMarkerCap && j < markers.size(); ++j)
+            if (j != i && marker_selectable[j] &&
+                state.map_filters[size_t(MapMarkerFilterIndex(markers[j]))] &&
+                MapMarkerDrawRank(markers[j]) > MapMarkerDrawRank(markers[i]) &&
+                std::hypot(marker_dx[j] - marker_dx[i], marker_dy[j] - marker_dy[i]) < kCoverPx) {
+              marker_selectable[i] = false;
+              break;
+            }
+        }
       }
       // Garage action row (UX-SPEC B): the served image key is purely a function of which of
       // can_enter/can_reset the CURRENTLY selected vehicle has -- 0 none (row collapses), 1

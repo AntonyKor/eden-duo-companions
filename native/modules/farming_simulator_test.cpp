@@ -471,6 +471,13 @@ int main(int argc, char **argv) {
       Check(MapMarkerFilterIndex(vehicle) == expected,
             "native VEHICLE_* kinds classify by their specific type, not as generic Vehicles");
     }
+    {
+      MapMarker combine, header;
+      combine.kind = "VEHICLE_COMBINE";
+      header.kind = "VEHICLE_TOOL";
+      Check(MapMarkerDrawRank(combine) > MapMarkerDrawRank(header),
+            "a harvester draws above the header attached at its own position");
+    }
     state.snapshot.map_markers.push_back(field_job);
     Check(!state.map_filters_open, "filters start closed");
     Check(std::all_of(state.map_filters.begin(), state.map_filters.end(),
