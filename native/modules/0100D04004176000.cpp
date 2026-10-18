@@ -673,19 +673,19 @@ struct Module {
           const auto &m = markers[i];
           marker_dx[i] = (m.x - px) * kMarkerPpw;
           marker_dy[i] = (m.z - pz) * kMarkerPpw;
+          // A marker its Filters toggle hides is not drawn, so it must not be tappable either.
           marker_selectable[i] =
-              m.enabled && (m.can_visit || m.kind.starts_with("VEHICLE_"));
+              m.enabled && (m.can_visit || m.kind.starts_with("VEHICLE_")) &&
+              state.map_filters[size_t(MapMarkerFilterIndex(m))];
         }
         // A marker drawn under a higher-ranked one (a header under its combine) gives up its
         // hit region, so a tap on the stack picks the marker the player actually sees.
         constexpr double kCoverPx = 24;
         for (size_t i = 0; i < kMarkerCap && i < markers.size(); ++i) {
-          if (!marker_selectable[i] ||
-              !state.map_filters[size_t(MapMarkerFilterIndex(markers[i]))])
+          if (!marker_selectable[i])
             continue;
           for (size_t j = 0; j < kMarkerCap && j < markers.size(); ++j)
             if (j != i && marker_selectable[j] &&
-                state.map_filters[size_t(MapMarkerFilterIndex(markers[j]))] &&
                 MapMarkerDrawRank(markers[j]) > MapMarkerDrawRank(markers[i]) &&
                 std::hypot(marker_dx[j] - marker_dx[i], marker_dy[j] - marker_dy[i]) < kCoverPx) {
               marker_selectable[i] = false;

@@ -1216,6 +1216,10 @@ int main(int argc, char **argv) {
       state.snapshot.owned_vehicles[1].can_enter = true;
       state.snapshot.owned_vehicles[1].can_reset = true;
     }
+    state.map_filters[0] = false; // Vehicles off: the steerable is not drawn
+    Check(!OnViewAction(state, "map_marker_pick", 0, 61) && state.map_marker_selected != 0,
+          "a marker hidden by its filter cannot be tapped");
+    state.map_filters[0] = true;
     Check(OnViewAction(state, "map_marker_pick", 0, 61) &&
               state.map_marker_selected == 0,
           "tap a vehicle marker selects it");

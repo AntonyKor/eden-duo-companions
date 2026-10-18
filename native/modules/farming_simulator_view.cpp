@@ -1626,7 +1626,8 @@ bool OnViewAction(ViewState &s, std::string_view action, int64_t argument,
       if (argument < 0 || size_t(argument) >= markers.size())
         return false;
       const auto &m = markers[size_t(argument)];
-      if (!m.enabled || !(m.can_visit || m.kind.starts_with("VEHICLE_")))
+      if (!m.enabled || !(m.can_visit || m.kind.starts_with("VEHICLE_")) ||
+          !s.map_filters[size_t(MapMarkerFilterIndex(m))])
         return false;
       s.map_marker_selected = argument;
       // Mutually exclusive with the time-scale picker/legend right-pane content (UX-SPEC
