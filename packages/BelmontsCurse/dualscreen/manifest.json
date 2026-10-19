@@ -1,0 +1,555 @@
+{
+  "format": 1,
+  "title_id": "0100BA4026E94000",
+  "name": "Belmont's Curse companion \u2014 internal candidate",
+  "min_runtime": 22,
+  "canvas_w": 1240,
+  "canvas_h": 1080,
+  "background": "#FF101722",
+  "nav": false,
+  "requires_module": true,
+  "module": {
+    "abi": 1,
+    "build_ids": [
+      "0F1169AA7D0FA4529C861F96ADEC306E00000000000000000000000000000000"
+    ],
+    "libraries": {
+      "linux-x86_64": {
+        "path": "modules/linux-x86_64/0100BA4026E94000.so",
+        "sha256": "6dbfef095e494f2d028224c2af84860b4c18d6573a9b2dcf81827187b00e9882"
+      },
+      "android-arm64-v8a": {
+        "path": "modules/android-arm64-v8a/0100BA4026E94000.so",
+        "sha256": "f411c67764cf0b9483385055d1e70239891b54222156016df0eb3ea6dbc49b3a"
+      }
+    }
+  },
+  "font": "file:fonts/latin51.bfont",
+  "font_atlas": "module:belmont-font:LatinFont:51",
+  "debug_page": false,
+  "map": {
+    "areas_src": "module:belmont:areas"
+  },
+  "module_outputs": [
+    "belmont.build_supported",
+    "belmont.native_assets_ready",
+    "belmont.ui_title",
+    "belmont.ui_loading",
+    "belmont.ui_world",
+    "belmont.ui_menu",
+    "belmont.map_ready",
+    "belmont.marker_ready",
+    "belmont.map_area",
+    "belmont.map_image",
+    "belmont.player_x",
+    "belmont.player_y",
+    "belmont.view_x0",
+    "belmont.view_y0",
+    "belmont.view_x1",
+    "belmont.view_y1",
+    "belmont.area_name",
+    "belmont.place_ready",
+    "belmont.selected_place",
+    "__font_epoch"
+  ],
+  "derived": [
+    {
+      "name": "ui.supported",
+      "all_nonzero": [
+        "module_ready",
+        "belmont.build_supported"
+      ]
+    },
+    {
+      "name": "ui.native",
+      "all_nonzero": [
+        "ui.supported",
+        "belmont.native_assets_ready"
+      ]
+    },
+    {
+      "name": "ui.map",
+      "all_nonzero": [
+        "ui.native",
+        "belmont.ui_world",
+        "belmont.map_ready",
+        "belmont.marker_ready"
+      ]
+    },
+    {
+      "name": "ui.title",
+      "all_nonzero": [
+        "ui.native",
+        "belmont.ui_title"
+      ]
+    },
+    {
+      "name": "ui.loading",
+      "all_nonzero": [
+        "ui.native",
+        "belmont.ui_loading"
+      ]
+    },
+    {
+      "name": "ui.not_map",
+      "cmp": "eq",
+      "a": "ui.map",
+      "b": 0
+    },
+    {
+      "name": "ui.custom",
+      "cmp": "ne",
+      "a": "view_custom:belmont_map",
+      "b": 0
+    },
+    {
+      "name": "ui.follow",
+      "cmp": "eq",
+      "a": "view_custom:belmont_map",
+      "b": 0
+    },
+    {
+      "name": "ui.not_menu",
+      "cmp": "eq",
+      "a": "belmont.ui_menu",
+      "b": 0
+    },
+    {
+      "name": "ui.return",
+      "all_nonzero": [
+        "ui.map",
+        "ui.custom"
+      ]
+    },
+    {
+      "name": "ui.hint",
+      "all_nonzero": [
+        "ui.map",
+        "ui.not_menu"
+      ]
+    },
+    {
+      "name": "ui.menu_follow",
+      "all_nonzero": [
+        "ui.map",
+        "belmont.ui_menu"
+      ]
+    },
+    {
+      "name": "ui.menu_custom",
+      "all_nonzero": [
+        "ui.map",
+        "ui.custom",
+        "belmont.ui_menu"
+      ]
+    },
+    {
+      "name": "ui.place",
+      "all_nonzero": [
+        "ui.map",
+        "ui.custom",
+        "ui.not_menu",
+        "belmont.place_ready"
+      ]
+    },
+    {
+      "name": "ui.wait",
+      "expr": "ui.native && !ui.title && !ui.loading && !ui.map"
+    },
+    {
+      "name": "ui.wait_art",
+      "any_nonzero": [
+        "ui.loading",
+        "ui.wait"
+      ]
+    },
+    {
+      "name": "ui.reset",
+      "all_nonzero": [
+        "ui.not_map",
+        "ui.custom"
+      ]
+    }
+  ],
+  "enforce": [
+    {
+      "action": "clear_view",
+      "every_ms": 1
+    }
+  ],
+  "enforce_gate": {
+    "point": "ui.reset",
+    "max": 1
+  },
+  "actions": {
+    "return_to_rose": {
+      "kind": "view_reset",
+      "view": "belmont_map",
+      "enabled_bind": "ui.return"
+    },
+    "clear_view": {
+      "kind": "view_reset",
+      "view": "belmont_map"
+    }
+  },
+  "pages": [
+    {
+      "id": "companion",
+      "title": "Map",
+      "widgets": [
+        {
+          "type": "label",
+          "rect": [
+            80,
+            300,
+            1080,
+            100
+          ],
+          "text": "Companion unavailable",
+          "text_scale": 12,
+          "color": "#FFFFFFFF",
+          "align": "left",
+          "wrap_width": 1080,
+          "max_lines": 1,
+          "need_bind": "!ui.native"
+        },
+        {
+          "type": "label",
+          "rect": [
+            80,
+            440,
+            1080,
+            240
+          ],
+          "text": "",
+          "text_scale": 8,
+          "color": "#FFE6ECF5",
+          "align": "left",
+          "wrap_width": 1080,
+          "max_lines": 4,
+          "need_bind": "module_error",
+          "bind_text": "module_error_message"
+        },
+        {
+          "type": "label",
+          "rect": [
+            80,
+            720,
+            1080,
+            110
+          ],
+          "text": "Check the game update and companion package",
+          "text_scale": 7,
+          "color": "#FFBFCBDD",
+          "align": "left",
+          "wrap_width": 1080,
+          "max_lines": 2,
+          "need_bind": "!ui.native"
+        },
+        {
+          "type": "image",
+          "rect": [
+            0,
+            0,
+            1240,
+            1080
+          ],
+          "src": "module:native:ui-commonsingame_assets_all_acb23e9b0608a368aad72d2fe488a679.bundle#-1731143959702592593",
+          "need_bind": "ui.native",
+          "src_rect": [
+            0.212962963,
+            0,
+            0.787037037,
+            1
+          ]
+        },
+        {
+          "type": "image",
+          "rect": [
+            415,
+            60,
+            410,
+            743
+          ],
+          "src": "module:native:atlas-t_ui_commonall_cards_assets_all_44dfd9cf5fef7440f0f32398be8fb808.bundle#-4984553437625016568",
+          "need_bind": "ui.title"
+        },
+        {
+          "type": "label",
+          "rect": [
+            620,
+            949,
+            0,
+            70
+          ],
+          "text": "Map available after loading",
+          "text_scale": 6,
+          "color": "#FFFFE99F",
+          "align": "center",
+          "wrap_width": 1120,
+          "max_lines": 1,
+          "need_bind": "ui.title"
+        },
+        {
+          "type": "image",
+          "rect": [
+            40,
+            156,
+            1160,
+            652
+          ],
+          "src": "module:native:atlas-t_ui_loading_atlas_assets_all_3e3d7325eb562ae25546c80bd8a4ba09.bundle#2293220914864325745",
+          "need_bind": "ui.wait_art"
+        },
+        {
+          "type": "image",
+          "rect": [
+            100,
+            240,
+            1040,
+            514
+          ],
+          "src": "module:native:atlas-t_ui_loading_atlas_assets_all_3e3d7325eb562ae25546c80bd8a4ba09.bundle#4376938908137726197",
+          "need_bind": "ui.wait_art"
+        },
+        {
+          "type": "label",
+          "rect": [
+            620,
+            885,
+            0,
+            80
+          ],
+          "text": "Loading",
+          "text_scale": 10,
+          "color": "#FFFFE99F",
+          "align": "center",
+          "wrap_width": 1120,
+          "max_lines": 1,
+          "need_bind": "ui.loading"
+        },
+        {
+          "type": "label",
+          "rect": [
+            620,
+            885,
+            0,
+            80
+          ],
+          "text": "Map unavailable",
+          "text_scale": 10,
+          "color": "#FFFFE99F",
+          "align": "center",
+          "wrap_width": 1120,
+          "max_lines": 1,
+          "need_bind": "ui.wait"
+        },
+        {
+          "type": "label",
+          "rect": [
+            620,
+            86,
+            0,
+            115
+          ],
+          "text": "",
+          "text_scale": 10,
+          "color": "#FFFFE99F",
+          "align": "center",
+          "wrap_width": 1120,
+          "max_lines": 2,
+          "need_bind": "ui.map",
+          "bind_text": "belmont.area_name",
+          "line_gap": 6
+        },
+        {
+          "type": "image",
+          "rect": [
+            20,
+            215,
+            1200,
+            600
+          ],
+          "src": "module:native:ui-commonsingame_assets_all_acb23e9b0608a368aad72d2fe488a679.bundle#-6006451545844514120",
+          "need_bind": "ui.map"
+        },
+        {
+          "type": "map",
+          "id": "belmont_map",
+          "rect": [
+            58,
+            253,
+            1124,
+            524
+          ],
+          "image_bind": "belmont.map_image",
+          "area_label": false,
+          "pan_zoom": true,
+          "min_zoom": 0.25,
+          "max_zoom": 6.0,
+          "view_idle_ms": 0,
+          "view_rect_x0_bind": "belmont.view_x0",
+          "view_rect_y0_bind": "belmont.view_y0",
+          "view_rect_x1_bind": "belmont.view_x1",
+          "view_rect_y1_bind": "belmont.view_y1",
+          "view_rect_pad": 0,
+          "marker_x_bind": "belmont.player_x",
+          "marker_y_bind": "belmont.player_y",
+          "marker_src": "module:belmont:rose-marker",
+          "marker_size": [
+            96,
+            96
+          ],
+          "marker_anchor": [
+            0.5,
+            0.5
+          ],
+          "bg": "#FF1D1916",
+          "color": "#FFFFE99F",
+          "need_bind": "ui.map",
+          "room_bind": "belmont.map_area"
+        },
+        {
+          "type": "label",
+          "rect": [
+            620,
+            945,
+            0,
+            65
+          ],
+          "text": "Drag to inspect the map",
+          "text_scale": 5,
+          "color": "#FFFFE99F",
+          "align": "center",
+          "wrap_width": 1120,
+          "max_lines": 1,
+          "need_bind": "ui.hint",
+          "hide_bind": "ui.custom"
+        },
+        {
+          "type": "label",
+          "rect": [
+            620,
+            940,
+            0,
+            70
+          ],
+          "text": "Game menu",
+          "text_scale": 6,
+          "color": "#FFFFE99F",
+          "align": "center",
+          "wrap_width": 1120,
+          "max_lines": 1,
+          "need_bind": "ui.menu_follow",
+          "hide_bind": "ui.custom"
+        },
+        {
+          "type": "label",
+          "rect": [
+            620,
+            836,
+            0,
+            55
+          ],
+          "text": "Game menu",
+          "text_scale": 6,
+          "color": "#FFFFE99F",
+          "align": "center",
+          "wrap_width": 1120,
+          "max_lines": 1,
+          "need_bind": "ui.menu_custom"
+        },
+        {
+          "type": "label",
+          "rect": [
+            620,
+            836,
+            0,
+            65
+          ],
+          "text": "",
+          "text_scale": 6,
+          "color": "#FFFFE99F",
+          "align": "center",
+          "wrap_width": 1120,
+          "max_lines": 1,
+          "need_bind": "ui.place",
+          "bind_text": "belmont.selected_place"
+        },
+        {
+          "type": "image",
+          "rect": [
+            280,
+            912,
+            200,
+            128
+          ],
+          "src": "module:native:ui-commonsingame_assets_all_acb23e9b0608a368aad72d2fe488a679.bundle#-3213707602970972065",
+          "need_bind": "ui.return",
+          "src_rect": [
+            0,
+            0,
+            0.1953125,
+            1
+          ]
+        },
+        {
+          "type": "image",
+          "rect": [
+            480,
+            912,
+            280,
+            128
+          ],
+          "src": "module:native:ui-commonsingame_assets_all_acb23e9b0608a368aad72d2fe488a679.bundle#-3213707602970972065",
+          "need_bind": "ui.return",
+          "src_rect": [
+            0.1953125,
+            0,
+            0.8046875,
+            1
+          ]
+        },
+        {
+          "type": "image",
+          "rect": [
+            760,
+            912,
+            200,
+            128
+          ],
+          "src": "module:native:ui-commonsingame_assets_all_acb23e9b0608a368aad72d2fe488a679.bundle#-3213707602970972065",
+          "need_bind": "ui.return",
+          "src_rect": [
+            0.8046875,
+            0,
+            1,
+            1
+          ]
+        },
+        {
+          "type": "button",
+          "id": "return_to_rose",
+          "rect": [
+            280,
+            912,
+            680,
+            128
+          ],
+          "text": "Return to Rose",
+          "text_scale": 6,
+          "align": "center",
+          "bg": "#00000000",
+          "color": "#FFFFE99F",
+          "border": 0,
+          "need_bind": "ui.return",
+          "on_tap": "return_to_rose"
+        }
+      ]
+    }
+  ],
+  "_status": "UNRELEASED internal engineering candidate. FirstRoom live desktop map, exploration, native font/marker, pan, Return to Rose and native menu verified. Both platform modules linked and stripped; Android/NCE and physical Thor verification pending. Native source assets decoded at runtime only.",
+  "_map_contract": "Belmont native module must supply recognized areas/image/player/world-home bindings and native-only rose-marker alias. map_ready and marker_ready remain0 until proven.",
+  "_font_contract": "Authored request descriptor +native51coverage. Host wantedcap is5*text_scale; scales10/6/5 =>50/30/25wantedcap.",
+  "_reset_contract": "Host-only localview reset while map invalid and customview exists. Root must invalidate map across session/area changes and ensure return-home transition before exposing new context."
+}

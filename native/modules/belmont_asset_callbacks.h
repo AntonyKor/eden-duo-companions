@@ -4,6 +4,7 @@
 #include "belmont_assets.h"
 #include <charconv>
 #include <map>
+#include <atomic>
 
 namespace belmont_assets {
 // Game-only adapter. The caller MUST verify title/build before passing true to
@@ -26,6 +27,22 @@ class Callbacks {
             astc_ = ce_unity::MakeHostAstcDecoder(ext->userdata, ext->decode_astc);
         reader_.reset();
         fonts_.clear();
+        font_ready_ = false;
+    }
+
+    // Worker-facing preparation. No guest-memory access, host publication or
+    // renderer calls; retry after an unavailable RomFS read is safe.
+    bool PrepareFont() {
+        try {
+            std::lock_guard lock{mutex_};
+            return supported_ && bool(GetFont(Spec{"LatinFont", 51})) && font_ready_;
+        } catch (...) {
+            return false;
+        }
+    }
+
+    bool FontReady() const {
+        return font_ready_.load(std::memory_order_acquire);
     }
 
     EdenDsmodBool LoadImage(const char* key, void* receiver, EdenDsmodImageSink sink) {
@@ -39,6 +56,18 @@ class Callbacks {
             if (n > 4096)
                 return EDEN_DSMOD_FALSE;
             std::string_view value{key, n};
+            if (value == "module:belmont:rose-marker") {
+                // Native MCPosition Sprite -> Map_PlayerIcon Texture2D. This
+                // shipped texture is the complete 128px glyph; no substitute.
+                constexpr std::string_view marker =
+                    "native:ui-gamemenus_assets_all_866519f7d6a7057a8ba1c459a5b3f694.bundle#6019023001892253940";
+                auto image = GetReader().LoadImage(marker);
+                if (!image || image->width != 128 || image->height != 128 ||
+                    image->rgba.size() != 128u * 128u * 4u)
+                    return EDEN_DSMOD_FALSE;
+                sink(receiver, image->width, image->height, image->rgba.data(), image->rgba.size());
+                return EDEN_DSMOD_TRUE;
+            }
             if (value.starts_with("module:native:")) {
                 auto image = GetReader().LoadImage(value.substr(7));
                 if (!image || image->rgba.empty())
@@ -120,17 +149,22 @@ class Callbacks {
         if (const auto it = fonts_.find(key); it != fonts_.end())
             return it->second;
         auto font = GetReader().LoadHostFont(spec.name, spec.cap);
-        if (!font)
+        if (!font || font->atlas.width == 0 || font->atlas.height == 0 ||
+            std::uint64_t(font->atlas.width) * font->atlas.height * 4 != font->atlas.rgba.size() ||
+            font->glyphs.empty() || font->line_height == 0)
             return {};
         auto result = std::make_shared<HostFont>(std::move(*font));
         if (fonts_.size() == 2)
             fonts_.erase(fonts_.begin());
         fonts_.emplace(key, result);
+        if (spec.name == "LatinFont" && spec.cap == 51)
+            font_ready_ = true;
         return result;
     }
     EdenDsmodHostApi host_{};
     bool supported_{};
-    std::mutex mutex_;
+    mutable std::mutex mutex_;
+    std::atomic<bool> font_ready_{};
     ce_unity::AstcDecoder astc_;
     std::unique_ptr<Reader> reader_;
     std::map<std::string, std::shared_ptr<const HostFont>> fonts_;

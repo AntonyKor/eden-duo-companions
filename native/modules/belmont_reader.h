@@ -46,6 +46,8 @@ struct ExplorationRoom {
   // Validated. An absent/unavailable room has no record, never a fabricated
   // zero mask.
   std::vector<std::int32_t> cells;
+  bool entered_zones_ready{};
+  std::vector<std::int32_t> entered_zone_ids;
 };
 struct Snapshot {
   bool supported{}, coherent{}, manager_ready{}, entity_ready{};
@@ -58,7 +60,7 @@ struct Snapshot {
   std::array<float, 3> target_position{};
   std::string room_id;
   std::string reason{"unavailable"};
-  bool exploration_ready{};
+  bool exploration_ready{}, exploration_zones_ready{};
   std::vector<ExplorationRoom> exploration;
   // Static/synthetic evidence cannot promote a gameplay map to ready.
   bool map_ready{};
@@ -198,6 +200,46 @@ template <class Read> class Decoder {
     live = count - free;
     return true;
   }
+  bool ZoneIds(U64 state, std::vector<std::int32_t> &result) {
+    result.clear();
+    // Native WorldRoomExplorationState.SetEnteredZone proves +50,
+    // List<int> items +10, size +18, version +1c and 4-byte array elements.
+    U64 list{}, items{}, capacity{};
+    std::int32_t count{}, version{};
+    if (!Ptr(state + 0x50, list) ||
+        !Object(list, "List`1", "System.Collections.Generic") ||
+        !Get(list + 0x18, count) || count < 0 || count > 4096 ||
+        !Get(list + 0x1c, version) || !Get(list + 0x10, items))
+      return false;
+    if (items == 0 && count == 0) {
+      result.clear();
+      return true;
+    }
+    if (!Pointer(items) || !Get(items + 0x18, capacity) || capacity > 8192 ||
+        U64(count) > capacity)
+      return false;
+    std::vector<std::int32_t> ids;
+    ids.reserve(count);
+    std::array<std::uint8_t, 4096> bytes{};
+    for (std::size_t start = 0; start < std::size_t(count);) {
+      const auto n = std::min<std::size_t>(1024, std::size_t(count) - start);
+      if (!Bytes(items + 0x20 + 4 * U64(start), bytes.data(), n * 4))
+        return false;
+      for (std::size_t i = 0; i < n; ++i) {
+        const auto *b = bytes.data() + i * 4;
+        const std::uint32_t id =
+            std::uint32_t(b[0]) | std::uint32_t(b[1]) << 8 |
+            std::uint32_t(b[2]) << 16 | std::uint32_t(b[3]) << 24;
+        if (id > 65535 ||
+            std::find(ids.begin(), ids.end(), std::int32_t(id)) != ids.end())
+          return false;
+        ids.push_back(std::int32_t(id));
+      }
+      start += n;
+    }
+    result = std::move(ids);
+    return true;
+  }
   bool Exploration(U64 dict, std::vector<ExplorationRoom> &result) {
     U64 entries{};
     std::int32_t count{}, live{}, found{};
@@ -255,6 +297,7 @@ template <class Read> class Decoder {
         start += n;
       }
       total_cells += room.cells.size();
+      room.entered_zones_ready = ZoneIds(state, room.entered_zone_ids);
       decoded.push_back(std::move(room));
       ++found;
     }
@@ -356,6 +399,9 @@ template <class Read> class Decoder {
       if (Ptr(explorer + 0x30, exploration) &&
           Exploration(exploration, decoded)) {
         out.exploration_ready = true;
+        out.exploration_zones_ready =
+            std::all_of(decoded.begin(), decoded.end(),
+                        [](const auto &r) { return r.entered_zones_ready; });
         out.exploration = std::move(decoded);
       }
     }
@@ -461,14 +507,50 @@ public:
       out.reason = "accessor_mismatch";
       return out;
     }
+    // Original WorldRoomExplorationState.SetEnteredZone/EnteredZone: +50
+    constexpr std::array<std::uint8_t, 8> entered_zones_field_pin{
+        0x80, 0x2a, 0x40, 0xf9, 0x20, 0x01, 0x00, 0xb4};
+    std::array<std::uint8_t, 8> entered_zones_field_code{};
+    if (!Bytes(id.base + 0x1c298a8, entered_zones_field_code.data(),
+               entered_zones_field_code.size()) ||
+        entered_zones_field_code != entered_zones_field_pin) {
+      out.reason = "accessor_mismatch";
+      return out;
+    }
+    // SetEnteredZone: version+1c, items+10, size+18, array length+18.
+    constexpr std::array<std::uint8_t, 32> entered_zones_list_pin{
+        0x09, 0x1c, 0x40, 0xb9, 0x29, 0x05, 0x00, 0x11, 0x08, 0x01, 0x40,
+        0xf9, 0x09, 0x1c, 0x00, 0xb9, 0x09, 0x08, 0x40, 0xf9, 0xa9, 0x02,
+        0x00, 0xb4, 0x0a, 0x18, 0x80, 0xb9, 0x2b, 0x19, 0x40, 0xb9};
+    std::array<std::uint8_t, 32> entered_zones_list_code{};
+    if (!Bytes(id.base + 0x1c296b0, entered_zones_list_code.data(),
+               entered_zones_list_code.size()) ||
+        entered_zones_list_code != entered_zones_list_pin) {
+      out.reason = "accessor_mismatch";
+      return out;
+    }
+    // SetEnteredZone: 4-byte elements at array+20.
+    constexpr std::array<std::uint8_t, 8> entered_zones_element_pin{
+        0x28, 0x09, 0x0a, 0x8b, 0x13, 0x21, 0x00, 0xb9};
+    std::array<std::uint8_t, 8> entered_zones_element_code{};
+    if (!Bytes(id.base + 0x1c296e0, entered_zones_element_code.data(),
+               entered_zones_element_code.size()) ||
+        entered_zones_element_code != entered_zones_element_pin) {
+      out.reason = "accessor_mismatch";
+      return out;
+    }
     // Native pause flags, not a guessed menu/class-name identity. These
     // accessor instructions prove the serialized bytes below.
-    for (const auto& [offset, second] : std::array<std::pair<U64, std::uint8_t>, 4>{{
-             {0x1d4ef20, 0x60}, {0x1d4ef30, 0x64},
-             {0x1d4ef40, 0x68}, {0x1d4efd0, 0x8c}}}) {
-      const std::array<std::uint8_t, 8> expected{0x00, second, 0x40, 0x39, 0xc0, 0x03, 0x5f, 0xd6};
+    for (const auto &[offset, second] :
+         std::array<std::pair<U64, std::uint8_t>, 4>{{{0x1d4ef20, 0x60},
+                                                      {0x1d4ef30, 0x64},
+                                                      {0x1d4ef40, 0x68},
+                                                      {0x1d4efd0, 0x8c}}}) {
+      const std::array<std::uint8_t, 8> expected{0x00, second, 0x40, 0x39,
+                                                 0xc0, 0x03,   0x5f, 0xd6};
       std::array<std::uint8_t, 8> code{};
-      if (!Bytes(id.base + offset, code.data(), code.size()) || code != expected) {
+      if (!Bytes(id.base + offset, code.data(), code.size()) ||
+          code != expected) {
         out.reason = "accessor_mismatch";
         return out;
       }
@@ -500,11 +582,14 @@ public:
         out.loading_identity =
             Pointer(loading) ? int(out.active == loading) : -1;
       }
-      if (Object(out.active, "EditorParameteredGameState", "") && NativeAlive(out.active)) {
+      if (Object(out.active, "EditorParameteredGameState", "") &&
+          NativeAlive(out.active)) {
         std::array<std::uint8_t, 14> flags{};
         if (Bytes(out.active + 0x18, flags.data(), flags.size()) &&
-            std::all_of(flags.begin(), flags.end(), [](auto b) { return b <= 1; }))
-          out.paused = flags[0] == 1 && flags[1] == 1 && flags[2] == 0 && flags[11] == 1;
+            std::all_of(flags.begin(), flags.end(),
+                        [](auto b) { return b <= 1; }))
+          out.paused =
+              flags[0] == 1 && flags[1] == 1 && flags[2] == 0 && flags[11] == 1;
       }
       if (Get(out.manager + 0xb0, out.entity) &&
           Object(out.entity, "Entity", "MotherBase.EntityFramework")) {
@@ -528,9 +613,10 @@ public:
     out.reason = out.application_loading == 1 || out.room_loading == 1 ||
                          out.loading_identity == 1
                      ? "loading"
-                 : out.initial_identity == 0 && out.paused != 1 ? "non_gameplay_identity"
-                 : !out.manager_ready        ? "manager_unavailable"
-                 : !out.entity_ready         ? "entity_unavailable"
+                 : out.initial_identity == 0 && out.paused != 1
+                     ? "non_gameplay_identity"
+                 : !out.manager_ready ? "manager_unavailable"
+                 : !out.entity_ready  ? "entity_unavailable"
                  : out.application_loading < 0 || out.room_loading < 0
                      ? "loading_unavailable"
                      : "map_contract_unverified";

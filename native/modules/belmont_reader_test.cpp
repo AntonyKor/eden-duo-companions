@@ -3,6 +3,9 @@
 #include "core/mods/dsmod_module_abi.h"
 #include "core/mods/dsmod_module_extensions.h"
 #include <cstdlib>
+#include <atomic>
+#include <chrono>
+#include <thread>
 #include <functional>
 #include <iostream>
 #include <map>
@@ -16,7 +19,7 @@ struct Memory {
   static constexpr belmont::U64 Base = 0x80000000, Heap = 0x1200000000;
   std::map<belmont::U64, std::uint8_t> data;
   std::function<void(belmont::U64)> observe;
-  unsigned reads{};
+  std::atomic<unsigned> reads{};
   void bytes(belmont::U64 at, std::initializer_list<std::uint8_t> v) {
     for (auto x : v)
       data[at++] = x;
@@ -86,9 +89,18 @@ struct Memory {
     bytes(Base + 0x3929c7c, {0x09, 0x03, 0x80, 0x52, 0x08, 0x20, 0xa9, 0x9b,
                              0x00, 0x19, 0x40, 0xf9});
     bytes(Base + 0x1c29074, {0x48, 0xc9, 0x28, 0x8b, 0x02, 0x21, 0x00, 0xb9});
-    for (const auto& [offset, second] : std::array<std::pair<belmont::U64, std::uint8_t>, 4>{{
-             {0x1d4ef20, 0x60}, {0x1d4ef30, 0x64},
-             {0x1d4ef40, 0x68}, {0x1d4efd0, 0x8c}}})
+    bytes(Base + 0x1c298a8, {0x80, 0x2a, 0x40, 0xf9, 0x20, 0x01, 0x00, 0xb4});
+    bytes(Base + 0x1c296b0,
+          {0x09, 0x1c, 0x40, 0xb9, 0x29, 0x05, 0x00, 0x11, 0x08, 0x01, 0x40,
+           0xf9, 0x09, 0x1c, 0x00, 0xb9, 0x09, 0x08, 0x40, 0xf9, 0xa9, 0x02,
+           0x00, 0xb4, 0x0a, 0x18, 0x80, 0xb9, 0x2b, 0x19, 0x40, 0xb9});
+    bytes(Base + 0x1c296e0, {0x28, 0x09, 0x0a, 0x8b, 0x13, 0x21, 0x00, 0xb9});
+    for (const auto &[offset, second] :
+         std::array<std::pair<belmont::U64, std::uint8_t>, 4>{
+             {{0x1d4ef20, 0x60},
+              {0x1d4ef30, 0x64},
+              {0x1d4ef40, 0x68},
+              {0x1d4efd0, 0x8c}}})
       bytes(Base + offset, {0x00, second, 0x40, 0x39, 0xc0, 0x03, 0x5f, 0xd6});
     root(0x6d3f780, Heap + 0x1000, "ApplicationFlowManager",
          "MotherBase.ApplicationFlowManager");
@@ -184,6 +196,15 @@ struct Memory {
     put<belmont::U64>(Heap + 0x23018, 4);
     for (unsigned i = 0; i < 4; ++i)
       put<std::int32_t>(Heap + 0x23020 + 4 * i, i);
+    put(Heap + 0x21050, Heap + 0x26000);
+    put(Heap + 0x26000, Heap + 0x27000);
+    klass(Heap + 0x27000, "List`1", "System.Collections.Generic");
+    put(Heap + 0x26010, Heap + 0x2e000);
+    put<std::int32_t>(Heap + 0x26018, 2);
+    put<std::int32_t>(Heap + 0x2601c, 5);
+    put<belmont::U64>(Heap + 0x2e018, 4);
+    put<std::int32_t>(Heap + 0x2e020, 0);
+    put<std::int32_t>(Heap + 0x2e024, 3);
     // Capacity past allocated count is not an entry, even with zero hash.
     put<std::int32_t>(Heap + 0x20038, 0);
     put<belmont::U64>(Heap + 0x20040, 3);
@@ -203,6 +224,9 @@ struct Host {
   Memory memory;
   std::map<std::string, std::int64_t> values;
   std::string reason;
+  std::map<std::string, std::string> texts;
+  std::map<std::string, double> numbers;
+  std::atomic<unsigned> romfs_reads{}, publications{};
   static EdenDsmodBool Read(void *p, std::uint64_t at, void *dst,
                             std::size_t n) {
     return static_cast<Host *>(p)->memory(at, dst, n);
@@ -217,10 +241,21 @@ struct Host {
     return true;
   }
   static void Int(void *p, const char *key, std::int64_t value) {
-    static_cast<Host *>(p)->values[key] = value;
+    auto& h = *static_cast<Host *>(p);
+    ++h.publications; h.values[key] = value;
   }
-  static void Text(void *p, const char *, const char *text) {
-    static_cast<Host *>(p)->reason = text;
+  static void Text(void *p, const char *key, const char *text) {
+    auto& h = *static_cast<Host *>(p);
+    ++h.publications; h.texts[key] = text;
+    if (std::string_view(key) == "belmont.state_reason") h.reason = text;
+  }
+  static void Number(void *p, const char *key, double value) {
+    auto& h = *static_cast<Host *>(p);
+    ++h.publications; h.numbers[key] = value;
+  }
+  static std::size_t Romfs(void *p, const char *, std::uint64_t, void *, std::size_t) {
+    ++static_cast<Host *>(p)->romfs_reads;
+    return 0; // Delayed/missing source, never a fake native asset.
   }
   EdenDsmodHostApi api() {
     EdenDsmodHostApi a{};
@@ -236,6 +271,8 @@ struct Host {
     a.read_memory = &Read;
     a.publish_i64 = &Int;
     a.publish_text = &Text;
+    a.publish_f64 = &Number;
+    a.read_romfs = &Romfs;
     return a;
   }
 };
@@ -464,6 +501,127 @@ int main() {
     {
       M m;
       m.exploration();
+      auto x = m.sample();
+      Check(x.exploration_zones_ready && x.exploration[0].entered_zones_ready &&
+                x.exploration[0].entered_zone_ids ==
+                    std::vector<std::int32_t>({0, 3}),
+            "typed native entered zone IDs kept distinct from chunk states");
+    }
+    for (bool null_items : {false, true}) {
+      M m;
+      m.exploration();
+      m.put<std::int32_t>(H + 0x26018, 0);
+      if (null_items)
+        m.put<belmont::U64>(H + 0x26010, 0);
+      auto x = m.sample();
+      Check(x.exploration_zones_ready && x.exploration[0].entered_zones_ready &&
+                x.exploration[0].entered_zone_ids.empty(),
+            "validated empty List distinct from unavailable entered zones");
+    }
+    for (unsigned malformed = 0; malformed < 12; ++malformed) {
+      M m;
+      m.exploration();
+      switch (malformed) {
+      case 0:
+        m.put<belmont::U64>(H + 0x21050, 0);
+        break;
+      case 1:
+        m.put<belmont::U64>(H + 0x21050, 3);
+        break;
+      case 2:
+        m.text(H + 0x27201, "WrongList");
+        break;
+      case 3:
+        m.text(H + 0x27301, "Wrong.Namespace");
+        break;
+      case 4:
+        m.put<std::int32_t>(H + 0x26018, -1);
+        break;
+      case 5:
+        m.put<std::int32_t>(H + 0x26018, 4097);
+        break;
+      case 6:
+        m.put<belmont::U64>(H + 0x26010, 0);
+        break;
+      case 7:
+        m.put<belmont::U64>(H + 0x2e018, 1);
+        break;
+      case 8:
+        m.put<belmont::U64>(H + 0x2e018, 8193);
+        break;
+      case 9:
+        m.put<std::int32_t>(H + 0x2e024, -1);
+        break;
+      case 10:
+        m.put<std::int32_t>(H + 0x2e024, 65536);
+        break;
+      case 11:
+        m.put<std::int32_t>(H + 0x2e024, 0);
+        break;
+      }
+      auto x = m.sample();
+      Check(x.coherent && x.exploration_ready && !x.exploration_zones_ready &&
+                !x.exploration[0].entered_zones_ready &&
+                x.exploration[0].entered_zone_ids.empty(),
+            "malformed/duplicate/null zones unavailable without coercing empty "
+            "or dropping valid cells");
+    }
+    {
+      M m;
+      m.exploration();
+      m.put<std::int32_t>(H + 0x26018, 1025);
+      m.put<belmont::U64>(H + 0x2e018, 1025);
+      for (int i = 0; i < 1025; ++i)
+        m.put<std::int32_t>(H + 0x2e020 + 4 * i, i);
+      auto x = m.sample();
+      Check(x.exploration_zones_ready &&
+                x.exploration[0].entered_zone_ids.size() == 1025 &&
+                x.exploration[0].entered_zone_ids.back() == 1024,
+            "zone IDs span more than one bounded memory read");
+    }
+    for (auto at : {H + 0x2601c, H + 0x2e020, H + 0x26010, H + 0x21050}) {
+      M m;
+      m.exploration();
+      unsigned reads = 0;
+      m.observe = [&](auto address) {
+        if (address == at && ++reads == 2)
+          m.data[at] ^= 1;
+      };
+      auto x = m.sample();
+      Check(!x.coherent && !x.exploration_zones_ready && !x.exploration_ready &&
+                x.exploration.empty(),
+            "list version/item/backing-pointer/state-pointer race clears whole "
+            "snapshot");
+    }
+    for (auto offset : {0x1c298a8, 0x1c296b0, 0x1c296e0}) {
+      M m;
+      m.exploration();
+      m.data[M::Base + offset] ^= 1;
+      auto x = m.sample();
+      Check(x.reason == "accessor_mismatch" && !x.exploration_zones_ready &&
+                x.exploration.empty(),
+            "entered-zone original accessor pins required");
+    }
+    {
+      M m;
+      m.exploration();
+      auto read = [&](auto at, auto *dst, auto n) { return m(at, dst, n); };
+      belmont::Decoder decoder(read);
+      Check(decoder.Sample(m.id()).exploration_zones_ready,
+            "reused decoder starts ready");
+      m.put<belmont::U64>(H + 0x21050, 0);
+      auto x = decoder.Sample(m.id());
+      Check(x.exploration_ready && !x.exploration_zones_ready &&
+                x.exploration[0].entered_zone_ids.empty(),
+            "unavailable list clears prior IDs");
+      m.put<std::uint8_t>(H + 0x2400, 1);
+      x = decoder.Sample(m.id());
+      Check(!x.exploration_zones_ready && x.exploration.empty(),
+            "loading clears prior zone readiness");
+    }
+    {
+      M m;
+      m.exploration();
       m.put<std::int32_t>(H + 0x21010, 41);
       m.put<std::int32_t>(H + 0x21014, 25);
       m.put(H + 0x21018, H + 0x30000);
@@ -642,27 +800,34 @@ int main() {
             "entity loss clears preceding mask");
     }
     {
-      M m; m.exploration();
+      M m;
+      m.exploration();
       const auto state = H + 0x28000, klass = H + 0x29000;
-      m.put(state, klass); m.klass(klass, "EditorParameteredGameState", "");
-      m.native(state); m.put(H + 0x9018, state);
-      for (unsigned i=0; i<14; ++i) m.put<std::uint8_t>(state+0x18+i, 0);
-      m.put<std::uint8_t>(state+0x18, 1);
-      m.put<std::uint8_t>(state+0x19, 1);
-      m.put<std::uint8_t>(state+0x23, 1);
-      auto x=m.sample();
-      Check(x.paused==1 && x.initial_identity==0 && x.exploration_ready && !x.map_ready,
-            "native paused state retains only freshly read bounded exploration");
-      m.put<std::uint8_t>(state+0x19,0);
-      x=m.sample();
-      Check(x.paused==0 && !x.exploration_ready && x.exploration.empty(),
+      m.put(state, klass);
+      m.klass(klass, "EditorParameteredGameState", "");
+      m.native(state);
+      m.put(H + 0x9018, state);
+      for (unsigned i = 0; i < 14; ++i)
+        m.put<std::uint8_t>(state + 0x18 + i, 0);
+      m.put<std::uint8_t>(state + 0x18, 1);
+      m.put<std::uint8_t>(state + 0x19, 1);
+      m.put<std::uint8_t>(state + 0x23, 1);
+      auto x = m.sample();
+      Check(
+          x.paused == 1 && x.initial_identity == 0 && x.exploration_ready &&
+              x.exploration_zones_ready && !x.map_ready,
+          "native paused state retains only freshly read bounded exploration");
+      m.put<std::uint8_t>(state + 0x19, 0);
+      x = m.sample();
+      Check(x.paused == 0 && !x.exploration_ready && x.exploration.empty(),
             "cinematic-like state clears paused exploration");
-      m.put<std::uint8_t>(state+0x19,2);
-      Check(m.sample().paused==-1, "invalid pause flags unavailable");
-      m.put<std::uint8_t>(state+0x19,1);
-      m.put<std::uint8_t>(H+0x1400,1);
-      x=m.sample();
-      Check(!x.exploration_ready && x.exploration.empty(), "loading dominates paused state");
+      m.put<std::uint8_t>(state + 0x19, 2);
+      Check(m.sample().paused == -1, "invalid pause flags unavailable");
+      m.put<std::uint8_t>(state + 0x19, 1);
+      m.put<std::uint8_t>(H + 0x1400, 1);
+      x = m.sample();
+      Check(!x.exploration_ready && x.exploration.empty(),
+            "loading dominates paused state");
     }
 #ifndef BELMONT_READER_ONLY_TEST
     {
@@ -682,20 +847,96 @@ int main() {
       Check(h.values["belmont.map_ready"] == 0 &&
                 h.values["belmont.marker_ready"] == 0,
             "unverified map never available");
+      h.values["belmont.map_ready"] = h.values["belmont.marker_ready"] = 1;
+      h.texts["belmont.map_image"] = "stale"; h.texts["belmont.map_area"] = "stale";
+      h.texts["belmont.area_name"] = "stale"; h.numbers["belmont.player_x"] = 999;
       h.memory.put<belmont::U64>(Memory::Heap + 0x50b0, 0);
       h.memory.put<std::uint8_t>(Memory::Heap + 0x1400, 1);
       module->sample(instance, &host);
       Check(h.values["belmont.entity_ready"] == 0 && h.reason == "loading",
             "new sample clears previous readiness");
+      Check(h.values["belmont.map_ready"] == 0 && h.values["belmont.marker_ready"] == 0 &&
+                h.values["belmont.ui_loading"] == 1 && h.values["belmont.ui_world"] == 0 &&
+                h.texts["belmont.map_image"].empty() && h.texts["belmont.map_area"].empty() &&
+                h.texts["belmont.area_name"].empty() && h.numbers["belmont.player_x"] == 0 &&
+                h.numbers["belmont.view_x0"] == 0,
+            "ABI loading actively clears stale texture/name/player/home fields");
       host.build_id[31] = 1;
-      const auto reads = h.memory.reads;
+      const auto reads = h.memory.reads.load();
       module->sample(instance, &host);
       Check(h.values["belmont.initial_identity"] == -1 &&
                 h.values["belmont.build_supported"] == 0 &&
                 h.memory.reads == reads,
             "changed runtime build clears state without reads");
       Check(!module->create(&host, nullptr), "create rejects changed build");
+      const auto* images = eden_dsmod_get_extensions(EDEN_DSMOD_EXT_VERSION, EDEN_DSMOD_EXT_HASH);
+      const auto* data = eden_dsmod_get_data_extensions(EDEN_DSMOD_DATA_EXT_VERSION, EDEN_DSMOD_DATA_EXT_HASH);
+      const auto* fonts = eden_dsmod_get_font_extensions(EDEN_DSMOD_FONT_EXT_VERSION, EDEN_DSMOD_FONT_EXT_HASH);
+      Check(images && data && fonts && data->load_data, "asset/font/data ABI exports negotiate");
+      Check(!eden_dsmod_get_data_extensions(EDEN_DSMOD_DATA_EXT_VERSION, 0),
+            "wrong data-extension ABI hash rejected");
+      unsigned sinks{};
+      const auto image_sink = +[](void* p, std::uint32_t, std::uint32_t, const std::uint8_t*, std::size_t) { ++*static_cast<unsigned*>(p); };
+      const auto data_sink = +[](void* p, const std::uint8_t*, std::size_t) { ++*static_cast<unsigned*>(p); };
+      const auto font_sink = +[](void* p, std::uint32_t, std::uint32_t, const EdenDsmodFontGlyph*, std::uint32_t) { ++*static_cast<unsigned*>(p); };
+      const auto romfs_before = h.romfs_reads.load();
+      const std::string descriptor = "BELMONT_FONT_V1 LatinFont 51\n";
+      Check(!images->load_image(instance, &host, "module:belmont:rose-marker", &sinks, image_sink) &&
+                !data->load_data(instance, &host, "module:belmont:areas", &sinks, data_sink) &&
+                !fonts->decode_font(instance, reinterpret_cast<const std::uint8_t*>(descriptor.data()),
+                                    descriptor.size(), &sinks, font_sink) &&
+                h.romfs_reads == romfs_before && sinks == 0 && h.memory.reads == reads,
+            "changed-build callbacks do not read guest/RomFS or invoke any sink");
       module->destroy(instance);
+    }
+#endif
+#ifndef BELMONT_READER_ONLY_TEST
+    {
+      Host h;
+      h.memory.exploration();
+      auto host = h.api();
+      const auto* module = eden_dsmod_get_module(EDEN_DSMOD_MODULE_ABI_VERSION, EDEN_DSMOD_MODULE_ABI_HASH);
+      const auto* images = eden_dsmod_get_extensions(EDEN_DSMOD_EXT_VERSION, EDEN_DSMOD_EXT_HASH);
+      const auto* data = eden_dsmod_get_data_extensions(EDEN_DSMOD_DATA_EXT_VERSION, EDEN_DSMOD_DATA_EXT_HASH);
+      void* instance = module->create(&host, nullptr);
+      Check(instance, "second exact-build instance");
+      module->sample(instance, &host);
+      Check(h.values["belmont.ui_world"] == 1 && h.values["belmont.map_ready"] == 0 &&
+                h.values["belmont.marker_ready"] == 0 && h.values["belmont.native_assets_ready"] == 0 &&
+                h.texts["belmont.map_image"].empty() && h.texts["belmont.area_name"].empty(),
+            "coherent synthetic world alone cannot promote unknown room or absent native renderer/assets");
+      unsigned sinks{};
+      const auto image_sink = +[](void* p, std::uint32_t, std::uint32_t, const std::uint8_t*, std::size_t) { ++*static_cast<unsigned*>(p); };
+      const auto data_sink = +[](void* p, const std::uint8_t*, std::size_t) { ++*static_cast<unsigned*>(p); };
+      const auto guest_before = h.memory.reads.load(), romfs_before = h.romfs_reads.load();
+      Check(!images->load_image(instance, &host, "module:belmont:map:0", &sinks, image_sink) &&
+                !images->load_image(instance, &host, "module:belmont:map:999999", &sinks, image_sink) &&
+                !data->load_data(instance, &host, "module:belmont:unknown", &sinks, data_sink) &&
+                sinks == 0 && h.memory.reads == guest_before && h.romfs_reads == romfs_before,
+            "unknown/unready map generations and unknown data keys fail before any I/O/sink");
+      Check(!data->load_data(instance, &host, "module:belmont:areas", &sinks, data_sink) &&
+                h.romfs_reads > romfs_before && h.memory.reads == guest_before && sinks == 0,
+            "once-only area loader reads native RomFS only and declines missing sources without fake bounds");
+      const auto reads_before_worker = h.memory.reads.load();
+      const auto publications_before_worker = h.publications.load();
+      const auto romfs_before_worker = h.romfs_reads.load();
+      EdenDsmodHostExtensions extensions{};
+      extensions.version = EDEN_DSMOD_EXT_VERSION;
+      extensions.struct_size = sizeof(extensions);
+      extensions.abi_hash = EDEN_DSMOD_EXT_HASH;
+      images->configure(instance, &extensions);
+      const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+      while (h.romfs_reads == romfs_before_worker && std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+      Check(h.romfs_reads > romfs_before_worker && h.memory.reads == reads_before_worker &&
+                h.publications == publications_before_worker,
+            "configured background preparation uses RomFS, never guest-memory reads or host publication");
+      h.memory.put<std::uint8_t>(Memory::Heap + 0x1400, 1);
+      module->sample(instance, &host);
+      Check(h.values["belmont.ui_world"] == 0 && h.values["belmont.ui_loading"] == 1 &&
+                h.values["belmont.map_ready"] == 0 && h.texts["belmont.map_image"].empty(),
+            "loading invalidates queued/preparing candidate while worker is active");
+      module->destroy(instance); // joins preparation and idle map worker before userdata dies
     }
 #endif
     std::cout << "Belmont synthetic state tests passed\n";
