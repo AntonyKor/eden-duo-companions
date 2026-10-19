@@ -16,11 +16,11 @@
     "libraries": {
       "linux-x86_64": {
         "path": "modules/linux-x86_64/0100BA4026E94000.so",
-        "sha256": "6dbfef095e494f2d028224c2af84860b4c18d6573a9b2dcf81827187b00e9882"
+        "sha256": "e9b7eff3670d47998477a7a9d7c3ca2eb85688e226ee0f45b0b5754776ab6c44"
       },
       "android-arm64-v8a": {
         "path": "modules/android-arm64-v8a/0100BA4026E94000.so",
-        "sha256": "f411c67764cf0b9483385055d1e70239891b54222156016df0eb3ea6dbc49b3a"
+        "sha256": "425ebd5d3c191aae64dbf277436ab52be566bfe32684f12f5d94e9ccdda41d5b"
       }
     }
   },
@@ -424,7 +424,8 @@
           "wrap_width": 1120,
           "max_lines": 1,
           "need_bind": "ui.hint",
-          "hide_bind": "ui.custom"
+          "hide_bind": "ui.custom",
+          "hide_eq": 1
         },
         {
           "type": "label",
@@ -441,7 +442,8 @@
           "wrap_width": 1120,
           "max_lines": 1,
           "need_bind": "ui.menu_follow",
-          "hide_bind": "ui.custom"
+          "hide_bind": "ui.custom",
+          "hide_eq": 1
         },
         {
           "type": "label",
@@ -548,8 +550,8 @@
       ]
     }
   ],
-  "_status": "UNRELEASED internal engineering candidate. FirstRoom live desktop map, exploration, native font/marker, pan, Return to Rose and native menu verified. Both platform modules linked and stripped; Android/NCE and physical Thor verification pending. Native source assets decoded at runtime only.",
-  "_map_contract": "Belmont native module must supply recognized areas/image/player/world-home bindings and native-only rose-marker alias. map_ready and marker_ready remain0 until proven.",
+  "_status": "UNRELEASED internal candidate. Native source rendering checks pass for nine biomes; ten metadata sources. Actual desktop progression covers opening StreetsPoor and Sewers. Ending null skyline, secret overlays, full-game live coverage, physical Thor and Android/NCE execution remain pending.",
+  "_map_contract": "Module publishes current coherent source area/image/player/home only after native geometry, fog, image, area metadata, English label, font and Rose glyph join succeeds. Unsupported/loading data actively clears readiness.",
   "_font_contract": "Authored request descriptor +native51coverage. Host wantedcap is5*text_scale; scales10/6/5 =>50/30/25wantedcap.",
   "_reset_contract": "Host-only localview reset while map invalid and customview exists. Root must invalidate map across session/area changes and ensure return-home transition before exposing new context."
 }

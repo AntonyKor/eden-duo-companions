@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2026 Eden DSMod fork
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "belmont_map_tiles.h"
+#include "belmont_map_refs.h"
 #include <cmath>
 #include <cstring>
 #include <set>
@@ -10,32 +11,8 @@ namespace belmont_map_tiles {
 namespace {
 using V = ce_unity::Value;
 constexpr std::string_view Root = "Data/StreamingAssets/aa/Switch/";
-constexpr std::string_view MapBundle =
-    "maps_scenes_01_streets_poor_map_1_d8baa1dae0a4b34f7e696a7a9212e535.bundle";
-constexpr std::string_view MapCab = "CAB-88d9fd29421b7f4c3de59deff8f49986";
-constexpr std::string_view ArtBundle =
-    "art-01_streetspoor_assets_all_e33a704a7ea92e47f2c375f443aacbf1.bundle";
 constexpr std::string_view MenuBundle =
     "ui-gamemenus_assets_all_866519f7d6a7057a8ba1c459a5b3f694.bundle";
-struct Recipe {
-  std::string_view bundle, cab, name;
-  std::int64_t id;
-};
-std::optional<Recipe> RecipeFor(Source source) {
-  switch (source) {
-  case Source::Geometry:
-    return Recipe{ArtBundle, "CAB-e585dad378d0230776da9c16b58103cc",
-                  "LevelMap_01_Streets_Poor_img", -5583816239183366218LL};
-  case Source::SecretGeometry:
-    return Recipe{ArtBundle, "CAB-e585dad378d0230776da9c16b58103cc",
-                  "LevelMap_01_Streets_Poor_img_secret",
-                  -7269222058237514142LL};
-  case Source::Background:
-    return Recipe{MenuBundle, "CAB-27e7a4fd03161a1208808cab8fc89755",
-                  "T_UI_01_BiomeShape_StreetPoor", -164429785721050144LL};
-  }
-  return {};
-}
 bool N(const V *v, std::int64_t &n) {
   if (!v)
     return false;
@@ -86,6 +63,98 @@ File(ce_unity::Reader &r, std::string_view bundle, std::string_view cab) {
   return sf && sf->Version() == 22 && sf->Platform() == 38 && sf->HasTypeTrees()
              ? sf
              : nullptr;
+}
+// Only installed native dependency identities; no inferred array names or IDs.
+constexpr std::array<std::string_view, 10> ArtBundles{
+    {"art-01_streetspoor_assets_all_e33a704a7ea92e47f2c375f443aacbf1.bundle",
+     "art-02_innocentscemetery_assets_all_4079643cdddc4c9a086ca60fb2c05fa0."
+     "bundle",
+     "art-03_catacombs_assets_all_c055e263f91c9094b04a632b5581848d.bundle",
+     "art-05_notredame_assets_all_32ef2b2c715639c5d7e41d803bcb27d1.bundle",
+     "art-06_mainhall_assets_all_b8a50ac1737b72382cb0ac62e70bd487.bundle",
+     "art-08_library_assets_all_a76b87cc6d1ea3d322f22efc30e0245d.bundle",
+     "art-09_clocktower_assets_all_d6bb5abd4c1941cd19cf0e43295e974a.bundle",
+     "art-10_hallofmirrors_assets_all_2ee69f349e25b9ac35c3a3220e8b9130.bundle",
+     "art-11_masterquarter_assets_all_52b72c61e319c95a97603f4c975125ff.bundle",
+     ""}};
+constexpr std::array<std::string_view, 10> ArtCabs{
+    {"CAB-e585dad378d0230776da9c16b58103cc",
+     "CAB-a2964dab7352d20d560ebb88fa823c3a",
+     "CAB-daae0586bd0d2d5ae09d1d9142076414",
+     "CAB-7b44652be8988a7189e252082732a3f3",
+     "CAB-d2e8ad82bfa2022648eb4efc5f314cc9",
+     "CAB-442691fc6ae3450fb7e07f6a45586a2a",
+     "CAB-cedc5d44adf5513b3e2b7afb06f701b7",
+     "CAB-8825ee8ad822982561eaec2356473356",
+     "CAB-7c1f4a56ec8ae9d92724aaeb1de8a20d", ""}};
+std::optional<ResolvedRef>
+Resolve(ce_unity::Reader &reader,
+        const belmont_map_sources::SourceRecipe &recipe,
+        const ResolvedRef &owner, const V *ptr) {
+  std::int64_t file{}, id{};
+  if (!ptr || !N(ptr->Get("m_FileID"), file) || file < 0 || file > 4096 ||
+      !N(ptr->Get("m_PathID"), id) || !id)
+    return {};
+  if (!file)
+    return ResolvedRef{owner.bundle, owner.cab, id};
+  auto bundle = reader.OpenBundle(owner.bundle);
+  const auto *node = bundle ? bundle->FindNode(owner.cab) : nullptr;
+  auto cabs = node ? belmont_map_refs::ExternalCabs(bundle->NodeSource(*node))
+                   : std::nullopt;
+  if (!cabs || std::uint64_t(file) > cabs->size())
+    return {};
+  const auto &cab = (*cabs)[file - 1];
+  if (cab.size() != 36 || !cab.starts_with("CAB-"))
+    return {};
+  const auto ix = static_cast<std::size_t>(recipe.id);
+  if (ix >= ArtBundles.size())
+    return {};
+  // Native member/CAB identities resolve layout refs without optional art IO.
+  if (cab == owner.cab)
+    return ResolvedRef{owner.bundle, cab, id};
+  if (cab == recipe.map_cab)
+    return ResolvedRef{std::string(recipe.map_bundle), cab, id};
+  if (cab == "CAB-27e7a4fd03161a1208808cab8fc89755")
+    return ResolvedRef{std::string(MenuBundle), cab, id};
+  if (cab == ArtCabs[ix] && !ArtBundles[ix].empty())
+    return ResolvedRef{std::string(ArtBundles[ix]), cab, id};
+  for (auto candidate : {std::string_view(owner.bundle), recipe.map_bundle,
+                         ArtBundles[ix], MenuBundle}) {
+    if (candidate.empty())
+      continue;
+    auto dep = reader.OpenBundle(candidate);
+    if (dep && dep->engine_version == "2022.3.62f2" && dep->FindNode(cab))
+      return ResolvedRef{std::string(candidate), cab, id};
+  }
+  return {};
+}
+std::optional<V> ResolvedObject(ce_unity::Reader &r, const ResolvedRef &ref,
+                                int cls) {
+  return Object(File(r, ref.bundle, ref.cab), ref.id, cls);
+}
+std::optional<ResolvedRef>
+MaterialTexture(ce_unity::Reader &reader,
+                const belmont_map_sources::SourceRecipe &recipe,
+                const ResolvedRef &material, std::string_view key) {
+  auto m = ResolvedObject(reader, material, 21);
+  const auto *saved = m ? m->Get("m_SavedProperties") : nullptr;
+  const auto *env = saved ? saved->Get("m_TexEnvs") : nullptr;
+  if (!env || env->kind != V::Kind::Array || env->items.size() > 128)
+    return {};
+  std::optional<ResolvedRef> result;
+  bool found = false;
+  for (const auto &entry : env->items) {
+    const auto *name = entry.Get("first"), *value = entry.Get("second");
+    if (!name || name->kind != V::Kind::String || !value)
+      return {};
+    if (name->s == key) {
+      if (found)
+        return {};
+      found = true;
+      result = Resolve(reader, recipe, material, value->Get("m_Texture"));
+    }
+  }
+  return result; // Native null background (Ending) stays unavailable.
 }
 std::uint32_t U32(const unsigned char *p) {
   return std::uint32_t(p[0]) | std::uint32_t(p[1]) << 8 |
@@ -235,18 +304,92 @@ Reader::Reader(ce_unity::RangeReader romfs, ce_unity::AstcDecoder decode)
 }
 Reader::Reader(const EdenDsmodHostApi *host, ce_unity::AstcDecoder decode)
     : Reader(ce_unity::MakeHostRangeReader(host), std::move(decode)) {}
+std::optional<ResolvedRef>
+Reader::ResolveMaterial(const belmont_map_sources::SourceRecipe &recipe,
+                        Source source) {
+  std::lock_guard lock(mutex);
+  if (!belmont_map_sources::Canonical(recipe))
+    return {};
+  try {
+    auto tiles = LoadLayout(recipe);
+    if (!tiles || tiles->empty())
+      return {};
+    if (source == Source::Geometry || source == Source::Background) {
+      const auto &m = tiles->front().material;
+      for (const auto &t : *tiles)
+        if (t.material != m)
+          return {};
+      return m;
+    }
+    if (source != Source::SecretGeometry)
+      return {};
+    auto sf = File(unity, recipe.map_bundle, recipe.map_cab);
+    auto context = Object(sf, recipe.map_context_id, 114);
+    std::int64_t settings{};
+    if (!context || !Ref(context->Get("settings"), settings))
+      return {};
+    auto value = Object(sf, settings, 114);
+    return value ? Resolve(unity, recipe,
+                           ResolvedRef{std::string(recipe.map_bundle),
+                                       std::string(recipe.map_cab), settings},
+                           value->Get("concealedSecretZoneMapMaterial"))
+                 : std::nullopt;
+  } catch (...) {
+    return {};
+  }
+}
+std::optional<V> Reader::ReadMaterial(const ResolvedRef &material) {
+  std::lock_guard lock(mutex);
+  try {
+    return ResolvedObject(unity, material, 21);
+  } catch (...) {
+    return {};
+  }
+}
+std::optional<ResolvedRef>
+Reader::ResolveMaterialTexture(const belmont_map_sources::SourceRecipe &recipe,
+                               const ResolvedRef &material,
+                               std::string_view property) {
+  std::lock_guard lock(mutex);
+  if (!belmont_map_sources::Canonical(recipe) || property.empty() ||
+      property.size() > 128)
+    return {};
+  try {
+    return MaterialTexture(unity, recipe, material, property);
+  } catch (...) {
+    return {};
+  }
+}
 void Reader::ClearCache() {
   std::lock_guard lock(mutex);
   layout.reset();
+  layout_source.reset();
   unity.ClearCache();
 }
 std::optional<std::vector<Tile>> Reader::LoadStreetsPoorLayout() {
+  return LoadLayout(belmont_map_sources::StreetsPoor());
+}
+std::optional<std::vector<Tile>>
+Reader::LoadLayout(const belmont_map_sources::SourceRecipe &recipe) {
   std::lock_guard lock(mutex);
   try {
-    if (layout)
+    if (!belmont_map_sources::Canonical(recipe))
+      return {};
+    if (layout && layout_source && *layout_source == recipe)
       return layout;
-    auto sf = File(unity, MapBundle, MapCab);
-    auto renderer = Object(sf, 5634, 114);
+    layout.reset();
+    layout_source.reset();
+    auto sf = File(unity, recipe.map_bundle, recipe.map_cab);
+    auto context = Object(sf, recipe.map_context_id, 114);
+    std::int64_t renderer_id{}, script_id{};
+    if (!context ||
+        !N(context->Get("m_Script") ? context->Get("m_Script")->Get("m_PathID")
+                                    : nullptr,
+           script_id) ||
+        script_id != 6647830585995460756LL ||
+        !Ref(context->Get("levelMapRenderer"), renderer_id))
+      return {};
+    auto renderer = Object(sf, renderer_id, 114);
     const auto *refs = renderer ? renderer->Get("tileRenderers") : nullptr;
     if (!refs || refs->kind != V::Kind::Array || refs->items.empty() ||
         refs->items.size() > 128)
@@ -255,18 +398,35 @@ std::optional<std::vector<Tile>> Reader::LoadStreetsPoorLayout() {
     std::set<std::uint32_t> layers;
     for (const auto &ref : refs->items) {
       Tile tile;
-      std::int64_t filter{}, go{}, filter_go{};
+      std::int64_t filter{}, go{}, filter_go{}, mesh_renderer{};
       if (!Ref(&ref, tile.renderer_id) || !tile.renderer_id)
         return {};
       auto tr = Object(sf, tile.renderer_id, 114);
       const auto *b = tr ? tr->Get("bounds") : nullptr;
       if (!tr || !Ref(tr->Get("tileMeshFilter"), filter) ||
-          !Ref(tr->Get("m_GameObject"), go) || !b ||
+          !Ref(tr->Get("m_GameObject"), go) ||
+          !Ref(tr->Get("tileRenderer"), mesh_renderer) || !b ||
           !F(b->Get("x"), tile.bounds.x) || !F(b->Get("y"), tile.bounds.y) ||
           !F(b->Get("width"), tile.bounds.width) ||
           !F(b->Get("height"), tile.bounds.height) || tile.bounds.width <= 0 ||
           tile.bounds.height <= 0)
         return {};
+      auto mr = Object(sf, mesh_renderer, 23);
+      const auto *materials = mr ? mr->Get("m_Materials") : nullptr;
+      if (!materials || materials->kind != V::Kind::Array ||
+          materials->items.size() != 1)
+        return {};
+      auto material =
+          Resolve(unity, recipe,
+                  ResolvedRef{std::string(recipe.map_bundle),
+                              std::string(recipe.map_cab), mesh_renderer},
+                  &materials->items[0]);
+      // A missing dependency does not hide authored layout metadata. Keep
+      // CAB/PPtr identity from the native table even if its member is not
+      // installed/cached.
+      if (!material)
+        return {};
+      tile.material = *material;
       auto mf = Object(sf, filter, 33);
       if (!mf || !Ref(mf->Get("m_GameObject"), filter_go) ||
           !Ref(mf->Get("m_Mesh"), tile.mesh_id))
@@ -278,6 +438,7 @@ std::optional<std::vector<Tile>> Reader::LoadStreetsPoorLayout() {
       decoded.push_back(std::move(tile));
     }
     layout = decoded;
+    layout_source = *belmont_map_sources::Canonical(recipe);
     return decoded;
   } catch (...) {
     return {};
@@ -285,9 +446,31 @@ std::optional<std::vector<Tile>> Reader::LoadStreetsPoorLayout() {
 }
 std::optional<Layer> Reader::LoadStreetsPoorLayer(Source source,
                                                   std::uint32_t index) {
+  return LoadLayer(belmont_map_sources::StreetsPoor(), source, index);
+}
+std::optional<Layer>
+Reader::LoadLayer(const belmont_map_sources::SourceRecipe &source_recipe,
+                  Source source, std::uint32_t index) {
   std::lock_guard lock(mutex);
   try {
-    auto recipe = RecipeFor(source);
+    auto material = ResolveMaterial(source_recipe, source);
+    if (!material)
+      return {};
+    std::string_view property;
+    switch (source) {
+    case Source::Geometry:
+      property = "_MainTexArray";
+      break;
+    case Source::SecretGeometry:
+      property = "_MainTexArray";
+      break;
+    case Source::Background:
+      property = "_BackgroundTexArray";
+      break;
+    default:
+      return {};
+    }
+    auto recipe = MaterialTexture(unity, source_recipe, *material, property);
     if (!recipe)
       return {};
     auto sf = File(unity, recipe->bundle, recipe->cab);
@@ -295,10 +478,9 @@ std::optional<Layer> Reader::LoadStreetsPoorLayer(Source source,
     const auto *name = t ? t->Get("m_Name") : nullptr;
     std::int64_t w{}, h{}, d{}, mips{}, fmt{}, size{}, off{}, stream_size{};
     if (!t || !name || name->kind != V::Kind::String ||
-        name->s != recipe->name || !N(t->Get("m_Width"), w) ||
-        !N(t->Get("m_Height"), h) || w <= 0 || h <= 0 || w > 2048 || h > 2048 ||
-        !N(t->Get("m_Depth"), d) || d <= 0 || d > 128 || index >= d ||
-        !N(t->Get("m_MipCount"), mips) || mips != 1 ||
+        !N(t->Get("m_Width"), w) || !N(t->Get("m_Height"), h) || w <= 0 ||
+        h <= 0 || w > 2048 || h > 2048 || !N(t->Get("m_Depth"), d) || d <= 0 ||
+        d > 128 || index >= d || !N(t->Get("m_MipCount"), mips) || mips != 1 ||
         !N(t->Get("m_Format"), fmt) || !N(t->Get("m_DataSize"), size) ||
         size <= 0 || std::uint64_t(size) > ce_unity::MaxAlloc)
       return {};
@@ -307,6 +489,9 @@ std::optional<Layer> Reader::LoadStreetsPoorLayer(Source source,
     if (fmt == 4 || fmt == 8) {
       layer_bytes = std::uint64_t(w) * h * 4;
       texture_format = 4;
+    } else if (fmt == 100 || fmt == 101) {
+      layer_bytes = std::uint64_t((w + 3) / 4) * ((h + 3) / 4) * 16;
+      texture_format = 12; // Native RGBA_DXT5_UNorm, linear RGB.
     } else if (fmt == 139) {
       if (!astc)
         return {};
@@ -340,7 +525,8 @@ std::optional<Layer> Reader::LoadStreetsPoorLayer(Source source,
     if (!image)
       return {};
     return Layer{std::move(*image), static_cast<std::int32_t>(fmt),
-                 static_cast<std::uint32_t>(d), index, fmt == 4 || fmt == 139};
+                 static_cast<std::uint32_t>(d), index,
+                 fmt == 4 || fmt == 100 || fmt == 139};
   } catch (...) {
     return {};
   }

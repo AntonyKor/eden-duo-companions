@@ -17,7 +17,8 @@ common=(-std=c++20 -O2 -Wall -Wextra -Werror -pthread "${includes[@]}" "${prefix
   "$sdk_root/externals/bc_decoder/bc_decoder.cpp" -o "$output_dir/belmont-bc.o"
 sources=("$source_dir/0100BA4026E94000.cpp" "$source_dir/belmont_assets.cpp" \
   "$source_dir/belmont_map_assets.cpp" "$source_dir/belmont_map_tiles.cpp" \
-  "$source_dir/belmont_map_fog.cpp" "$source_dir/belmont_map_render.cpp" "$source_dir/belmont_map_labels.cpp" "$source_dir/chained_echoes_unity.cpp")
+  "$source_dir/belmont_map_fog.cpp" "$source_dir/belmont_map_render.cpp" "$source_dir/belmont_world_map.cpp" \
+  "$source_dir/belmont_map_labels.cpp" "$source_dir/chained_echoes_unity.cpp")
 objects=("$output_dir/belmont-bc.o")
 for source in "${sources[@]}"; do
   object="$output_dir/$(basename -- "${source%.cpp}").o"

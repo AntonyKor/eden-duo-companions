@@ -6,7 +6,7 @@
 #include "belmont_map_assets.h"
 #include "belmont_map_fog.h"
 #include "belmont_map_labels.h"
-#include "belmont_map_render.h"
+#include "belmont_world_map.h"
 #include "core/mods/modules/dsmod_module_sdk.h"
 #include <atomic>
 #include <chrono>
@@ -21,9 +21,9 @@
 #include <thread>
 
 namespace {
-constexpr std::string_view FirstRoom =
-    "World_Biome_01_Streets_Poor_StreetsPoor_FirstRoom_uid73";
-constexpr std::string_view Area = "belmont_first_room";
+std::string AreaKey(const belmont_map_sources::SourceRecipe& recipe) {
+    return recipe.id == belmont_map_sources::Id::StreetsPoor ? "belmont_streetspoor" : std::string(recipe.world_name);
+}
 constexpr std::string_view MapPrefix = "module:belmont:map:";
 bool Valid(const EdenDsmodHostApi* h) {
     return dsmod_sdk::HostAbiMatches(h) && h->is_mapped && h->read_memory &&
@@ -54,7 +54,6 @@ bool World(const belmont::Snapshot& s) {
 }
 bool SameRoom(const belmont::ExplorationRoom& a, const belmont::ExplorationRoom& b) {
     return a.room_id == b.room_id && a.width == b.width && a.height == b.height &&
-           a.pending_validation == b.pending_validation && a.cells == b.cells &&
            a.entered_zones_ready == b.entered_zones_ready &&
            a.entered_zone_ids == b.entered_zone_ids;
 }
@@ -80,7 +79,7 @@ struct Fingerprint {
 bool Finite(const belmont_map_fog::Rect& r) {
     return std::isfinite(r.x) && std::isfinite(r.y) && std::isfinite(r.width) &&
            std::isfinite(r.height) && r.width > 0 && r.height > 0 &&
-           r.width <= 512 && r.height <= 512;
+           r.width <= 4096 && r.height <= 4096;
 }
 bool Contains(const belmont_map_fog::Rect& r, float x, float y) {
     return std::isfinite(x) && std::isfinite(y) && x >= r.x && y >= r.y &&
@@ -89,23 +88,21 @@ bool Contains(const belmont_map_fog::Rect& r, float x, float y) {
 struct Work {
     std::uint64_t generation{};
     Fingerprint fingerprint;
-    belmont_map_render::Request request;
+    belmont_world_map::Request request;
     Work(std::uint64_t g, const belmont::Snapshot& s) : generation(g), fingerprint(s) {
         request.current_room_id = s.room_id;
         request.player_x = s.target_position[0];
         request.player_y = s.target_position[1];
-        request.width = request.height = 768;
         for (const auto& room : s.exploration)
-            if (room.room_id == s.room_id)
-                request.explored_rooms.push_back({room.room_id, room.entered_zone_ids});
+            request.explored_rooms.push_back({room.room_id, room.entered_zone_ids});
     }
 };
 struct Rendered {
     std::uint64_t generation{};
-    belmont_map_render::Frame frame;
+    std::shared_ptr<const belmont_world_map::Frame> frame;
     belmont_map_fog::Rect navigation_bounds;
     bool navigation_proven{};
-    std::string area_name;
+    std::string area_name, area_key;
 };
 struct Module {
     // Copied table is used only for read_romfs on workers. userdata is kept alive
@@ -118,7 +115,8 @@ struct Module {
     std::optional<Fingerprint> requested;
     std::optional<Work> pending;
     std::shared_ptr<const Rendered> completed;
-    std::optional<belmont_map_fog::Rect> tile_bounds;
+    std::map<belmont_map_sources::Id, belmont_map_fog::Rect> tile_bounds;
+    bool areas_initialized{};
     std::string areas_json, current_key;
     std::uint64_t generation{};
     bool in_flight{}, exposed{};
@@ -135,32 +133,42 @@ struct Module {
         if (requested || pending || completed || !current_key.empty()) ++generation;
         requested.reset(); pending.reset(); completed.reset(); current_key.clear(); exposed = false;
     }
-    std::optional<belmont_map_fog::Rect> Bounds() {
-        // Data extension may load this synchronously because areas_src is fetched
-        // once. Sampling never takes this lock or performs these RomFS reads.
+    std::optional<belmont_map_fog::Rect> Bounds(const belmont_map_sources::SourceRecipe& recipe) {
+        // areas_src is fetched once. Prepare geometric metadata for every native
+        // source here; sampling never locks or performs ROMFS I/O. Optional
+        // unavailable worlds cannot supply invented bounds or block StreetsPoor.
         std::lock_guard lock{layout_mutex};
-        if (tile_bounds) return tile_bounds;
-        if (!allowed.load() || !io_host.read_romfs) return {};
-        belmont_map_tiles::Reader source(&io_host);
-        const auto tiles = source.LoadStreetsPoorLayout();
-        if (!tiles) return {};
-        const auto tile = std::find_if(tiles->begin(), tiles->end(),
-                                      [](const auto& t) { return t.layer == 16; });
-        if (tile == tiles->end()) return {};
-        const auto b = tile->bounds;
-        belmont_map_fog::Rect r{b.x, b.y, b.width, b.height};
-        if (!Finite(r)) return {};
-        std::ostringstream out;
-        out.imbue(std::locale::classic());
-        out << std::setprecision(std::numeric_limits<float>::max_digits10)
-            << "{\"" << Area << "\":{\"image\":\"module:belmont:map:0\",\"min\":["
-            << r.x << ',' << r.y << "],\"max\":[" << r.x + r.width << ',' << r.y + r.height
-            << "],\"clamp_view\":true,\"no_pin\":false}}";
-        areas_json = out.str(); tile_bounds = r;
-        return r;
+        if (!allowed.load() || !io_host.read_romfs || !belmont_map_sources::Canonical(recipe)) return {};
+        if (!areas_initialized) {
+            belmont_world_map::Renderer source(&io_host);
+            std::map<belmont_map_sources::Id, belmont_map_fog::Rect> found;
+            for (const auto& candidate : belmont_map_sources::Recipes) {
+                const auto bounds = source.Bounds(candidate);
+                if (bounds && Finite(*bounds)) found.emplace(candidate.id, *bounds);
+            }
+            if (!found.contains(belmont_map_sources::Id::StreetsPoor)) return {};
+            std::ostringstream out;
+            out.imbue(std::locale::classic());
+            out << std::setprecision(std::numeric_limits<float>::max_digits10) << '{';
+            bool first = true;
+            for (const auto& candidate : belmont_map_sources::Recipes) {
+                const auto it = found.find(candidate.id);
+                if (it == found.end()) continue;
+                if (!first) out << ',';
+                first = false;
+                const auto& r = it->second;
+                out << '\"' << AreaKey(candidate) << "\":{\"image\":\"module:belmont:map:0\",\"min\":["
+                    << r.x << ',' << r.y << "],\"max\":[" << r.x + r.width << ',' << r.y + r.height
+                    << "],\"clamp_view\":true,\"no_pin\":false}";
+            }
+            out << '}';
+            areas_json = out.str(); tile_bounds = std::move(found); areas_initialized = true;
+        }
+        const auto it = tile_bounds.find(recipe.id);
+        return it == tile_bounds.end() ? std::nullopt : std::optional(it->second);
     }
     void Queue(const belmont::Snapshot& s) {
-        const bool eligible = World(s) && s.room_id == FirstRoom &&
+        const bool eligible = World(s) && belmont_map_sources::FindSourceForRoom(s.room_id) &&
             std::any_of(s.exploration.begin(), s.exploration.end(), [&](const auto& r) {
                 return r.room_id == s.room_id && r.entered_zones_ready && !r.entered_zone_ids.empty();
             });
@@ -176,7 +184,7 @@ struct Module {
         }
     }
     void Run(ce_unity::AstcDecoder astc) {
-        belmont_map_render::Renderer renderer(&io_host, astc);
+        belmont_world_map::Renderer renderer(&io_host, astc);
         belmont_map_assets::Reader registry(&io_host);
         belmont_map_fog::Reader fog(&io_host);
         belmont_map_labels::Reader labels(&io_host);
@@ -190,9 +198,10 @@ struct Module {
             }
             std::shared_ptr<Rendered> result;
             try {
-                const auto bounds = Bounds();
-                const auto world = registry.LoadStreetsPoor();
-                const auto native_fog = fog.LoadStreetsPoor();
+                const auto* recipe = belmont_map_sources::FindSourceForRoom(job->request.current_room_id);
+                const auto bounds = recipe ? Bounds(*recipe) : std::nullopt;
+                const auto world = recipe ? registry.LoadWorld(*recipe) : std::nullopt;
+                const auto native_fog = recipe ? fog.Load(*recipe) : std::nullopt;
                 if (bounds && world && native_fog && allowed.load()) {
                     const auto room = std::find_if(world->rooms.begin(), world->rooms.end(),
                         [&](const auto& r) { return r.id == job->request.current_room_id; });
@@ -200,11 +209,11 @@ struct Module {
                         [&](const auto& r) { return r.id == job->request.current_room_id; });
                     if (room != world->rooms.end() && zones != native_fog->rooms.end() &&
                         !zones->zones.empty()) {
-                        // Scoped companion Follow navigation, not the top-map cursor.
-                        // Pinned native current-player initializer and FirstRoom
-                        // district membership are independently source-proven.
-                        // Native room origin/size and all zone nav IDs are decoded;
-                        // no polygon, physical coordinates or nav ID is authored.
+                        // Companion Follow uses the current source room's unique
+                        // navigation, independently of the top-map cursor. The
+                        // world renderer also validates selected native navigation.
+                        // Room bounds, zone/navigation IDs and the atlas extent
+                        // are decoded; no physical coordinates are authored.
                         const auto nav = zones->zones.front().navigation_zone_id;
                         const bool same_nav = nav > 0 && std::all_of(zones->zones.begin(),
                             zones->zones.end(), [&](const auto& z) { return z.navigation_zone_id == nav; });
@@ -219,20 +228,28 @@ struct Module {
                                     if (z.navigation_zone_id > 0 && z.navigation_zone_id != nav)
                                         culled.insert(z.navigation_zone_id);
                             job->request.culled_navigation_zone_ids.assign(culled.begin(), culled.end());
-                            job->request.world_bounds = *bounds;
-                            auto frame = renderer.Render(job->request);
-                            if (frame && frame->image.width == 768 && frame->image.height == 768 &&
-                                frame->image.rgba.size() == 768u * 768u * 4u &&
+                            // Exploration persists across worlds. This renderer
+                            // receives only rooms from its source-native registry.
+                            std::erase_if(job->request.explored_rooms, [&](const auto& explored) {
+                                return std::none_of(world->rooms.begin(), world->rooms.end(),
+                                    [&](const auto& source) { return source.id == explored.room_id; });
+                            });
+                            auto frame = renderer.Render(*recipe, job->request);
+                            if (frame && frame->source_id == recipe->id && frame->image.width > 0 && frame->image.width <= 4096 &&
+                                frame->image.height > 0 && frame->image.height <= 4096 &&
+                                frame->image.rgba.size() == std::size_t(frame->image.width) *
+                                    frame->image.height * 4 && frame->image.rgba.size() <= 16u * 1024u * 1024u &&
                                 Finite(frame->world_bounds) && frame->world_bounds.x == bounds->x &&
                                 frame->world_bounds.y == bounds->y && frame->world_bounds.width == bounds->width &&
                                 frame->world_bounds.height == bounds->height) {
                                 result = std::make_shared<Rendered>();
                                 result->generation = job->generation;
-                                result->frame = std::move(*frame);
+                                result->frame = std::move(frame);
                                 result->navigation_bounds = physical;
                                 result->navigation_proven = true;
+                                result->area_key = AreaKey(*recipe);
                                 // Explicit English fixture only; no locale autodetection claim.
-                                if (const auto name = labels.LoadFirstRoomAreaEnglish()) result->area_name = *name;
+                                if (const auto name = labels.LoadAreaEnglish(job->request.current_room_id)) result->area_name = *name;
                             }
                         }
                     }
@@ -292,9 +309,9 @@ void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = 
         rendered = m->completed;
         ready = native && world && h.publish_f64 && m->requested &&
             m->requested->Matches(s) && rendered && rendered->generation == m->generation &&
-            rendered->navigation_proven && m->areas_served.load() && m->marker_native_ready.load() &&
+            rendered->navigation_proven && !rendered->area_name.empty() && !rendered->area_key.empty() && m->areas_served.load() && m->marker_native_ready.load() &&
             Contains(rendered->navigation_bounds, s.target_position[0], s.target_position[1]) &&
-            Contains(rendered->frame.world_bounds, s.target_position[0], s.target_position[1]);
+            Contains(rendered->frame->world_bounds, s.target_position[0], s.target_position[1]);
         m->exposed = ready;
         if (ready) key = m->current_key;
     }
@@ -305,9 +322,9 @@ void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = 
     i("__font_epoch", native ? 1 : 0);
     i("belmont.diag.render_candidate_ready", bool(rendered));
     i("belmont.diag.navigation_proven", rendered && rendered->navigation_proven);
-    i("belmont.diag.render_decorative_approximation", rendered && rendered->frame.decorative_approximation);
+    i("belmont.diag.render_decorative_approximation", rendered && rendered->frame->decorative_approximation);
     i("belmont.diag.locale_fixture_only", 1);
-    t("belmont.map_area", ready ? Area.data() : ""); t("belmont.map_image", ready ? key.c_str() : "");
+    t("belmont.map_area", ready ? rendered->area_key.c_str() : ""); t("belmont.map_image", ready ? key.c_str() : "");
     t("belmont.area_name", ready ? rendered->area_name.c_str() : ""); t("belmont.selected_place", "");
     // Home width is a layout scale, not authored geometry. Source world bounds
     // and visibility remain native; host pan/zoom owns the independent view.
@@ -395,14 +412,14 @@ EdenDsmodBool LoadImage(void* p, const EdenDsmodHostApi* h, const char* key,
     if (!k) return EDEN_DSMOD_FALSE;
     if (!k->starts_with(MapPrefix)) return m.assets.LoadImage(key, receiver, sink);
     try {
-        // The sole frame is immutable and bounded to768². Keep the short sink
+        // The sole frame is immutable and bounded to the SDK image cap. Keep the sink
         // copy serialized with invalidation, never a RomFS/render operation.
         std::lock_guard lock{m.map_mutex};
         const auto frame = m.completed;
         if (!m.exposed || !frame || frame->generation != m.generation || *k != m.current_key)
             return EDEN_DSMOD_FALSE;
-        sink(receiver, frame->frame.image.width, frame->frame.image.height,
-             frame->frame.image.rgba.data(), frame->frame.image.rgba.size());
+        sink(receiver, frame->frame->image.width, frame->frame->image.height,
+             frame->frame->image.rgba.data(), frame->frame->image.rgba.size());
         return EDEN_DSMOD_TRUE;
     } catch (...) { return EDEN_DSMOD_FALSE; }
 }
@@ -413,7 +430,7 @@ EdenDsmodBool LoadData(void* p, const EdenDsmodHostApi* h, const char* key,
     const auto k = Key(key);
     if (!m.allowed.load() || !k || *k != "module:belmont:areas") return EDEN_DSMOD_FALSE;
     try {
-        if (!m.Bounds()) return EDEN_DSMOD_FALSE;
+        if (!m.Bounds(belmont_map_sources::StreetsPoor())) return EDEN_DSMOD_FALSE;
         std::lock_guard lock{m.layout_mutex};
         if (!m.allowed.load()) return EDEN_DSMOD_FALSE;
         sink(receiver, reinterpret_cast<const std::uint8_t*>(m.areas_json.data()), m.areas_json.size());

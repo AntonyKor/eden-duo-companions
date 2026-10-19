@@ -9,15 +9,9 @@
 namespace belmont_map_assets {
 namespace {
 constexpr std::string_view AssetRoot = "Data/StreamingAssets/aa/Switch/";
-constexpr std::string_view WorldBundle =
-    "data-world_biome_01_streets_poor_assets_all_"
-    "23b02b049ba03fe6ba07c15c0344bb8f.bundle";
 constexpr std::string_view SettingsBundle =
     "rd-shared_assets_all_11b587818476b7ee2b83da6325d71410.bundle";
-constexpr std::string_view WorldCab = "CAB-78b393b0882399b884efe6d400c3a5dd";
 constexpr std::string_view SettingsCab = "CAB-abb18a88407c7bc3cef268c68a6a2d59";
-constexpr std::string_view WorldName = "World_Biome_01_Streets_Poor";
-constexpr std::int64_t WorldId = -629725061878729923LL;
 constexpr std::int64_t SettingsId = 7263961372460223634LL;
 constexpr std::size_t MaxRooms = 128, MaxChunks = 4096,
                       MaxRoomBytes = 4 * 1024 * 1024;
@@ -186,23 +180,47 @@ Reader::Reader(const EdenDsmodHostApi *host)
 void Reader::ClearCache() {
   std::lock_guard lock(mutex);
   cached.reset();
+  cached_source.reset();
   unity.ClearCache();
 }
 std::optional<World> Reader::LoadStreetsPoor() {
+  return LoadWorld(belmont_map_sources::StreetsPoor());
+}
+std::optional<World> Reader::LoadForRoom(std::string_view room_id) {
+  const auto *source = belmont_map_sources::FindSourceForRoom(room_id);
+  if (!source)
+    return {};
+  auto world = LoadWorld(*source);
+  if (!world || std::none_of(world->rooms.begin(), world->rooms.end(),
+                             [&](const Room &r) { return r.id == room_id; }))
+    return {};
+  return world;
+}
+std::optional<World>
+Reader::LoadWorld(const belmont_map_sources::SourceRecipe &recipe) {
+  const auto *known = belmont_map_sources::Canonical(recipe);
+  if (!known)
+    return {};
+  const auto &source_recipe = *known;
   std::lock_guard lock(mutex);
   try {
-    if (cached)
+    if (cached && cached_source == source_recipe.id)
       return cached;
-    if (!BundleIsExpected(unity, WorldBundle, WorldCab) ||
+    cached.reset();
+    cached_source.reset();
+    if (!BundleIsExpected(unity, source_recipe.world_bundle,
+                          source_recipe.world_cab) ||
         !BundleIsExpected(unity, SettingsBundle, SettingsCab))
       return std::nullopt;
-    auto source = unity.ReadObject(WorldBundle, WorldId);
+    auto source = unity.ReadObject(source_recipe.world_bundle,
+                                   source_recipe.world_root_id);
     auto settings = unity.ReadObject(SettingsBundle, SettingsId);
     World world;
     std::int64_t settings_id{};
     if (!source || !settings || !Text(source->Get("m_Name"), world.name) ||
-        world.name != WorldName ||
-        !Ptr(source->Get("worldSettings"), 3, settings_id) ||
+        world.name != source_recipe.world_name ||
+        !Ptr(source->Get("worldSettings"), source_recipe.settings_file_id,
+             settings_id) ||
         settings_id != SettingsId ||
         !Integer(settings->Get("chunkWidth"), world.chunk_size.x) ||
         !Integer(settings->Get("chunkHeight"), world.chunk_size.y) ||
@@ -213,7 +231,7 @@ std::optional<World> Reader::LoadStreetsPoor() {
     if (!rooms || rooms->kind != V::Kind::Array || rooms->items.empty() ||
         rooms->items.size() > MaxRooms)
       return std::nullopt;
-    auto sf = unity.OpenSerialized(WorldBundle);
+    auto sf = unity.OpenSerialized(source_recipe.world_bundle);
     if (!sf)
       return std::nullopt;
     std::set<std::int64_t> pointers;
@@ -262,6 +280,7 @@ std::optional<World> Reader::LoadStreetsPoor() {
       world.rooms.push_back(std::move(room));
     }
     cached = world;
+    cached_source = source_recipe.id;
     return world;
   } catch (...) {
     return std::nullopt;

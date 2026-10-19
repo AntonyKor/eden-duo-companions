@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2026 Eden DSMod fork
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "belmont_map_fog.h"
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <set>
@@ -9,9 +10,6 @@ namespace belmont_map_fog {
 namespace {
 using V = ce_unity::Value;
 constexpr std::string_view Root = "Data/StreamingAssets/aa/Switch/";
-constexpr std::string_view Bundle =
-    "maps_scenes_01_streets_poor_map_1_d8baa1dae0a4b34f7e696a7a9212e535.bundle";
-constexpr std::string_view Cab = "CAB-88d9fd29421b7f4c3de59deff8f49986";
 struct Cursor {
   std::span<const std::uint8_t> raw;
   std::size_t pos{};
@@ -97,11 +95,12 @@ struct Cursor {
 // reference classes. Registry payload types are validated; unsupported data is
 // unavailable, never interpreted using guessed byte sizes.
 std::optional<std::vector<Room>>
-DecodeHolder(std::span<const std::uint8_t> raw) {
+DecodeHolder(std::span<const std::uint8_t> raw,
+             std::int64_t expected_game_object = 947) {
   if (raw.size() > 4 * 1024 * 1024)
     return {};
   Cursor c{raw};
-  if (c.LocalRef() != 947 || !c.Flag())
+  if (c.LocalRef() != expected_game_object || !c.Flag())
     return {};
   if (c.I32() != 1 || c.I64() != 4040120242753893301LL || !c.Text().empty())
     return {};
@@ -259,7 +258,7 @@ std::optional<V> Object(const std::shared_ptr<ce_unity::SerializedFile> &sf,
     return {};
   return sf->ReadObject(*info);
 }
-bool Districts(const V &model, Data &data) {
+bool Districts(const V &model, Data &data, std::int32_t district_file_id = 13) {
   if (!CR(model.Get("globalBoundsCoord"), data.district_bounds_coord) ||
       !R(model.Get("globalBounds"), data.district_bounds) ||
       !P(model.Get("chunkSize"), data.chunk_size) || data.chunk_size.x <= 0 ||
@@ -271,8 +270,8 @@ bool Districts(const V &model, Data &data) {
   std::set<std::int64_t> ids;
   for (const auto &v : *districts) {
     District d;
-    d.source_file_id = 13;
-    if (!Ref(v.Get("district"), d.source_path_id, 13) ||
+    d.source_file_id = district_file_id;
+    if (!Ref(v.Get("district"), d.source_path_id, district_file_id) ||
         !ids.insert(d.source_path_id).second ||
         !CR(v.Get("districtBoundsCoord"), d.bounds_coord) ||
         !R(v.Get("districtBounds"), d.bounds) ||
@@ -320,38 +319,84 @@ Reader::Reader(const EdenDsmodHostApi *host)
 void Reader::ClearCache() {
   std::lock_guard lock(mutex);
   cache.reset();
+  cached_source.reset();
   unity.ClearCache();
 }
 std::optional<Data> Reader::LoadStreetsPoor() {
+  return Load(belmont_map_sources::StreetsPoor());
+}
+std::optional<Data> Reader::LoadForRoom(std::string_view room_id) {
+  const auto *recipe = belmont_map_sources::FindSourceForRoom(room_id);
+  if (!recipe)
+    return {};
+  auto data = Load(*recipe);
+  if (!data || std::none_of(data->rooms.begin(), data->rooms.end(),
+                            [&](const Room &r) { return r.id == room_id; }))
+    return {};
+  return data;
+}
+std::optional<Data>
+Reader::Load(const belmont_map_sources::SourceRecipe &recipe) {
+  const auto *known = belmont_map_sources::Canonical(recipe);
+  if (!known)
+    return {};
+  const auto &source = *known;
   std::lock_guard lock(mutex);
-  if (cache)
+  if (cache && cached_source == source.id)
     return cache;
+  cache.reset();
+  cached_source.reset();
   try {
-    auto bundle = unity.OpenBundle(Bundle);
+    auto bundle = unity.OpenBundle(source.map_bundle);
     if (!bundle || bundle->engine_version != "2022.3.62f2")
       return {};
-    auto node = bundle->FindNode(Cab);
+    auto node = bundle->FindNode(source.map_cab);
     if (!node)
       return {};
     auto sf = ce_unity::SerializedFile::Open(bundle->NodeSource(*node));
     if (!sf || sf->Version() != 22 || sf->Platform() != 38 ||
         !sf->HasTypeTrees())
       return {};
-    auto holder = sf->Find(5167);
+    auto context = Object(sf, source.map_context_id);
+    std::int64_t script{}, fog_id{}, district_id{}, renderer_id{}, main_id{},
+        settings_id{}, holder_id{}, nav_manager_id{};
+    if (!context || !Ref(context->Get("m_Script"), script, 1) ||
+        script != 6647830585995460756LL ||
+        !Ref(context->Get("fowModel"), fog_id) ||
+        !Ref(context->Get("districtsModel"), district_id) ||
+        !Ref(context->Get("rendererFogOfWar"), renderer_id) ||
+        !Ref(context->Get("levelMapRenderer"), main_id) ||
+        !Ref(context->Get("settings"), settings_id))
+      return {};
+    auto model = Object(sf, district_id), fog = Object(sf, fog_id),
+         renderer = Object(sf, renderer_id), main = Object(sf, main_id),
+         settings = Object(sf, settings_id);
+    if (!model || !fog || !renderer || !main || !settings ||
+        !Ref(fog->Get("worldRoomStatesHolderInstance"), holder_id) ||
+        !Ref(settings->Get("navigationZonesManager"), nav_manager_id))
+      return {};
+    auto holder = sf->Find(holder_id);
     if (!holder || holder->class_id != 114 ||
         holder->byte_size > 4 * 1024 * 1024)
       return {};
     auto raw = sf->ReadRaw(*holder);
     if (!raw)
       return {};
-    auto rooms = DecodeHolder(*raw);
+    Cursor header{*raw};
+    auto go = header.LocalRef();
+    auto go_info = sf->Find(go);
+    if (!header.ok || !go_info || go_info->class_id != 1)
+      return {};
+    auto rooms = DecodeHolder(*raw, go);
     if (!rooms)
       return {};
+    for (const auto &room : *rooms)
+      if (!room.id.starts_with(std::string(source.world_name) + "_"))
+        return {};
     Data data;
     data.rooms = std::move(*rooms);
-    auto model = Object(sf, 5686), fog = Object(sf, 5702),
-         renderer = Object(sf, 5718), main = Object(sf, 5634);
-    if (!model || !fog || !renderer || !main || !Districts(*model, data) ||
+    data.world_name = source.world_name;
+    if (!Districts(*model, data, source.district_file_id) ||
         !F(renderer->Get("tileBoundsInflateValue"), data.tile_bounds_inflate) ||
         data.tile_bounds_inflate < 0 ||
         !F(fog->Get("fogOfWarForEmptyChunksNeighboursThickness"),
@@ -360,6 +405,36 @@ std::optional<Data> Reader::LoadStreetsPoor() {
         !Flag(fog->Get("generateFogOfWarForEmptyChunksNeighbours"),
               data.generate_empty_neighbors))
       return {};
+    auto nav = Object(sf, nav_manager_id);
+    if (!nav ||
+        !Ref(nav->Get("mainNavigationZone"), data.main_navigation_zone_id))
+      return {};
+    auto groups = Array(nav->Get("navigationZones"), 128);
+    if (!groups || groups->empty())
+      return {};
+    std::set<std::int64_t> nav_ids;
+    for (const auto &v : *groups) {
+      std::int64_t id{};
+      if (!Ref(&v, id) || !nav_ids.insert(id).second)
+        return {};
+      auto info = sf->Find(id);
+      if (!info || info->class_id != 114)
+        return {};
+      data.navigation_zone_ids.push_back(id);
+    }
+    if (!nav_ids.contains(data.main_navigation_zone_id))
+      return {};
+    for (const auto &room : data.rooms)
+      for (const auto &z : room.zones)
+        if (!nav_ids.contains(z.navigation_zone_id))
+          return {};
+    for (const auto &d : data.districts) {
+      if (!nav_ids.contains(d.navigation_zone_id))
+        return {};
+      for (auto id : d.additional_navigation_zone_ids)
+        if (!nav_ids.contains(id))
+          return {};
+    }
     auto tiles = Array(main->Get("tileRenderers"), 128);
     if (!tiles || tiles->empty())
       return {};
@@ -380,6 +455,7 @@ std::optional<Data> Reader::LoadStreetsPoor() {
       data.tiles.push_back(t);
     }
     cache = data;
+    cached_source = source.id;
     return data;
   } catch (...) {
     return {};

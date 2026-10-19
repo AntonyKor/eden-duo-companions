@@ -10,12 +10,16 @@ class Reader {
 public:
   explicit Reader(ce_unity::RangeReader romfs);
   explicit Reader(const EdenDsmodHostApi *host);
+  std::optional<std::string> LoadAreaEnglish(std::string_view room_id);
   std::optional<std::string> LoadFirstRoomAreaEnglish();
   void ClearCache();
 
 private:
   std::mutex mutex;
+  ce_unity::RangeReader romfs;
   ce_unity::Reader unity;
-  std::optional<std::string> cache;
+  bool initialized{};
+  std::string active_world;
+  std::map<std::string, std::string, std::less<>> labels;
 };
 } // namespace belmont_map_labels

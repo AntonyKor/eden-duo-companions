@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2026 Eden DSMod fork
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
+#include "belmont_map_sources.h"
 #include "chained_echoes_unity.h"
 #include <cstdint>
 #include <mutex>
@@ -44,11 +45,15 @@ public:
   // All-or-nothing. Missing, truncated, unsupported or inconsistent data is
   // unavailable. The output is static geometry, never a revealed map.
   std::optional<World> LoadStreetsPoor();
+  std::optional<World>
+  LoadWorld(const belmont_map_sources::SourceRecipe &source);
+  std::optional<World> LoadForRoom(std::string_view room_id);
   void ClearCache();
 
 private:
   std::recursive_mutex mutex;
   ce_unity::Reader unity;
   std::optional<World> cached;
+  std::optional<belmont_map_sources::Id> cached_source;
 };
 } // namespace belmont_map_assets
