@@ -8,11 +8,13 @@ current main objective uses its installed English text. A touch tab opens the na
 composition: equipped Arcana card, weapon illustration, relic icons/names and final stats.
 Switching pages preserves the map view. Native geometry, explored-zone fog, font, biome and area names, menu art and
 the Rose marker are read from the player's recognized installation. Local touch pan/zoom, the
-zoom rail and Reset adjust the companion view. Map pins offer nine native marker choices,
-can be edited or removed, and last for the current session only. Equipment category taps open
+centered zoom rail and Reset adjust the companion view. Use Pin at the bottom left to choose one of nine native marker symbols, then tap the map
+to place it. Ordinary map taps do not open the chooser. Tap an existing pin to edit or remove
+it; Cancel abandons a pending placement. Pins last for the current session only. Equipment category taps open
 a six-item gallery of owned native items. Selecting an item navigates the game’s own equipment
 menu using ordinary controller inputs, checked against fresh native selection and menu state.
-Relics use the native two-step item and destination-slot selection. The module reads game
+Relics use the native two-step item and destination-slot selection. The Equipment stat plate
+sits across the top beside Map, with the equipment categories and artwork below. The module reads game
 memory and RomFS without guest writes or calls. Equipment changes are real gameplay changes.
 
 Desktop live checks cover the opening area, walking/reveal changes, transition into the Sewers,
@@ -33,7 +35,9 @@ clear stale map, marker, name and coordinates; a coherent native pause keeps the
 available. Compatible cinematic/dialogue interruptions retain a dimmed, noninteractive bottom
 view; a brief incoherent sample may retain the last compatible view for at most180ms. Explicit
 loading, changed identity or unsupported state still clears it. Map motion uses a validated
-lightweight refresh between full snapshots.
+lightweight refresh between full snapshots. Separate scaled presentation bindings work around
+runtime22’s coarse float redraw thresholds; marker_scale converts back to the exact native
+world coordinates, while all map bounds, pins and gameplay position values keep native units.
 
 The authored fonts/latin51sc.bfont descriptor requests the native LatinFont at51cap with small
 capitals (lowercase drawn as 80% capitals, as in the game's menus); it contains no metrics or

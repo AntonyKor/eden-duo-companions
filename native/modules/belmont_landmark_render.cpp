@@ -405,6 +405,102 @@ Renderer::Name(const belmont_map_landmarks::Landmark &l,
     return {};
   }
 }
+std::optional<Image> Renderer::RenderText(std::string_view text,
+    std::uint32_t width, std::uint32_t height, float cap) {
+  std::lock_guard lock{mutex};
+  try {
+    const auto cps = Utf8(text);
+    if (!cps || width < 4 || height < 4 || width > 2048 || height > 512 ||
+        !Positive(cap) || cap > 128 || cap > height ||
+        std::size_t(width) * height * 4 > 16u * 1024u * 1024u)
+      return {};
+    if (!font) font = assets.LoadHostFont("LatinFont", 51, true);
+    if (!font || font->line_height != 51 || !ImageValid(font->atlas)) return {};
+    const float scale = cap / 51.f;
+    const auto glyph = [&](std::uint32_t cp) -> const EdenDsmodFontGlyph* {
+      if (cp < font->first_codepoint || cp - font->first_codepoint >= font->glyphs.size()) return nullptr;
+      const auto &g = font->glyphs[cp - font->first_codepoint];
+      if ((!g.advance && cp != 32) || unsigned(g.x) + g.w > font->atlas.width ||
+          unsigned(g.y) + g.h > font->atlas.height) return nullptr;
+      return &g;
+    };
+    std::vector<std::vector<std::uint32_t>> words;
+    for (auto cp : *cps) {
+      if (!glyph(cp)) return {};
+      if (cp == 32) { if (!words.empty() && !words.back().empty()) words.emplace_back(); }
+      else { if (words.empty()) words.emplace_back(); words.back().push_back(cp); }
+    }
+    if (!words.empty() && words.back().empty()) words.pop_back();
+    if (words.empty()) return {};
+    struct Metrics {float left{}, right{}, bottom{}, top{}, advance{};};
+    const auto measure = [&](const std::vector<std::uint32_t> &line) {
+      Metrics m;
+      for (auto cp : line) {
+        const auto &g = *glyph(cp);
+        if (g.w && g.h) {
+          m.left = std::min(m.left, m.advance + g.bearing_x * scale);
+          m.right = std::max(m.right, m.advance + (g.bearing_x + g.w) * scale);
+          m.bottom = std::min(m.bottom, (g.bearing_y - float(g.h)) * scale);
+          m.top = std::max(m.top, g.bearing_y * scale);
+        }
+        m.advance += g.advance * scale;
+      }
+      m.right = std::max(m.right, m.advance);
+      return m;
+    };
+    std::vector<std::vector<std::uint32_t>> lines(1);
+    for (const auto &word : words) {
+      auto candidate = lines.back();
+      if (!candidate.empty()) candidate.push_back(32);
+      candidate.insert(candidate.end(), word.begin(), word.end());
+      const auto m = measure(candidate);
+      if (m.right - m.left <= width - 2.f) lines.back() = std::move(candidate);
+      else {
+        if (lines.back().empty() || lines.size() >= 2) return {};
+        const auto w = measure(word);
+        if (w.right - w.left > width - 2.f) return {};
+        lines.push_back(word);
+      }
+    }
+    std::vector<Metrics> metrics;
+    float block_height = 0;
+    constexpr float Gap = 4;
+    for (const auto &line : lines) {
+      const auto m = measure(line);
+      if (!Positive(m.top - m.bottom)) return {};
+      metrics.push_back(m); block_height += m.top - m.bottom;
+    }
+    block_height += Gap * float(lines.size() - 1);
+    if (block_height > height - 2.f) return {};
+    Image out{width, height, std::vector<std::uint8_t>(std::size_t(width) * height * 4)};
+    const Rect canvas{0, 0, float(width), float(height)};
+    // Existing owner-accepted native menu gold (the previous objective label).
+    const Color gold{201.f / 255.f, 180.f / 255.f, 106.f / 255.f, 1};
+    float top = (height - block_height) * .5f;
+    for (std::size_t n = 0; n < lines.size(); ++n) {
+      const auto &m = metrics[n];
+      const float origin = width - 1.f - m.right,
+                  baseline = height - top - m.top;
+      float pen = 0;
+      for (auto cp : lines[n]) {
+        const auto &g = *glyph(cp);
+        if (g.w && g.h) {
+          Image tile{g.w, g.h, std::vector<std::uint8_t>(std::size_t(g.w) * g.h * 4)};
+          for (unsigned y = 0; y < g.h; ++y)
+            std::memcpy(tile.rgba.data() + std::size_t(y) * g.w * 4,
+                font->atlas.rgba.data() + (std::size_t(g.y + y) * font->atlas.width + g.x) * 4,
+                std::size_t(g.w) * 4);
+          const float x = origin + pen + g.bearing_x * scale,
+                      y = baseline + g.bearing_y * scale;
+          Draw(out, tile, {x, y - g.h * scale, x + g.w * scale, y}, canvas, 1, gold);
+        }
+        pen += g.advance * scale;
+      }
+      top += m.top - m.bottom + Gap;
+    }
+    return out;
+  } catch (...) { return {}; }
+}
 std::optional<NameFrame>
 Renderer::RenderName(const belmont_map_landmarks::Landmark &l,
                      std::string_view english, float height) {

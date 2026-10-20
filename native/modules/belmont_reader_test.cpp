@@ -849,9 +849,9 @@ int main() {
             "unverified map never available");
       h.values["belmont.map_ready"] = h.values["belmont.marker_ready"] = 1;
       h.texts["belmont.map_image"] = "stale"; h.texts["belmont.map_area"] = "stale";
-      h.texts["belmont.area_name"] = "stale"; h.numbers["belmont.player_x"] = 999;
+      h.texts["belmont.area_name"] = "stale"; h.numbers["belmont.player_x"] = 999;h.numbers["belmont.marker_x"]=256000;h.numbers["belmont.marker_y"]=256000;
       for(const auto* key:{"belmont.equipment_ready","belmont.equipment_assets_ready","belmont.equipment_weapon_ready","belmont.equipment_arcana_ready","belmont.equipment_atk_ready","belmont.equipment_hp_ready"})h.values[key]=1;
-      for(const auto* key:{"belmont.equipment_input_button","belmont.equipment_control_ready","belmont.picker_ready","belmont.pin_picker"})h.values[key]=4;
+      for(const auto* key:{"belmont.equipment_input_button","belmont.equipment_control_ready","belmont.picker_ready","belmont.pin_picker","belmont.pin_armed"})h.values[key]=4;
       h.texts["belmont.equipment_weapon_name"]="stale";h.texts["belmont.equipment_arcana_image"]="stale";
       h.texts["belmont.equipment_atk_text"]="stale";h.texts["belmont.equipment_hp_text"]="stale";
       h.memory.put<belmont::U64>(Memory::Heap + 0x50b0, 0);
@@ -865,9 +865,10 @@ int main() {
                 h.texts["belmont.area_name"].empty() && h.numbers["belmont.player_x"] == 0 &&
                 h.numbers["belmont.view_x0"] == 0,
             "ABI loading actively clears stale texture/name/player/home fields");
+      Check(h.numbers["belmont.marker_x"]==0&&h.numbers["belmont.marker_y"]==0,"loading clears scaled presentation marker coordinates");
       for(const auto* key:{"belmont.equipment_ready","belmont.equipment_assets_ready","belmont.equipment_weapon_ready","belmont.equipment_arcana_ready","belmont.equipment_atk_ready","belmont.equipment_hp_ready"})Check(h.values[key]==0,"ABI loading clears equipped assets/final-stat gates");
       Check(h.texts["belmont.equipment_weapon_name"].empty()&&h.texts["belmont.equipment_arcana_image"].empty()&&h.texts["belmont.equipment_atk_text"].empty()&&h.texts["belmont.equipment_hp_text"].empty(),"ABI loading clears equipped names/card keys/final text");
-      for(const auto* key:{"belmont.equipment_input_button","belmont.equipment_control_ready","belmont.picker_ready","belmont.pin_picker"})Check(h.values[key]==0,"loading clears native controller pulses and interactive pickers");
+      for(const auto* key:{"belmont.equipment_input_button","belmont.equipment_control_ready","belmont.picker_ready","belmont.pin_picker","belmont.pin_armed"})Check(h.values[key]==0,"loading clears native controller pulses and interactive pickers");
       host.build_id[31] = 1;
       const auto reads = h.memory.reads.load();
       module->sample(instance, &host);

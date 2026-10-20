@@ -30,6 +30,11 @@ public:
   std::optional<NameFrame> RenderName(const belmont_map_landmarks::Landmark &,
                                       std::string_view english,
                                       float canvas_height_px = 1080);
+  // Transparent right-aligned native small-caps text, at most two word-wrapped
+  // lines. No ribbon. The shared LatinFont51 atlas stays paired with its metrics.
+  // Unsupported UTF-8/glyphs or text exceeding the fixed box return unavailable.
+  std::optional<ce_unity::Image> RenderText(std::string_view text,
+      std::uint32_t width = 1100, std::uint32_t height = 64, float cap = 24);
   // No landmark/ribbon textures; a cold call prepares the shared font once.
   std::optional<Placement>
   NamePlacement(const belmont_map_landmarks::Landmark &,

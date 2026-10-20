@@ -36,6 +36,7 @@ namespace {
 std::string AreaKey(const belmont_map_sources::SourceRecipe& recipe) {
     return recipe.id == belmont_map_sources::Id::StreetsPoor ? "belmont_streetspoor" : std::string(recipe.world_name);
 }
+constexpr std::string_view ObjectivePrefix="module:belmont:objective:";
 constexpr std::string_view PickerPrefix="module:belmont:picker:";
 constexpr std::string_view EquipmentPrefix="module:belmont:equipment:";
 constexpr std::string_view LandmarkPrefix="module:belmont:landmark:";
@@ -171,7 +172,8 @@ struct Rendered {
     belmont_map_fog::Rect navigation_bounds;
     bool navigation_proven{}, equipment_prepared{};
     std::string area_name, area_key, biome_name;
-    std::string objective_name;
+    std::string objective_name,objective_key;
+    std::shared_ptr<const ce_unity::Image> objective_image;
     std::vector<LandmarkImage> overlays;
     std::vector<EquipmentImage> equipment_images;
 };
@@ -424,7 +426,13 @@ struct Module {
                                 // Explicit English fixture only; no locale autodetection claim.
                                 if (const auto name = labels.LoadAreaEnglish(job->request.current_room_id)) result->area_name = *name;
                                 if (const auto biome = labels.LoadBiomeEnglish(job->request.current_room_id)) result->biome_name = *biome;
-                                if (const auto objective=objective_labels.Load(job->fingerprint.objective))result->objective_name=*objective;
+                                if (const auto objective=objective_labels.Load(job->fingerprint.objective)){
+                                    result->objective_name=*objective;
+                                    if(auto image=overlay_renderer.RenderText(*objective,1100,64,24)){
+                                        result->objective_image=std::make_shared<const ce_unity::Image>(std::move(*image));
+                                        result->objective_key=std::string(ObjectivePrefix)+std::to_string(job->generation);
+                                    }
+                                }
                                 if(job->fingerprint.landmarks_ready) {
                                     std::vector<LandmarkMeta> metadata;
                                     {std::lock_guard lock{layout_mutex};metadata=landmark_meta[recipe->id];}
@@ -473,7 +481,7 @@ void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = 
     const auto t = [&](const char* key, const char* v) { h.publish_text(h.userdata, key, v); };
     const auto f = [&](const char* key, double v) { if (h.publish_f64) h.publish_f64(h.userdata, key, v); };
     i("belmont.equipment_input_button",0);i("belmont.equipment_control_ready",0);
-    i("belmont.picker_ready",0);i("belmont.pin_picker",0);i("belmont.pin_capture_pending",0);
+    i("belmont.picker_ready",0);i("belmont.pin_picker",0);i("belmont.pin_capture_pending",0);i("belmont.pin_armed",0);
     if(!m){
         i("belmont.pin_editing",0);i("belmont.picker_count",0);i("belmont.picker_can_prev",0);i("belmont.picker_can_next",0);
         for(unsigned n=0;n<6;++n){const auto prefix="belmont.picker_slot_"+std::to_string(n);i((prefix+"_ready").c_str(),0);i((prefix+"_selected").c_str(),0);t((prefix+"_name").c_str(),"");t((prefix+"_image").c_str(),"");}
@@ -528,7 +536,7 @@ void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = 
         const auto sequence=h.get_i64?h.get_i64(h.userdata,"@map_tap_seq",-1):-1;
         if(m->pins.Waiting()&&h.get_f64)m->pins.Capture(sequence,h.get_f64(h.userdata,"@map_tap_x",NAN),h.get_f64(h.userdata,"@map_tap_y",NAN));
         m->map_tap_sequence=sequence;
-        i("belmont.pin_capture_pending",m->pins.Waiting());
+        i("belmont.pin_capture_pending",m->pins.Waiting());i("belmont.pin_armed",m->pins.Armed());
         i("belmont.pin_picker",m->pins.Picker());i("belmont.pin_editing",m->pins.Editing());
         for(std::size_t n=0;n<belmont_pins::KindCount;++n){const auto name="belmont.pin_kind_"+std::to_string(n)+"_image";const auto image=belmont_pins::Image(n);t(name.c_str(),image.c_str());}
         for(std::size_t n=0;n<belmont_pins::Capacity;++n){
@@ -605,6 +613,10 @@ void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = 
     constexpr double aspect = 1080.0 / 1240.0, width = 96.0, height = width * aspect;
     const double x = ready ? s.target_position[0] : 0, y = ready ? s.target_position[1] : 0;
     f("belmont.player_x", x); f("belmont.player_y", y);
+    // rt22 hashes visible floats in coarse world-unit buckets. Scale only
+    // these presentation bindings; the Map widget applies the exact inverse.
+    // Dyadic multiplication retains the original position's float precision.
+    f("belmont.marker_x",x*256);f("belmont.marker_y",y*256);
     f("belmont.view_x0", ready ? x - width / 2 : 0); f("belmont.view_y0", ready ? y - height / 2 : 0);
     f("belmont.view_x1", ready ? x + width / 2 : 0); f("belmont.view_y1", ready ? y + height / 2 : 0);
     // Area home: everything revealed in this navigation group (plus a margin),
@@ -634,8 +646,9 @@ void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = 
             m->published_overlays.emplace_back(prefix,overlay.key);
         }
     }
-    const bool objective_ready=ready&&ob.ready&&rendered->fingerprint&&SameObjective(rendered->fingerprint->objective,ob)&&!rendered->objective_name.empty();
+    const bool objective_ready=ready&&ob.ready&&rendered->fingerprint&&SameObjective(rendered->fingerprint->objective,ob)&&!rendered->objective_name.empty()&&rendered->objective_image;
     i("belmont.objective_ready",objective_ready);t("belmont.objective",objective_ready?rendered->objective_name.c_str():"");
+    t("belmont.objective_image",objective_ready?rendered->objective_key.c_str():"");
     const bool equipment_ready=world&&equipment.ready&&equipment.coherent;
     i("belmont.equipment_ready",equipment_ready);
     t("belmont.equipment_weapon",equipment_ready?equipment.weapon.id.c_str():"");
@@ -807,7 +820,7 @@ EdenDsmodBool LoadImage(void* p, const EdenDsmodHostApi* h, const char* key,
             sink(receiver,image->width,image->height,image->rgba.data(),image->rgba.size());return EDEN_DSMOD_TRUE;
         }catch(...){return EDEN_DSMOD_FALSE;}
     }
-    if (!k->starts_with(MapPrefix) && !k->starts_with(LandmarkPrefix) && !k->starts_with(EquipmentPrefix) && !k->starts_with(PickerPrefix)) return m.assets.LoadImage(key, receiver, sink);
+    if (!k->starts_with(ObjectivePrefix) && !k->starts_with(MapPrefix) && !k->starts_with(LandmarkPrefix) && !k->starts_with(EquipmentPrefix) && !k->starts_with(PickerPrefix)) return m.assets.LoadImage(key, receiver, sink);
     try {
         std::shared_ptr<const ce_unity::Image> output;
         {
@@ -825,7 +838,9 @@ EdenDsmodBool LoadImage(void* p, const EdenDsmodHostApi* h, const char* key,
                     for(const auto& item:frame->equipment_images)if(item.key==*k){output=item.image;break;}
                 }else{
                     if(!m.exposed||!frame->frame)return EDEN_DSMOD_FALSE;
-                    if(k->starts_with(LandmarkPrefix)){
+                    if(k->starts_with(ObjectivePrefix)){
+                        if(*k==frame->objective_key)output=frame->objective_image;
+                    }else if(k->starts_with(LandmarkPrefix)){
                         for(const auto& item:frame->overlays)if(item.key==*k){output=item.image;break;}
                     }else if(*k==m.current_key)output=std::shared_ptr<const ce_unity::Image>(frame->frame,&frame->frame->image);
                 }
@@ -896,6 +911,7 @@ EdenDsmodBool Action(void* p,const char* action,std::int64_t argument){
             }
             m.equipment_controller.RequestPick(selected);return EDEN_DSMOD_TRUE;
         }
+        if(name=="pin_open")return m.pins.Open();
         if(name=="pin_begin")return m.pins.Begin(m.map_tap_sequence);
         if(name=="pin_kind")return m.pins.Choose(argument);
         if(name=="pin_select")return m.pins.Select(argument);
