@@ -15,8 +15,8 @@ a scrolling grid of owned native items. Selecting an item navigates the game’s
 menu using ordinary controller inputs, checked against fresh native selection and menu state.
 Relics use the native two-step item and destination-slot selection; choices from another native
 Relics page first navigate to that page and verify its selection. The compact Equipment stat plate
-sits at the top, with native health/mana upgrade fragments to its right and the equipment
-categories and artwork below. Map stays at the bottom right in every Equipment view. On the
+sits at the top, with tightly spaced native health/mana upgrade fragments inside the same
+plate, supporting stat text, and the equipment categories and artwork below. Map stays at the bottom right in every Equipment view. On the
 map, Equipment is at the bottom left. The module reads game
 memory and RomFS without guest writes or calls. Equipment changes are real gameplay changes.
 

@@ -2857,8 +2857,8 @@
           "rect": [
             24,
             24,
-            720,
-            155
+            948,
+            124
           ],
           "src": "module:native:atlas-t_ui_equipmentview_atlas_assets_all_2c61514a8ac6629497b9fc7b089963f1.bundle#-8272290125811881427",
           "need_bind": "ui.equipment_page",
@@ -2873,13 +2873,13 @@
         {
           "type": "label",
           "rect": [
-            100,
-            60,
+            184,
+            46,
             0,
-            44
+            40
           ],
           "text": "ATK",
-          "text_scale": 6,
+          "text_scale": 5,
           "color": "#FFC9B46A",
           "align": "center",
           "wrap_width": 112,
@@ -2889,16 +2889,16 @@
         {
           "type": "label",
           "rect": [
-            220,
-            42,
+            276,
+            34,
             0,
-            72
+            60
           ],
           "text": "\u2014",
-          "text_scale": 6,
+          "text_scale": 8,
           "color": "#FFC9B46A",
           "align": "center",
-          "wrap_width": 180,
+          "wrap_width": 144,
           "max_lines": 1,
           "need_bind": "ui.equipment_page",
           "hide_bind": "ui.eq_atk",
@@ -2907,30 +2907,30 @@
         {
           "type": "label",
           "rect": [
-            220,
-            42,
+            276,
+            34,
             0,
-            72
+            60
           ],
           "text": "",
-          "text_scale": 10,
+          "text_scale": 8,
           "color": "#FFFFE99F",
           "align": "center",
           "need_bind": "ui.eq_atk",
           "bind_text": "belmont.equipment_atk_text",
-          "wrap_width": 180,
+          "wrap_width": 144,
           "max_lines": 1
         },
         {
           "type": "label",
           "rect": [
-            100,
-            126,
+            184,
+            98,
             0,
-            44
+            40
           ],
           "text": "DEF",
-          "text_scale": 6,
+          "text_scale": 5,
           "color": "#FFC9B46A",
           "align": "center",
           "wrap_width": 112,
@@ -2940,16 +2940,16 @@
         {
           "type": "label",
           "rect": [
-            220,
-            108,
+            276,
+            86,
             0,
-            72
+            60
           ],
           "text": "\u2014",
-          "text_scale": 6,
+          "text_scale": 8,
           "color": "#FFC9B46A",
           "align": "center",
-          "wrap_width": 180,
+          "wrap_width": 144,
           "max_lines": 1,
           "need_bind": "ui.equipment_page",
           "hide_bind": "ui.eq_def",
@@ -2958,30 +2958,30 @@
         {
           "type": "label",
           "rect": [
-            220,
-            108,
+            276,
+            86,
             0,
-            72
+            60
           ],
           "text": "",
-          "text_scale": 10,
+          "text_scale": 8,
           "color": "#FFFFE99F",
           "align": "center",
           "need_bind": "ui.eq_def",
           "bind_text": "belmont.equipment_def_text",
-          "wrap_width": 180,
+          "wrap_width": 144,
           "max_lines": 1
         },
         {
           "type": "label",
           "rect": [
-            340,
-            60,
+            370,
+            46,
             0,
-            44
+            40
           ],
           "text": "HP",
-          "text_scale": 6,
+          "text_scale": 5,
           "color": "#FFC9B46A",
           "align": "center",
           "wrap_width": 112,
@@ -2991,16 +2991,16 @@
         {
           "type": "label",
           "rect": [
-            550,
-            42,
+            510,
+            34,
             0,
-            72
+            60
           ],
           "text": "\u2014",
-          "text_scale": 6,
+          "text_scale": 8,
           "color": "#FFC9B46A",
           "align": "center",
-          "wrap_width": 344,
+          "wrap_width": 272,
           "max_lines": 1,
           "need_bind": "ui.equipment_page",
           "hide_bind": "ui.eq_hp",
@@ -3009,30 +3009,30 @@
         {
           "type": "label",
           "rect": [
-            550,
-            42,
+            510,
+            34,
             0,
-            72
+            60
           ],
           "text": "",
-          "text_scale": 10,
+          "text_scale": 8,
           "color": "#FFFFE99F",
           "align": "center",
           "need_bind": "ui.eq_hp",
           "bind_text": "belmont.equipment_hp_text",
-          "wrap_width": 344,
+          "wrap_width": 272,
           "max_lines": 1
         },
         {
           "type": "label",
           "rect": [
-            340,
-            126,
+            370,
+            98,
             0,
-            44
+            40
           ],
           "text": "MP",
-          "text_scale": 6,
+          "text_scale": 5,
           "color": "#FFC9B46A",
           "align": "center",
           "wrap_width": 112,
@@ -3042,16 +3042,16 @@
         {
           "type": "label",
           "rect": [
-            550,
-            108,
+            510,
+            86,
             0,
-            72
+            60
           ],
           "text": "\u2014",
-          "text_scale": 6,
+          "text_scale": 8,
           "color": "#FFC9B46A",
           "align": "center",
-          "wrap_width": 344,
+          "wrap_width": 272,
           "max_lines": 1,
           "need_bind": "ui.equipment_page",
           "hide_bind": "ui.eq_mp",
@@ -3060,18 +3060,18 @@
         {
           "type": "label",
           "rect": [
-            550,
-            108,
+            510,
+            86,
             0,
-            72
+            60
           ],
           "text": "",
-          "text_scale": 10,
+          "text_scale": 8,
           "color": "#FFFFE99F",
           "align": "center",
           "need_bind": "ui.eq_mp",
           "bind_text": "belmont.equipment_mp_text",
-          "wrap_width": 344,
+          "wrap_width": 272,
           "max_lines": 1
         },
         {
@@ -3276,10 +3276,10 @@
           "type": "image",
           "id": "health_upgrade_0",
           "rect": [
-            784,
-            28,
-            56,
-            56
+            632,
+            38,
+            48,
+            48
           ],
           "src_bind": "belmont.health_upgrade_0_image",
           "need_bind": "ui.eq_health_upgrades"
@@ -3288,10 +3288,10 @@
           "type": "image",
           "id": "health_upgrade_1",
           "rect": [
-            856,
-            28,
-            56,
-            56
+            680,
+            38,
+            48,
+            48
           ],
           "src_bind": "belmont.health_upgrade_1_image",
           "need_bind": "ui.eq_health_upgrades"
@@ -3300,10 +3300,10 @@
           "type": "image",
           "id": "health_upgrade_2",
           "rect": [
-            928,
-            28,
-            56,
-            56
+            728,
+            38,
+            48,
+            48
           ],
           "src_bind": "belmont.health_upgrade_2_image",
           "need_bind": "ui.eq_health_upgrades"
@@ -3312,10 +3312,10 @@
           "type": "image",
           "id": "health_upgrade_3",
           "rect": [
-            1000,
-            28,
-            56,
-            56
+            776,
+            38,
+            48,
+            48
           ],
           "src_bind": "belmont.health_upgrade_3_image",
           "need_bind": "ui.eq_health_upgrades"
@@ -3324,10 +3324,10 @@
           "type": "image",
           "id": "health_upgrade_4",
           "rect": [
-            1072,
-            28,
-            56,
-            56
+            824,
+            38,
+            48,
+            48
           ],
           "src_bind": "belmont.health_upgrade_4_image",
           "need_bind": "ui.eq_health_upgrades"
@@ -3336,10 +3336,10 @@
           "type": "image",
           "id": "health_upgrade_5",
           "rect": [
-            1144,
-            28,
-            56,
-            56
+            872,
+            38,
+            48,
+            48
           ],
           "src_bind": "belmont.health_upgrade_5_image",
           "need_bind": "ui.eq_health_upgrades"
@@ -3348,10 +3348,10 @@
           "type": "image",
           "id": "mana_upgrade_0",
           "rect": [
-            784,
-            92,
-            56,
-            56
+            632,
+            90,
+            48,
+            48
           ],
           "src_bind": "belmont.mana_upgrade_0_image",
           "need_bind": "ui.eq_mana_upgrades"
@@ -3360,10 +3360,10 @@
           "type": "image",
           "id": "mana_upgrade_1",
           "rect": [
-            856,
-            92,
-            56,
-            56
+            680,
+            90,
+            48,
+            48
           ],
           "src_bind": "belmont.mana_upgrade_1_image",
           "need_bind": "ui.eq_mana_upgrades"
@@ -3372,10 +3372,10 @@
           "type": "image",
           "id": "mana_upgrade_2",
           "rect": [
-            928,
-            92,
-            56,
-            56
+            728,
+            90,
+            48,
+            48
           ],
           "src_bind": "belmont.mana_upgrade_2_image",
           "need_bind": "ui.eq_mana_upgrades"
@@ -3384,10 +3384,10 @@
           "type": "image",
           "id": "mana_upgrade_3",
           "rect": [
-            1000,
-            92,
-            56,
-            56
+            776,
+            90,
+            48,
+            48
           ],
           "src_bind": "belmont.mana_upgrade_3_image",
           "need_bind": "ui.eq_mana_upgrades"
@@ -3396,10 +3396,10 @@
           "type": "image",
           "id": "mana_upgrade_4",
           "rect": [
-            1072,
-            92,
-            56,
-            56
+            824,
+            90,
+            48,
+            48
           ],
           "src_bind": "belmont.mana_upgrade_4_image",
           "need_bind": "ui.eq_mana_upgrades"
@@ -3408,10 +3408,10 @@
           "type": "image",
           "id": "mana_upgrade_5",
           "rect": [
-            1144,
-            92,
-            56,
-            56
+            872,
+            90,
+            48,
+            48
           ],
           "src_bind": "belmont.mana_upgrade_5_image",
           "need_bind": "ui.eq_mana_upgrades"
@@ -3419,10 +3419,10 @@
         {
           "type": "value",
           "rect": [
-            992,
-            154,
+            1100,
+            62,
             0,
-            42
+            44
           ],
           "text": "Lvl ",
           "bind": "belmont.equipment_level",
