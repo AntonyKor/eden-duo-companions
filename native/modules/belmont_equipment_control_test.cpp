@@ -273,6 +273,49 @@ int main() {
                 !noFocus.busy(),
             "closing menu during focus wait aborts without reopening Plus");
     }
+    {
+      Controller route;
+      auto page = State();
+      auto &c = page.control;
+      c.overview = false; c.picker = true; c.category = 3;
+      c.native_pages = 2; c.native_page = 0; c.can_next_page = true;
+      for (auto &slot : c.slots) { slot.item.type=3; slot.native_page=0; }
+      auto &target = c.slots[2]; target.native_page=1; target.enabled=false;
+      route.RequestPick(2);
+      Check(route.Update(page,true,100) == Button::R, "off-page owned target routes source shoulder first");
+      Check(route.Update(page,true,400) == Button::None && route.busy(), "page route never repeats unacknowledged input");
+      c.native_page=1; c.can_next_page=false; c.can_prev_page=true;
+      Check(route.Update(page,true,401) == Button::None && route.busy() &&
+            std::string(route.reason()) == "native_page_button_pending",
+            "observed page waits for native group transition without input");
+      target.enabled=true; Select(page,target.button);
+      Check(route.Update(page,true,500) == Button::A && !route.busy(), "fresh page and selected owned target authorize one submit");
+      c.slots[0].enabled=false;
+      route.RequestPick(0);
+      Check(route.Update(page,true,800) == Button::L, "owned target routes back to page zero");
+      c.native_page=0; c.slots[0].enabled=true; Select(page,100);
+      Check(route.Update(page,true,1100) == Button::A, "page zero selected target submits");
+      route.RequestPick(2);
+      Check(route.Update(page,true,1400) == Button::None && !route.busy(), "missing page permission fails closed");
+      c.can_next_page=true; target.enabled=false;
+      route.RequestPick(2);
+      Check(route.Update(page,true,1700) == Button::R, "new off-page request binds native owned identity");
+      target.item.id="replaced"; c.native_page=1; target.enabled=true; Select(page,target.button);
+      Check(route.Update(page,true,2000) == Button::None && !route.busy(), "target identity changed during page transition aborts");
+    }
+    {
+      Controller transition;
+      auto page=State();auto& c=page.control;
+      c.overview=false;c.picker=true;c.category=3;c.native_pages=2;c.can_next_page=true;
+      for(auto& slot:c.slots){slot.item.type=3;slot.native_page=0;}
+      c.slots[2].native_page=1;c.slots[2].enabled=false;
+      transition.RequestPick(2);
+      Check(transition.Update(page,true,100)==Button::R,"disabled page transition begins");
+      c.native_page=1;
+      Check(transition.Update(page,true,400)==Button::None&&transition.busy(),"native disabled page acknowledgment bounded wait");
+      Check(transition.Update(page,true,1899)==Button::None&&transition.busy(),"native disabled page waits before deadline");
+      Check(transition.Update(page,true,1900)==Button::None&&!transition.busy()&&std::string(transition.reason())=="native_page_button_timeout","native disabled page timeout sends no further input");
+    }
     d.RequestCategory(99);
     Check(!d.busy(), "invalid categories rejected");
     std::cout << "equipment controller tests passed\n";

@@ -16,11 +16,11 @@
     "libraries": {
       "linux-x86_64": {
         "path": "modules/linux-x86_64/0100BA4026E94000.so",
-        "sha256": "598a03799658ce866a18ae9de54cffdcbba113216768116750732cf373fe5b67"
+        "sha256": "b3e74c71295cbc5217516d77fdd5a212223e4dd2707b23f628556948a215a4ac"
       },
       "android-arm64-v8a": {
         "path": "modules/android-arm64-v8a/0100BA4026E94000.so",
-        "sha256": "fc0a1c805f1560690805f5eda590ad45f5ae53dd6488a6d8ae6f0b44e5ce2856"
+        "sha256": "dfabfd42a9b739c82e0dbab0eddb3026f82485f5f5a65314543567833751ebfc"
       }
     }
   },
@@ -141,6 +141,10 @@
     "belmont.picker_can_next",
     "belmont.equipment_control_ready",
     "belmont.equipment_input_button",
+    "belmont.pin_armed",
+    "belmont.marker_x",
+    "belmont.marker_y",
+    "belmont.objective_image",
     "belmont.picker_slot_0_name",
     "belmont.picker_slot_0_image",
     "belmont.picker_slot_0_ready",
@@ -165,10 +169,637 @@
     "belmont.picker_slot_5_image",
     "belmont.picker_slot_5_ready",
     "belmont.picker_slot_5_selected",
-    "belmont.pin_armed",
-    "belmont.marker_x",
-    "belmont.marker_y",
-    "belmont.objective_image"
+    "belmont.picker_slot_6_name",
+    "belmont.picker_slot_6_image",
+    "belmont.picker_slot_6_ready",
+    "belmont.picker_slot_6_selected",
+    "belmont.picker_slot_7_name",
+    "belmont.picker_slot_7_image",
+    "belmont.picker_slot_7_ready",
+    "belmont.picker_slot_7_selected",
+    "belmont.picker_slot_8_name",
+    "belmont.picker_slot_8_image",
+    "belmont.picker_slot_8_ready",
+    "belmont.picker_slot_8_selected",
+    "belmont.picker_slot_9_name",
+    "belmont.picker_slot_9_image",
+    "belmont.picker_slot_9_ready",
+    "belmont.picker_slot_9_selected",
+    "belmont.picker_slot_10_name",
+    "belmont.picker_slot_10_image",
+    "belmont.picker_slot_10_ready",
+    "belmont.picker_slot_10_selected",
+    "belmont.picker_slot_11_name",
+    "belmont.picker_slot_11_image",
+    "belmont.picker_slot_11_ready",
+    "belmont.picker_slot_11_selected",
+    "belmont.picker_slot_12_name",
+    "belmont.picker_slot_12_image",
+    "belmont.picker_slot_12_ready",
+    "belmont.picker_slot_12_selected",
+    "belmont.picker_slot_13_name",
+    "belmont.picker_slot_13_image",
+    "belmont.picker_slot_13_ready",
+    "belmont.picker_slot_13_selected",
+    "belmont.picker_slot_14_name",
+    "belmont.picker_slot_14_image",
+    "belmont.picker_slot_14_ready",
+    "belmont.picker_slot_14_selected",
+    "belmont.picker_slot_15_name",
+    "belmont.picker_slot_15_image",
+    "belmont.picker_slot_15_ready",
+    "belmont.picker_slot_15_selected",
+    "belmont.picker_slot_16_name",
+    "belmont.picker_slot_16_image",
+    "belmont.picker_slot_16_ready",
+    "belmont.picker_slot_16_selected",
+    "belmont.picker_slot_17_name",
+    "belmont.picker_slot_17_image",
+    "belmont.picker_slot_17_ready",
+    "belmont.picker_slot_17_selected",
+    "belmont.picker_slot_18_name",
+    "belmont.picker_slot_18_image",
+    "belmont.picker_slot_18_ready",
+    "belmont.picker_slot_18_selected",
+    "belmont.picker_slot_19_name",
+    "belmont.picker_slot_19_image",
+    "belmont.picker_slot_19_ready",
+    "belmont.picker_slot_19_selected",
+    "belmont.picker_slot_20_name",
+    "belmont.picker_slot_20_image",
+    "belmont.picker_slot_20_ready",
+    "belmont.picker_slot_20_selected",
+    "belmont.picker_slot_21_name",
+    "belmont.picker_slot_21_image",
+    "belmont.picker_slot_21_ready",
+    "belmont.picker_slot_21_selected",
+    "belmont.picker_slot_22_name",
+    "belmont.picker_slot_22_image",
+    "belmont.picker_slot_22_ready",
+    "belmont.picker_slot_22_selected",
+    "belmont.picker_slot_23_name",
+    "belmont.picker_slot_23_image",
+    "belmont.picker_slot_23_ready",
+    "belmont.picker_slot_23_selected",
+    "belmont.picker_slot_24_name",
+    "belmont.picker_slot_24_image",
+    "belmont.picker_slot_24_ready",
+    "belmont.picker_slot_24_selected",
+    "belmont.picker_slot_25_name",
+    "belmont.picker_slot_25_image",
+    "belmont.picker_slot_25_ready",
+    "belmont.picker_slot_25_selected",
+    "belmont.picker_slot_26_name",
+    "belmont.picker_slot_26_image",
+    "belmont.picker_slot_26_ready",
+    "belmont.picker_slot_26_selected",
+    "belmont.picker_slot_27_name",
+    "belmont.picker_slot_27_image",
+    "belmont.picker_slot_27_ready",
+    "belmont.picker_slot_27_selected",
+    "belmont.picker_slot_28_name",
+    "belmont.picker_slot_28_image",
+    "belmont.picker_slot_28_ready",
+    "belmont.picker_slot_28_selected",
+    "belmont.picker_slot_29_name",
+    "belmont.picker_slot_29_image",
+    "belmont.picker_slot_29_ready",
+    "belmont.picker_slot_29_selected",
+    "belmont.picker_slot_30_name",
+    "belmont.picker_slot_30_image",
+    "belmont.picker_slot_30_ready",
+    "belmont.picker_slot_30_selected",
+    "belmont.picker_slot_31_name",
+    "belmont.picker_slot_31_image",
+    "belmont.picker_slot_31_ready",
+    "belmont.picker_slot_31_selected",
+    "belmont.picker_slot_32_name",
+    "belmont.picker_slot_32_image",
+    "belmont.picker_slot_32_ready",
+    "belmont.picker_slot_32_selected",
+    "belmont.picker_slot_33_name",
+    "belmont.picker_slot_33_image",
+    "belmont.picker_slot_33_ready",
+    "belmont.picker_slot_33_selected",
+    "belmont.picker_slot_34_name",
+    "belmont.picker_slot_34_image",
+    "belmont.picker_slot_34_ready",
+    "belmont.picker_slot_34_selected",
+    "belmont.picker_slot_35_name",
+    "belmont.picker_slot_35_image",
+    "belmont.picker_slot_35_ready",
+    "belmont.picker_slot_35_selected",
+    "belmont.picker_slot_36_name",
+    "belmont.picker_slot_36_image",
+    "belmont.picker_slot_36_ready",
+    "belmont.picker_slot_36_selected",
+    "belmont.picker_slot_37_name",
+    "belmont.picker_slot_37_image",
+    "belmont.picker_slot_37_ready",
+    "belmont.picker_slot_37_selected",
+    "belmont.picker_slot_38_name",
+    "belmont.picker_slot_38_image",
+    "belmont.picker_slot_38_ready",
+    "belmont.picker_slot_38_selected",
+    "belmont.picker_slot_39_name",
+    "belmont.picker_slot_39_image",
+    "belmont.picker_slot_39_ready",
+    "belmont.picker_slot_39_selected",
+    "belmont.picker_slot_40_name",
+    "belmont.picker_slot_40_image",
+    "belmont.picker_slot_40_ready",
+    "belmont.picker_slot_40_selected",
+    "belmont.picker_slot_41_name",
+    "belmont.picker_slot_41_image",
+    "belmont.picker_slot_41_ready",
+    "belmont.picker_slot_41_selected",
+    "belmont.picker_slot_42_name",
+    "belmont.picker_slot_42_image",
+    "belmont.picker_slot_42_ready",
+    "belmont.picker_slot_42_selected",
+    "belmont.picker_slot_43_name",
+    "belmont.picker_slot_43_image",
+    "belmont.picker_slot_43_ready",
+    "belmont.picker_slot_43_selected",
+    "belmont.picker_slot_44_name",
+    "belmont.picker_slot_44_image",
+    "belmont.picker_slot_44_ready",
+    "belmont.picker_slot_44_selected",
+    "belmont.picker_slot_45_name",
+    "belmont.picker_slot_45_image",
+    "belmont.picker_slot_45_ready",
+    "belmont.picker_slot_45_selected",
+    "belmont.picker_slot_46_name",
+    "belmont.picker_slot_46_image",
+    "belmont.picker_slot_46_ready",
+    "belmont.picker_slot_46_selected",
+    "belmont.picker_slot_47_name",
+    "belmont.picker_slot_47_image",
+    "belmont.picker_slot_47_ready",
+    "belmont.picker_slot_47_selected",
+    "belmont.picker_slot_48_name",
+    "belmont.picker_slot_48_image",
+    "belmont.picker_slot_48_ready",
+    "belmont.picker_slot_48_selected",
+    "belmont.picker_slot_49_name",
+    "belmont.picker_slot_49_image",
+    "belmont.picker_slot_49_ready",
+    "belmont.picker_slot_49_selected",
+    "belmont.picker_slot_50_name",
+    "belmont.picker_slot_50_image",
+    "belmont.picker_slot_50_ready",
+    "belmont.picker_slot_50_selected",
+    "belmont.picker_slot_51_name",
+    "belmont.picker_slot_51_image",
+    "belmont.picker_slot_51_ready",
+    "belmont.picker_slot_51_selected",
+    "belmont.picker_slot_52_name",
+    "belmont.picker_slot_52_image",
+    "belmont.picker_slot_52_ready",
+    "belmont.picker_slot_52_selected",
+    "belmont.picker_slot_53_name",
+    "belmont.picker_slot_53_image",
+    "belmont.picker_slot_53_ready",
+    "belmont.picker_slot_53_selected",
+    "belmont.picker_slot_54_name",
+    "belmont.picker_slot_54_image",
+    "belmont.picker_slot_54_ready",
+    "belmont.picker_slot_54_selected",
+    "belmont.picker_slot_55_name",
+    "belmont.picker_slot_55_image",
+    "belmont.picker_slot_55_ready",
+    "belmont.picker_slot_55_selected",
+    "belmont.picker_slot_56_name",
+    "belmont.picker_slot_56_image",
+    "belmont.picker_slot_56_ready",
+    "belmont.picker_slot_56_selected",
+    "belmont.picker_slot_57_name",
+    "belmont.picker_slot_57_image",
+    "belmont.picker_slot_57_ready",
+    "belmont.picker_slot_57_selected",
+    "belmont.picker_slot_58_name",
+    "belmont.picker_slot_58_image",
+    "belmont.picker_slot_58_ready",
+    "belmont.picker_slot_58_selected",
+    "belmont.picker_slot_59_name",
+    "belmont.picker_slot_59_image",
+    "belmont.picker_slot_59_ready",
+    "belmont.picker_slot_59_selected",
+    "belmont.picker_slot_60_name",
+    "belmont.picker_slot_60_image",
+    "belmont.picker_slot_60_ready",
+    "belmont.picker_slot_60_selected",
+    "belmont.picker_slot_61_name",
+    "belmont.picker_slot_61_image",
+    "belmont.picker_slot_61_ready",
+    "belmont.picker_slot_61_selected",
+    "belmont.picker_slot_62_name",
+    "belmont.picker_slot_62_image",
+    "belmont.picker_slot_62_ready",
+    "belmont.picker_slot_62_selected",
+    "belmont.picker_slot_63_name",
+    "belmont.picker_slot_63_image",
+    "belmont.picker_slot_63_ready",
+    "belmont.picker_slot_63_selected",
+    "belmont.picker_slot_64_name",
+    "belmont.picker_slot_64_image",
+    "belmont.picker_slot_64_ready",
+    "belmont.picker_slot_64_selected",
+    "belmont.picker_slot_65_name",
+    "belmont.picker_slot_65_image",
+    "belmont.picker_slot_65_ready",
+    "belmont.picker_slot_65_selected",
+    "belmont.picker_slot_66_name",
+    "belmont.picker_slot_66_image",
+    "belmont.picker_slot_66_ready",
+    "belmont.picker_slot_66_selected",
+    "belmont.picker_slot_67_name",
+    "belmont.picker_slot_67_image",
+    "belmont.picker_slot_67_ready",
+    "belmont.picker_slot_67_selected",
+    "belmont.picker_slot_68_name",
+    "belmont.picker_slot_68_image",
+    "belmont.picker_slot_68_ready",
+    "belmont.picker_slot_68_selected",
+    "belmont.picker_slot_69_name",
+    "belmont.picker_slot_69_image",
+    "belmont.picker_slot_69_ready",
+    "belmont.picker_slot_69_selected",
+    "belmont.picker_slot_70_name",
+    "belmont.picker_slot_70_image",
+    "belmont.picker_slot_70_ready",
+    "belmont.picker_slot_70_selected",
+    "belmont.picker_slot_71_name",
+    "belmont.picker_slot_71_image",
+    "belmont.picker_slot_71_ready",
+    "belmont.picker_slot_71_selected",
+    "belmont.picker_slot_72_name",
+    "belmont.picker_slot_72_image",
+    "belmont.picker_slot_72_ready",
+    "belmont.picker_slot_72_selected",
+    "belmont.picker_slot_73_name",
+    "belmont.picker_slot_73_image",
+    "belmont.picker_slot_73_ready",
+    "belmont.picker_slot_73_selected",
+    "belmont.picker_slot_74_name",
+    "belmont.picker_slot_74_image",
+    "belmont.picker_slot_74_ready",
+    "belmont.picker_slot_74_selected",
+    "belmont.picker_slot_75_name",
+    "belmont.picker_slot_75_image",
+    "belmont.picker_slot_75_ready",
+    "belmont.picker_slot_75_selected",
+    "belmont.picker_slot_76_name",
+    "belmont.picker_slot_76_image",
+    "belmont.picker_slot_76_ready",
+    "belmont.picker_slot_76_selected",
+    "belmont.picker_slot_77_name",
+    "belmont.picker_slot_77_image",
+    "belmont.picker_slot_77_ready",
+    "belmont.picker_slot_77_selected",
+    "belmont.picker_slot_78_name",
+    "belmont.picker_slot_78_image",
+    "belmont.picker_slot_78_ready",
+    "belmont.picker_slot_78_selected",
+    "belmont.picker_slot_79_name",
+    "belmont.picker_slot_79_image",
+    "belmont.picker_slot_79_ready",
+    "belmont.picker_slot_79_selected",
+    "belmont.picker_slot_80_name",
+    "belmont.picker_slot_80_image",
+    "belmont.picker_slot_80_ready",
+    "belmont.picker_slot_80_selected",
+    "belmont.picker_slot_81_name",
+    "belmont.picker_slot_81_image",
+    "belmont.picker_slot_81_ready",
+    "belmont.picker_slot_81_selected",
+    "belmont.picker_slot_82_name",
+    "belmont.picker_slot_82_image",
+    "belmont.picker_slot_82_ready",
+    "belmont.picker_slot_82_selected",
+    "belmont.picker_slot_83_name",
+    "belmont.picker_slot_83_image",
+    "belmont.picker_slot_83_ready",
+    "belmont.picker_slot_83_selected",
+    "belmont.picker_slot_84_name",
+    "belmont.picker_slot_84_image",
+    "belmont.picker_slot_84_ready",
+    "belmont.picker_slot_84_selected",
+    "belmont.picker_slot_85_name",
+    "belmont.picker_slot_85_image",
+    "belmont.picker_slot_85_ready",
+    "belmont.picker_slot_85_selected",
+    "belmont.picker_slot_86_name",
+    "belmont.picker_slot_86_image",
+    "belmont.picker_slot_86_ready",
+    "belmont.picker_slot_86_selected",
+    "belmont.picker_slot_87_name",
+    "belmont.picker_slot_87_image",
+    "belmont.picker_slot_87_ready",
+    "belmont.picker_slot_87_selected",
+    "belmont.picker_slot_88_name",
+    "belmont.picker_slot_88_image",
+    "belmont.picker_slot_88_ready",
+    "belmont.picker_slot_88_selected",
+    "belmont.picker_slot_89_name",
+    "belmont.picker_slot_89_image",
+    "belmont.picker_slot_89_ready",
+    "belmont.picker_slot_89_selected",
+    "belmont.picker_slot_90_name",
+    "belmont.picker_slot_90_image",
+    "belmont.picker_slot_90_ready",
+    "belmont.picker_slot_90_selected",
+    "belmont.picker_slot_91_name",
+    "belmont.picker_slot_91_image",
+    "belmont.picker_slot_91_ready",
+    "belmont.picker_slot_91_selected",
+    "belmont.picker_slot_92_name",
+    "belmont.picker_slot_92_image",
+    "belmont.picker_slot_92_ready",
+    "belmont.picker_slot_92_selected",
+    "belmont.picker_slot_93_name",
+    "belmont.picker_slot_93_image",
+    "belmont.picker_slot_93_ready",
+    "belmont.picker_slot_93_selected",
+    "belmont.picker_slot_94_name",
+    "belmont.picker_slot_94_image",
+    "belmont.picker_slot_94_ready",
+    "belmont.picker_slot_94_selected",
+    "belmont.picker_slot_95_name",
+    "belmont.picker_slot_95_image",
+    "belmont.picker_slot_95_ready",
+    "belmont.picker_slot_95_selected",
+    "belmont.picker_slot_96_name",
+    "belmont.picker_slot_96_image",
+    "belmont.picker_slot_96_ready",
+    "belmont.picker_slot_96_selected",
+    "belmont.picker_slot_97_name",
+    "belmont.picker_slot_97_image",
+    "belmont.picker_slot_97_ready",
+    "belmont.picker_slot_97_selected",
+    "belmont.picker_slot_98_name",
+    "belmont.picker_slot_98_image",
+    "belmont.picker_slot_98_ready",
+    "belmont.picker_slot_98_selected",
+    "belmont.picker_slot_99_name",
+    "belmont.picker_slot_99_image",
+    "belmont.picker_slot_99_ready",
+    "belmont.picker_slot_99_selected",
+    "belmont.picker_slot_100_name",
+    "belmont.picker_slot_100_image",
+    "belmont.picker_slot_100_ready",
+    "belmont.picker_slot_100_selected",
+    "belmont.picker_slot_101_name",
+    "belmont.picker_slot_101_image",
+    "belmont.picker_slot_101_ready",
+    "belmont.picker_slot_101_selected",
+    "belmont.picker_slot_102_name",
+    "belmont.picker_slot_102_image",
+    "belmont.picker_slot_102_ready",
+    "belmont.picker_slot_102_selected",
+    "belmont.picker_slot_103_name",
+    "belmont.picker_slot_103_image",
+    "belmont.picker_slot_103_ready",
+    "belmont.picker_slot_103_selected",
+    "belmont.picker_slot_104_name",
+    "belmont.picker_slot_104_image",
+    "belmont.picker_slot_104_ready",
+    "belmont.picker_slot_104_selected",
+    "belmont.picker_slot_105_name",
+    "belmont.picker_slot_105_image",
+    "belmont.picker_slot_105_ready",
+    "belmont.picker_slot_105_selected",
+    "belmont.picker_slot_106_name",
+    "belmont.picker_slot_106_image",
+    "belmont.picker_slot_106_ready",
+    "belmont.picker_slot_106_selected",
+    "belmont.picker_slot_107_name",
+    "belmont.picker_slot_107_image",
+    "belmont.picker_slot_107_ready",
+    "belmont.picker_slot_107_selected",
+    "belmont.picker_slot_108_name",
+    "belmont.picker_slot_108_image",
+    "belmont.picker_slot_108_ready",
+    "belmont.picker_slot_108_selected",
+    "belmont.picker_slot_109_name",
+    "belmont.picker_slot_109_image",
+    "belmont.picker_slot_109_ready",
+    "belmont.picker_slot_109_selected",
+    "belmont.picker_slot_110_name",
+    "belmont.picker_slot_110_image",
+    "belmont.picker_slot_110_ready",
+    "belmont.picker_slot_110_selected",
+    "belmont.picker_slot_111_name",
+    "belmont.picker_slot_111_image",
+    "belmont.picker_slot_111_ready",
+    "belmont.picker_slot_111_selected",
+    "belmont.picker_slot_112_name",
+    "belmont.picker_slot_112_image",
+    "belmont.picker_slot_112_ready",
+    "belmont.picker_slot_112_selected",
+    "belmont.picker_slot_113_name",
+    "belmont.picker_slot_113_image",
+    "belmont.picker_slot_113_ready",
+    "belmont.picker_slot_113_selected",
+    "belmont.picker_slot_114_name",
+    "belmont.picker_slot_114_image",
+    "belmont.picker_slot_114_ready",
+    "belmont.picker_slot_114_selected",
+    "belmont.picker_slot_115_name",
+    "belmont.picker_slot_115_image",
+    "belmont.picker_slot_115_ready",
+    "belmont.picker_slot_115_selected",
+    "belmont.picker_slot_116_name",
+    "belmont.picker_slot_116_image",
+    "belmont.picker_slot_116_ready",
+    "belmont.picker_slot_116_selected",
+    "belmont.picker_slot_117_name",
+    "belmont.picker_slot_117_image",
+    "belmont.picker_slot_117_ready",
+    "belmont.picker_slot_117_selected",
+    "belmont.picker_slot_118_name",
+    "belmont.picker_slot_118_image",
+    "belmont.picker_slot_118_ready",
+    "belmont.picker_slot_118_selected",
+    "belmont.picker_slot_119_name",
+    "belmont.picker_slot_119_image",
+    "belmont.picker_slot_119_ready",
+    "belmont.picker_slot_119_selected",
+    "belmont.picker_slot_120_name",
+    "belmont.picker_slot_120_image",
+    "belmont.picker_slot_120_ready",
+    "belmont.picker_slot_120_selected",
+    "belmont.picker_slot_121_name",
+    "belmont.picker_slot_121_image",
+    "belmont.picker_slot_121_ready",
+    "belmont.picker_slot_121_selected",
+    "belmont.picker_slot_122_name",
+    "belmont.picker_slot_122_image",
+    "belmont.picker_slot_122_ready",
+    "belmont.picker_slot_122_selected",
+    "belmont.picker_slot_123_name",
+    "belmont.picker_slot_123_image",
+    "belmont.picker_slot_123_ready",
+    "belmont.picker_slot_123_selected",
+    "belmont.picker_slot_124_name",
+    "belmont.picker_slot_124_image",
+    "belmont.picker_slot_124_ready",
+    "belmont.picker_slot_124_selected",
+    "belmont.picker_slot_125_name",
+    "belmont.picker_slot_125_image",
+    "belmont.picker_slot_125_ready",
+    "belmont.picker_slot_125_selected",
+    "belmont.picker_slot_126_name",
+    "belmont.picker_slot_126_image",
+    "belmont.picker_slot_126_ready",
+    "belmont.picker_slot_126_selected",
+    "belmont.picker_slot_127_name",
+    "belmont.picker_slot_127_image",
+    "belmont.picker_slot_127_ready",
+    "belmont.picker_slot_127_selected",
+    "belmont.picker_reset_epoch",
+    "belmont.health_upgrades_ready",
+    "belmont.health_upgrade_0_image",
+    "belmont.health_upgrade_1_image",
+    "belmont.health_upgrade_2_image",
+    "belmont.health_upgrade_3_image",
+    "belmont.health_upgrade_4_image",
+    "belmont.health_upgrade_5_image",
+    "belmont.mana_upgrades_ready",
+    "belmont.mana_upgrade_0_image",
+    "belmont.mana_upgrade_1_image",
+    "belmont.mana_upgrade_2_image",
+    "belmont.mana_upgrade_3_image",
+    "belmont.mana_upgrade_4_image",
+    "belmont.mana_upgrade_5_image",
+    "belmont.picker_slot_0_token",
+    "belmont.picker_slot_1_token",
+    "belmont.picker_slot_2_token",
+    "belmont.picker_slot_3_token",
+    "belmont.picker_slot_4_token",
+    "belmont.picker_slot_5_token",
+    "belmont.picker_slot_6_token",
+    "belmont.picker_slot_7_token",
+    "belmont.picker_slot_8_token",
+    "belmont.picker_slot_9_token",
+    "belmont.picker_slot_10_token",
+    "belmont.picker_slot_11_token",
+    "belmont.picker_slot_12_token",
+    "belmont.picker_slot_13_token",
+    "belmont.picker_slot_14_token",
+    "belmont.picker_slot_15_token",
+    "belmont.picker_slot_16_token",
+    "belmont.picker_slot_17_token",
+    "belmont.picker_slot_18_token",
+    "belmont.picker_slot_19_token",
+    "belmont.picker_slot_20_token",
+    "belmont.picker_slot_21_token",
+    "belmont.picker_slot_22_token",
+    "belmont.picker_slot_23_token",
+    "belmont.picker_slot_24_token",
+    "belmont.picker_slot_25_token",
+    "belmont.picker_slot_26_token",
+    "belmont.picker_slot_27_token",
+    "belmont.picker_slot_28_token",
+    "belmont.picker_slot_29_token",
+    "belmont.picker_slot_30_token",
+    "belmont.picker_slot_31_token",
+    "belmont.picker_slot_32_token",
+    "belmont.picker_slot_33_token",
+    "belmont.picker_slot_34_token",
+    "belmont.picker_slot_35_token",
+    "belmont.picker_slot_36_token",
+    "belmont.picker_slot_37_token",
+    "belmont.picker_slot_38_token",
+    "belmont.picker_slot_39_token",
+    "belmont.picker_slot_40_token",
+    "belmont.picker_slot_41_token",
+    "belmont.picker_slot_42_token",
+    "belmont.picker_slot_43_token",
+    "belmont.picker_slot_44_token",
+    "belmont.picker_slot_45_token",
+    "belmont.picker_slot_46_token",
+    "belmont.picker_slot_47_token",
+    "belmont.picker_slot_48_token",
+    "belmont.picker_slot_49_token",
+    "belmont.picker_slot_50_token",
+    "belmont.picker_slot_51_token",
+    "belmont.picker_slot_52_token",
+    "belmont.picker_slot_53_token",
+    "belmont.picker_slot_54_token",
+    "belmont.picker_slot_55_token",
+    "belmont.picker_slot_56_token",
+    "belmont.picker_slot_57_token",
+    "belmont.picker_slot_58_token",
+    "belmont.picker_slot_59_token",
+    "belmont.picker_slot_60_token",
+    "belmont.picker_slot_61_token",
+    "belmont.picker_slot_62_token",
+    "belmont.picker_slot_63_token",
+    "belmont.picker_slot_64_token",
+    "belmont.picker_slot_65_token",
+    "belmont.picker_slot_66_token",
+    "belmont.picker_slot_67_token",
+    "belmont.picker_slot_68_token",
+    "belmont.picker_slot_69_token",
+    "belmont.picker_slot_70_token",
+    "belmont.picker_slot_71_token",
+    "belmont.picker_slot_72_token",
+    "belmont.picker_slot_73_token",
+    "belmont.picker_slot_74_token",
+    "belmont.picker_slot_75_token",
+    "belmont.picker_slot_76_token",
+    "belmont.picker_slot_77_token",
+    "belmont.picker_slot_78_token",
+    "belmont.picker_slot_79_token",
+    "belmont.picker_slot_80_token",
+    "belmont.picker_slot_81_token",
+    "belmont.picker_slot_82_token",
+    "belmont.picker_slot_83_token",
+    "belmont.picker_slot_84_token",
+    "belmont.picker_slot_85_token",
+    "belmont.picker_slot_86_token",
+    "belmont.picker_slot_87_token",
+    "belmont.picker_slot_88_token",
+    "belmont.picker_slot_89_token",
+    "belmont.picker_slot_90_token",
+    "belmont.picker_slot_91_token",
+    "belmont.picker_slot_92_token",
+    "belmont.picker_slot_93_token",
+    "belmont.picker_slot_94_token",
+    "belmont.picker_slot_95_token",
+    "belmont.picker_slot_96_token",
+    "belmont.picker_slot_97_token",
+    "belmont.picker_slot_98_token",
+    "belmont.picker_slot_99_token",
+    "belmont.picker_slot_100_token",
+    "belmont.picker_slot_101_token",
+    "belmont.picker_slot_102_token",
+    "belmont.picker_slot_103_token",
+    "belmont.picker_slot_104_token",
+    "belmont.picker_slot_105_token",
+    "belmont.picker_slot_106_token",
+    "belmont.picker_slot_107_token",
+    "belmont.picker_slot_108_token",
+    "belmont.picker_slot_109_token",
+    "belmont.picker_slot_110_token",
+    "belmont.picker_slot_111_token",
+    "belmont.picker_slot_112_token",
+    "belmont.picker_slot_113_token",
+    "belmont.picker_slot_114_token",
+    "belmont.picker_slot_115_token",
+    "belmont.picker_slot_116_token",
+    "belmont.picker_slot_117_token",
+    "belmont.picker_slot_118_token",
+    "belmont.picker_slot_119_token",
+    "belmont.picker_slot_120_token",
+    "belmont.picker_slot_121_token",
+    "belmont.picker_slot_122_token",
+    "belmont.picker_slot_123_token",
+    "belmont.picker_slot_124_token",
+    "belmont.picker_slot_125_token",
+    "belmont.picker_slot_126_token",
+    "belmont.picker_slot_127_token"
   ],
   "derived": [
     {
@@ -359,7 +990,7 @@
     },
     {
       "name": "ui.eq_level",
-      "expr": "ui.eq_overview && belmont.equipment_level_ready == 1"
+      "expr": "ui.equipment_page && belmont.equipment_level_ready == 1"
     },
     {
       "name": "ui.map_input",
@@ -410,116 +1041,12 @@
       "expr": "ui.eq_picker && belmont.equipment_control_ready && !belmont.presentation_dim && !belmont.equipment_control_busy"
     },
     {
-      "name": "ui.eq_prev",
-      "expr": "ui.eq_picker_control && belmont.picker_can_prev"
-    },
-    {
-      "name": "ui.eq_next",
-      "expr": "ui.eq_picker_control && belmont.picker_can_next"
-    },
-    {
       "name": "ui.eq_picker_grid",
       "expr": "ui.eq_picker && belmont.picker_category != 2"
     },
     {
       "name": "ui.eq_picker_arcana",
       "expr": "ui.eq_picker && belmont.picker_category == 2"
-    },
-    {
-      "name": "ui.eq_slot_0",
-      "expr": "ui.eq_picker && belmont.picker_slot_0_ready"
-    },
-    {
-      "name": "ui.eq_slot_0_grid",
-      "expr": "ui.eq_slot_0 && belmont.picker_category != 2"
-    },
-    {
-      "name": "ui.eq_slot_0_arcana",
-      "expr": "ui.eq_slot_0 && belmont.picker_category == 2"
-    },
-    {
-      "name": "ui.eq_slot_0_selected",
-      "expr": "ui.eq_slot_0 && belmont.picker_slot_0_selected"
-    },
-    {
-      "name": "ui.eq_slot_1",
-      "expr": "ui.eq_picker && belmont.picker_slot_1_ready"
-    },
-    {
-      "name": "ui.eq_slot_1_grid",
-      "expr": "ui.eq_slot_1 && belmont.picker_category != 2"
-    },
-    {
-      "name": "ui.eq_slot_1_arcana",
-      "expr": "ui.eq_slot_1 && belmont.picker_category == 2"
-    },
-    {
-      "name": "ui.eq_slot_1_selected",
-      "expr": "ui.eq_slot_1 && belmont.picker_slot_1_selected"
-    },
-    {
-      "name": "ui.eq_slot_2",
-      "expr": "ui.eq_picker && belmont.picker_slot_2_ready"
-    },
-    {
-      "name": "ui.eq_slot_2_grid",
-      "expr": "ui.eq_slot_2 && belmont.picker_category != 2"
-    },
-    {
-      "name": "ui.eq_slot_2_arcana",
-      "expr": "ui.eq_slot_2 && belmont.picker_category == 2"
-    },
-    {
-      "name": "ui.eq_slot_2_selected",
-      "expr": "ui.eq_slot_2 && belmont.picker_slot_2_selected"
-    },
-    {
-      "name": "ui.eq_slot_3",
-      "expr": "ui.eq_picker && belmont.picker_slot_3_ready"
-    },
-    {
-      "name": "ui.eq_slot_3_grid",
-      "expr": "ui.eq_slot_3 && belmont.picker_category != 2"
-    },
-    {
-      "name": "ui.eq_slot_3_arcana",
-      "expr": "ui.eq_slot_3 && belmont.picker_category == 2"
-    },
-    {
-      "name": "ui.eq_slot_3_selected",
-      "expr": "ui.eq_slot_3 && belmont.picker_slot_3_selected"
-    },
-    {
-      "name": "ui.eq_slot_4",
-      "expr": "ui.eq_picker && belmont.picker_slot_4_ready"
-    },
-    {
-      "name": "ui.eq_slot_4_grid",
-      "expr": "ui.eq_slot_4 && belmont.picker_category != 2"
-    },
-    {
-      "name": "ui.eq_slot_4_arcana",
-      "expr": "ui.eq_slot_4 && belmont.picker_category == 2"
-    },
-    {
-      "name": "ui.eq_slot_4_selected",
-      "expr": "ui.eq_slot_4 && belmont.picker_slot_4_selected"
-    },
-    {
-      "name": "ui.eq_slot_5",
-      "expr": "ui.eq_picker && belmont.picker_slot_5_ready"
-    },
-    {
-      "name": "ui.eq_slot_5_grid",
-      "expr": "ui.eq_slot_5 && belmont.picker_category != 2"
-    },
-    {
-      "name": "ui.eq_slot_5_arcana",
-      "expr": "ui.eq_slot_5 && belmont.picker_category == 2"
-    },
-    {
-      "name": "ui.eq_slot_5_selected",
-      "expr": "ui.eq_slot_5 && belmont.picker_slot_5_selected"
     },
     {
       "name": "ui.eq_input_1",
@@ -550,54 +1077,6 @@
       "expr": "belmont.equipment_input_button == 7 && belmont.equipment_control_ready && !belmont.presentation_dim"
     },
     {
-      "name": "ui.eq_slot_0_selected_grid",
-      "expr": "ui.eq_slot_0_selected && belmont.picker_category != 2"
-    },
-    {
-      "name": "ui.eq_slot_0_selected_arcana",
-      "expr": "ui.eq_slot_0_selected && belmont.picker_category == 2"
-    },
-    {
-      "name": "ui.eq_slot_1_selected_grid",
-      "expr": "ui.eq_slot_1_selected && belmont.picker_category != 2"
-    },
-    {
-      "name": "ui.eq_slot_1_selected_arcana",
-      "expr": "ui.eq_slot_1_selected && belmont.picker_category == 2"
-    },
-    {
-      "name": "ui.eq_slot_2_selected_grid",
-      "expr": "ui.eq_slot_2_selected && belmont.picker_category != 2"
-    },
-    {
-      "name": "ui.eq_slot_2_selected_arcana",
-      "expr": "ui.eq_slot_2_selected && belmont.picker_category == 2"
-    },
-    {
-      "name": "ui.eq_slot_3_selected_grid",
-      "expr": "ui.eq_slot_3_selected && belmont.picker_category != 2"
-    },
-    {
-      "name": "ui.eq_slot_3_selected_arcana",
-      "expr": "ui.eq_slot_3_selected && belmont.picker_category == 2"
-    },
-    {
-      "name": "ui.eq_slot_4_selected_grid",
-      "expr": "ui.eq_slot_4_selected && belmont.picker_category != 2"
-    },
-    {
-      "name": "ui.eq_slot_4_selected_arcana",
-      "expr": "ui.eq_slot_4_selected && belmont.picker_category == 2"
-    },
-    {
-      "name": "ui.eq_slot_5_selected_grid",
-      "expr": "ui.eq_slot_5_selected && belmont.picker_category != 2"
-    },
-    {
-      "name": "ui.eq_slot_5_selected_arcana",
-      "expr": "ui.eq_slot_5_selected && belmont.picker_category == 2"
-    },
-    {
       "name": "ui.eq_input_8",
       "expr": "belmont.equipment_input_button == 8 && belmont.equipment_control_ready && !belmont.presentation_dim"
     },
@@ -620,6 +1099,14 @@
     {
       "name": "ui.pin_open_allowed",
       "expr": "ui.map_input && !belmont.pin_armed"
+    },
+    {
+      "name": "ui.eq_health_upgrades",
+      "expr": "ui.equipment_page && belmont.health_upgrades_ready"
+    },
+    {
+      "name": "ui.eq_mana_upgrades",
+      "expr": "ui.equipment_page && belmont.mana_upgrades_ready"
     }
   ],
   "enforce": [
@@ -827,55 +1314,9 @@
       "argument": 3,
       "enabled_bind": "ui.eq_control"
     },
-    "equipment_prev": {
-      "kind": "module",
-      "action": "equipment_prev",
-      "enabled_bind": "ui.eq_prev"
-    },
-    "equipment_next": {
-      "kind": "module",
-      "action": "equipment_next",
-      "enabled_bind": "ui.eq_next"
-    },
     "equipment_back": {
       "kind": "module",
       "action": "equipment_back",
-      "enabled_bind": "ui.eq_picker_control"
-    },
-    "equipment_pick_0": {
-      "kind": "module",
-      "action": "equipment_pick",
-      "argument": 0,
-      "enabled_bind": "ui.eq_picker_control"
-    },
-    "equipment_pick_1": {
-      "kind": "module",
-      "action": "equipment_pick",
-      "argument": 1,
-      "enabled_bind": "ui.eq_picker_control"
-    },
-    "equipment_pick_2": {
-      "kind": "module",
-      "action": "equipment_pick",
-      "argument": 2,
-      "enabled_bind": "ui.eq_picker_control"
-    },
-    "equipment_pick_3": {
-      "kind": "module",
-      "action": "equipment_pick",
-      "argument": 3,
-      "enabled_bind": "ui.eq_picker_control"
-    },
-    "equipment_pick_4": {
-      "kind": "module",
-      "action": "equipment_pick",
-      "argument": 4,
-      "enabled_bind": "ui.eq_picker_control"
-    },
-    "equipment_pick_5": {
-      "kind": "module",
-      "action": "equipment_pick",
-      "argument": 5,
       "enabled_bind": "ui.eq_picker_control"
     },
     "native_button_1": {
@@ -945,6 +1386,12 @@
       "kind": "module",
       "action": "pin_open",
       "enabled_bind": "ui.pin_open_allowed"
+    },
+    "equipment_pick": {
+      "kind": "module",
+      "action": "equipment_pick",
+      "argument": "$payload",
+      "enabled_bind": "ui.eq_picker_control"
     }
   },
   "pages": [
@@ -1888,8 +2335,8 @@
         {
           "type": "image",
           "rect": [
-            24,
-            930,
+            928,
+            28,
             288,
             112
           ],
@@ -1914,8 +2361,8 @@
         {
           "type": "label",
           "rect": [
-            168,
-            968,
+            1072,
+            66,
             0,
             44
           ],
@@ -1931,8 +2378,8 @@
           "type": "button",
           "id": "map_pin",
           "rect": [
-            24,
-            930,
+            928,
+            28,
             288,
             112
           ],
@@ -1945,8 +2392,8 @@
         {
           "type": "label",
           "rect": [
-            168,
-            968,
+            1072,
+            66,
             0,
             44
           ],
@@ -1962,8 +2409,8 @@
           "type": "button",
           "id": "map_cancel",
           "rect": [
-            24,
-            930,
+            928,
+            28,
             288,
             112
           ],
@@ -2410,7 +2857,7 @@
           "rect": [
             24,
             24,
-            880,
+            720,
             155
           ],
           "src": "module:native:atlas-t_ui_equipmentview_atlas_assets_all_2c61514a8ac6629497b9fc7b089963f1.bundle#-8272290125811881427",
@@ -2426,7 +2873,7 @@
         {
           "type": "label",
           "rect": [
-            108,
+            100,
             60,
             0,
             44
@@ -2442,7 +2889,7 @@
         {
           "type": "label",
           "rect": [
-            286,
+            220,
             42,
             0,
             72
@@ -2460,7 +2907,7 @@
         {
           "type": "label",
           "rect": [
-            286,
+            220,
             42,
             0,
             72
@@ -2477,7 +2924,7 @@
         {
           "type": "label",
           "rect": [
-            108,
+            100,
             126,
             0,
             44
@@ -2493,7 +2940,7 @@
         {
           "type": "label",
           "rect": [
-            286,
+            220,
             108,
             0,
             72
@@ -2511,7 +2958,7 @@
         {
           "type": "label",
           "rect": [
-            286,
+            220,
             108,
             0,
             72
@@ -2528,7 +2975,7 @@
         {
           "type": "label",
           "rect": [
-            474,
+            340,
             60,
             0,
             44
@@ -2544,7 +2991,7 @@
         {
           "type": "label",
           "rect": [
-            704,
+            550,
             42,
             0,
             72
@@ -2562,7 +3009,7 @@
         {
           "type": "label",
           "rect": [
-            704,
+            550,
             42,
             0,
             72
@@ -2579,7 +3026,7 @@
         {
           "type": "label",
           "rect": [
-            474,
+            340,
             126,
             0,
             44
@@ -2595,7 +3042,7 @@
         {
           "type": "label",
           "rect": [
-            704,
+            550,
             108,
             0,
             72
@@ -2613,7 +3060,7 @@
         {
           "type": "label",
           "rect": [
-            704,
+            550,
             108,
             0,
             72
@@ -2714,8 +3161,8 @@
         {
           "type": "image",
           "rect": [
-            928,
-            28,
+            24,
+            930,
             288,
             112
           ],
@@ -2740,8 +3187,8 @@
         {
           "type": "label",
           "rect": [
-            1072,
-            66,
+            168,
+            968,
             0,
             44
           ],
@@ -2758,8 +3205,8 @@
         {
           "type": "button",
           "rect": [
-            928,
-            28,
+            24,
+            930,
             288,
             112
           ],
@@ -2775,7 +3222,7 @@
           "type": "image",
           "rect": [
             928,
-            28,
+            930,
             288,
             112
           ],
@@ -2799,7 +3246,7 @@
           "type": "label",
           "rect": [
             1072,
-            66,
+            968,
             0,
             44
           ],
@@ -2815,7 +3262,7 @@
           "type": "button",
           "rect": [
             928,
-            28,
+            930,
             288,
             112
           ],
@@ -2826,10 +3273,154 @@
           "on_tap": "equipment_close"
         },
         {
-          "type": "value",
+          "type": "image",
+          "id": "health_upgrade_0",
+          "rect": [
+            784,
+            28,
+            56,
+            56
+          ],
+          "src_bind": "belmont.health_upgrade_0_image",
+          "need_bind": "ui.eq_health_upgrades"
+        },
+        {
+          "type": "image",
+          "id": "health_upgrade_1",
+          "rect": [
+            856,
+            28,
+            56,
+            56
+          ],
+          "src_bind": "belmont.health_upgrade_1_image",
+          "need_bind": "ui.eq_health_upgrades"
+        },
+        {
+          "type": "image",
+          "id": "health_upgrade_2",
+          "rect": [
+            928,
+            28,
+            56,
+            56
+          ],
+          "src_bind": "belmont.health_upgrade_2_image",
+          "need_bind": "ui.eq_health_upgrades"
+        },
+        {
+          "type": "image",
+          "id": "health_upgrade_3",
+          "rect": [
+            1000,
+            28,
+            56,
+            56
+          ],
+          "src_bind": "belmont.health_upgrade_3_image",
+          "need_bind": "ui.eq_health_upgrades"
+        },
+        {
+          "type": "image",
+          "id": "health_upgrade_4",
           "rect": [
             1072,
-            142,
+            28,
+            56,
+            56
+          ],
+          "src_bind": "belmont.health_upgrade_4_image",
+          "need_bind": "ui.eq_health_upgrades"
+        },
+        {
+          "type": "image",
+          "id": "health_upgrade_5",
+          "rect": [
+            1144,
+            28,
+            56,
+            56
+          ],
+          "src_bind": "belmont.health_upgrade_5_image",
+          "need_bind": "ui.eq_health_upgrades"
+        },
+        {
+          "type": "image",
+          "id": "mana_upgrade_0",
+          "rect": [
+            784,
+            92,
+            56,
+            56
+          ],
+          "src_bind": "belmont.mana_upgrade_0_image",
+          "need_bind": "ui.eq_mana_upgrades"
+        },
+        {
+          "type": "image",
+          "id": "mana_upgrade_1",
+          "rect": [
+            856,
+            92,
+            56,
+            56
+          ],
+          "src_bind": "belmont.mana_upgrade_1_image",
+          "need_bind": "ui.eq_mana_upgrades"
+        },
+        {
+          "type": "image",
+          "id": "mana_upgrade_2",
+          "rect": [
+            928,
+            92,
+            56,
+            56
+          ],
+          "src_bind": "belmont.mana_upgrade_2_image",
+          "need_bind": "ui.eq_mana_upgrades"
+        },
+        {
+          "type": "image",
+          "id": "mana_upgrade_3",
+          "rect": [
+            1000,
+            92,
+            56,
+            56
+          ],
+          "src_bind": "belmont.mana_upgrade_3_image",
+          "need_bind": "ui.eq_mana_upgrades"
+        },
+        {
+          "type": "image",
+          "id": "mana_upgrade_4",
+          "rect": [
+            1072,
+            92,
+            56,
+            56
+          ],
+          "src_bind": "belmont.mana_upgrade_4_image",
+          "need_bind": "ui.eq_mana_upgrades"
+        },
+        {
+          "type": "image",
+          "id": "mana_upgrade_5",
+          "rect": [
+            1144,
+            92,
+            56,
+            56
+          ],
+          "src_bind": "belmont.mana_upgrade_5_image",
+          "need_bind": "ui.eq_mana_upgrades"
+        },
+        {
+          "type": "value",
+          "rect": [
+            992,
+            154,
             0,
             42
           ],
@@ -3470,8 +4061,14 @@
             192
           ],
           "src": "module:native:atlas-t_ui_overlay_weaponinventory_atlas_assets_all_670723fc58e8a2e715424b182c3a6751.bundle#-9017979426341355189",
-          "need_bind": "ui.eq_slot_0_grid",
-          "tint": "#FFBABABA"
+          "need_bind": "ui.eq_picker_grid",
+          "tint": "#FFBABABA",
+          "repeat": 128,
+          "repeat_bind": "belmont.picker_count",
+          "repeat_cols": 3,
+          "repeat_dx": 394,
+          "repeat_row_dy": 310,
+          "scroll": "equipment_picker"
         },
         {
           "type": "image",
@@ -3482,7 +4079,13 @@
             192
           ],
           "src": "module:native:atlas-t_ui_commongame_slots_assets_all_61b979ae308a40dc07803d10b84457da.bundle#-8197146339764736911",
-          "need_bind": "ui.eq_slot_0_arcana"
+          "need_bind": "ui.eq_picker_arcana",
+          "repeat": 128,
+          "repeat_bind": "belmont.picker_count",
+          "repeat_cols": 3,
+          "repeat_dx": 394,
+          "repeat_row_dy": 310,
+          "scroll": "equipment_picker"
         },
         {
           "type": "image",
@@ -3494,7 +4097,15 @@
           ],
           "src": "module:native:atlas-t_ui_overlay_weaponinventory_atlas_assets_all_670723fc58e8a2e715424b182c3a6751.bundle#-9017979426341355189",
           "tint": "#FFFFE99F",
-          "need_bind": "ui.eq_slot_0_selected_grid"
+          "need_bind": "belmont.picker_slot_{i}_selected",
+          "repeat": 128,
+          "repeat_bind": "belmont.picker_count",
+          "repeat_cols": 3,
+          "repeat_dx": 394,
+          "repeat_row_dy": 310,
+          "scroll": "equipment_picker",
+          "hide_bind": "ui.eq_picker_grid",
+          "hide_eq": 0
         },
         {
           "type": "image",
@@ -3506,7 +4117,15 @@
           ],
           "src": "module:native:atlas-t_ui_commongame_slots_assets_all_61b979ae308a40dc07803d10b84457da.bundle#-8197146339764736911",
           "tint": "#FFFFE99F",
-          "need_bind": "ui.eq_slot_0_selected_arcana"
+          "need_bind": "belmont.picker_slot_{i}_selected",
+          "repeat": 128,
+          "repeat_bind": "belmont.picker_count",
+          "repeat_cols": 3,
+          "repeat_dx": 394,
+          "repeat_row_dy": 310,
+          "scroll": "equipment_picker",
+          "hide_bind": "ui.eq_picker_arcana",
+          "hide_eq": 0
         },
         {
           "type": "image",
@@ -3516,8 +4135,14 @@
             160,
             160
           ],
-          "src_bind": "belmont.picker_slot_0_image",
-          "need_bind": "ui.eq_slot_0"
+          "src_bind": "belmont.picker_slot_{i}_image",
+          "need_bind": "ui.eq_picker",
+          "repeat": 128,
+          "repeat_bind": "belmont.picker_count",
+          "repeat_cols": 3,
+          "repeat_dx": 394,
+          "repeat_row_dy": 310,
+          "scroll": "equipment_picker"
         },
         {
           "type": "label",
@@ -3528,13 +4153,21 @@
             92
           ],
           "text": "",
-          "bind_text": "belmont.picker_slot_0_name",
+          "bind_text": "belmont.picker_slot_{i}_name",
           "text_scale": 6,
           "color": "#FFFFE99F",
           "align": "center",
           "wrap_width": 384,
           "max_lines": 2,
-          "need_bind": "ui.eq_slot_0"
+          "need_bind": "belmont.picker_slot_{i}_ready",
+          "repeat": 128,
+          "repeat_bind": "belmont.picker_count",
+          "repeat_cols": 3,
+          "repeat_dx": 394,
+          "repeat_row_dy": 310,
+          "scroll": "equipment_picker",
+          "hide_bind": "ui.eq_picker",
+          "hide_eq": 0
         },
         {
           "type": "button",
@@ -3547,453 +4180,18 @@
           "text": "",
           "bg": "#00000000",
           "border": 0,
-          "on_tap": "equipment_pick_0",
-          "need_bind": "ui.eq_slot_0"
-        },
-        {
-          "type": "image",
-          "rect": [
-            524,
-            312,
-            192,
-            192
-          ],
-          "src": "module:native:atlas-t_ui_overlay_weaponinventory_atlas_assets_all_670723fc58e8a2e715424b182c3a6751.bundle#-9017979426341355189",
-          "need_bind": "ui.eq_slot_1_grid",
-          "tint": "#FFBABABA"
-        },
-        {
-          "type": "image",
-          "rect": [
-            524,
-            312,
-            192,
-            192
-          ],
-          "src": "module:native:atlas-t_ui_commongame_slots_assets_all_61b979ae308a40dc07803d10b84457da.bundle#-8197146339764736911",
-          "need_bind": "ui.eq_slot_1_arcana"
-        },
-        {
-          "type": "image",
-          "rect": [
-            524,
-            312,
-            192,
-            192
-          ],
-          "src": "module:native:atlas-t_ui_overlay_weaponinventory_atlas_assets_all_670723fc58e8a2e715424b182c3a6751.bundle#-9017979426341355189",
-          "tint": "#FFFFE99F",
-          "need_bind": "ui.eq_slot_1_selected_grid"
-        },
-        {
-          "type": "image",
-          "rect": [
-            524,
-            312,
-            192,
-            192
-          ],
-          "src": "module:native:atlas-t_ui_commongame_slots_assets_all_61b979ae308a40dc07803d10b84457da.bundle#-8197146339764736911",
-          "tint": "#FFFFE99F",
-          "need_bind": "ui.eq_slot_1_selected_arcana"
-        },
-        {
-          "type": "image",
-          "rect": [
-            540,
-            328,
-            160,
-            160
-          ],
-          "src_bind": "belmont.picker_slot_1_image",
-          "need_bind": "ui.eq_slot_1"
-        },
-        {
-          "type": "label",
-          "rect": [
-            620,
-            516,
-            0,
-            92
-          ],
-          "text": "",
-          "bind_text": "belmont.picker_slot_1_name",
-          "text_scale": 6,
-          "color": "#FFFFE99F",
-          "align": "center",
-          "wrap_width": 384,
-          "max_lines": 2,
-          "need_bind": "ui.eq_slot_1"
-        },
-        {
-          "type": "button",
-          "rect": [
-            438,
-            304,
-            364,
-            304
-          ],
-          "text": "",
-          "bg": "#00000000",
-          "border": 0,
-          "on_tap": "equipment_pick_1",
-          "need_bind": "ui.eq_slot_1"
-        },
-        {
-          "type": "image",
-          "rect": [
-            918,
-            312,
-            192,
-            192
-          ],
-          "src": "module:native:atlas-t_ui_overlay_weaponinventory_atlas_assets_all_670723fc58e8a2e715424b182c3a6751.bundle#-9017979426341355189",
-          "need_bind": "ui.eq_slot_2_grid",
-          "tint": "#FFBABABA"
-        },
-        {
-          "type": "image",
-          "rect": [
-            918,
-            312,
-            192,
-            192
-          ],
-          "src": "module:native:atlas-t_ui_commongame_slots_assets_all_61b979ae308a40dc07803d10b84457da.bundle#-8197146339764736911",
-          "need_bind": "ui.eq_slot_2_arcana"
-        },
-        {
-          "type": "image",
-          "rect": [
-            918,
-            312,
-            192,
-            192
-          ],
-          "src": "module:native:atlas-t_ui_overlay_weaponinventory_atlas_assets_all_670723fc58e8a2e715424b182c3a6751.bundle#-9017979426341355189",
-          "tint": "#FFFFE99F",
-          "need_bind": "ui.eq_slot_2_selected_grid"
-        },
-        {
-          "type": "image",
-          "rect": [
-            918,
-            312,
-            192,
-            192
-          ],
-          "src": "module:native:atlas-t_ui_commongame_slots_assets_all_61b979ae308a40dc07803d10b84457da.bundle#-8197146339764736911",
-          "tint": "#FFFFE99F",
-          "need_bind": "ui.eq_slot_2_selected_arcana"
-        },
-        {
-          "type": "image",
-          "rect": [
-            934,
-            328,
-            160,
-            160
-          ],
-          "src_bind": "belmont.picker_slot_2_image",
-          "need_bind": "ui.eq_slot_2"
-        },
-        {
-          "type": "label",
-          "rect": [
-            1014,
-            516,
-            0,
-            92
-          ],
-          "text": "",
-          "bind_text": "belmont.picker_slot_2_name",
-          "text_scale": 6,
-          "color": "#FFFFE99F",
-          "align": "center",
-          "wrap_width": 384,
-          "max_lines": 2,
-          "need_bind": "ui.eq_slot_2"
-        },
-        {
-          "type": "button",
-          "rect": [
-            832,
-            304,
-            364,
-            304
-          ],
-          "text": "",
-          "bg": "#00000000",
-          "border": 0,
-          "on_tap": "equipment_pick_2",
-          "need_bind": "ui.eq_slot_2"
-        },
-        {
-          "type": "image",
-          "rect": [
-            130,
-            622,
-            192,
-            192
-          ],
-          "src": "module:native:atlas-t_ui_overlay_weaponinventory_atlas_assets_all_670723fc58e8a2e715424b182c3a6751.bundle#-9017979426341355189",
-          "need_bind": "ui.eq_slot_3_grid",
-          "tint": "#FFBABABA"
-        },
-        {
-          "type": "image",
-          "rect": [
-            130,
-            622,
-            192,
-            192
-          ],
-          "src": "module:native:atlas-t_ui_commongame_slots_assets_all_61b979ae308a40dc07803d10b84457da.bundle#-8197146339764736911",
-          "need_bind": "ui.eq_slot_3_arcana"
-        },
-        {
-          "type": "image",
-          "rect": [
-            130,
-            622,
-            192,
-            192
-          ],
-          "src": "module:native:atlas-t_ui_overlay_weaponinventory_atlas_assets_all_670723fc58e8a2e715424b182c3a6751.bundle#-9017979426341355189",
-          "tint": "#FFFFE99F",
-          "need_bind": "ui.eq_slot_3_selected_grid"
-        },
-        {
-          "type": "image",
-          "rect": [
-            130,
-            622,
-            192,
-            192
-          ],
-          "src": "module:native:atlas-t_ui_commongame_slots_assets_all_61b979ae308a40dc07803d10b84457da.bundle#-8197146339764736911",
-          "tint": "#FFFFE99F",
-          "need_bind": "ui.eq_slot_3_selected_arcana"
-        },
-        {
-          "type": "image",
-          "rect": [
-            146,
-            638,
-            160,
-            160
-          ],
-          "src_bind": "belmont.picker_slot_3_image",
-          "need_bind": "ui.eq_slot_3"
-        },
-        {
-          "type": "label",
-          "rect": [
-            226,
-            826,
-            0,
-            92
-          ],
-          "text": "",
-          "bind_text": "belmont.picker_slot_3_name",
-          "text_scale": 6,
-          "color": "#FFFFE99F",
-          "align": "center",
-          "wrap_width": 384,
-          "max_lines": 2,
-          "need_bind": "ui.eq_slot_3"
-        },
-        {
-          "type": "button",
-          "rect": [
-            44,
-            614,
-            364,
-            304
-          ],
-          "text": "",
-          "bg": "#00000000",
-          "border": 0,
-          "on_tap": "equipment_pick_3",
-          "need_bind": "ui.eq_slot_3"
-        },
-        {
-          "type": "image",
-          "rect": [
-            524,
-            622,
-            192,
-            192
-          ],
-          "src": "module:native:atlas-t_ui_overlay_weaponinventory_atlas_assets_all_670723fc58e8a2e715424b182c3a6751.bundle#-9017979426341355189",
-          "need_bind": "ui.eq_slot_4_grid",
-          "tint": "#FFBABABA"
-        },
-        {
-          "type": "image",
-          "rect": [
-            524,
-            622,
-            192,
-            192
-          ],
-          "src": "module:native:atlas-t_ui_commongame_slots_assets_all_61b979ae308a40dc07803d10b84457da.bundle#-8197146339764736911",
-          "need_bind": "ui.eq_slot_4_arcana"
-        },
-        {
-          "type": "image",
-          "rect": [
-            524,
-            622,
-            192,
-            192
-          ],
-          "src": "module:native:atlas-t_ui_overlay_weaponinventory_atlas_assets_all_670723fc58e8a2e715424b182c3a6751.bundle#-9017979426341355189",
-          "tint": "#FFFFE99F",
-          "need_bind": "ui.eq_slot_4_selected_grid"
-        },
-        {
-          "type": "image",
-          "rect": [
-            524,
-            622,
-            192,
-            192
-          ],
-          "src": "module:native:atlas-t_ui_commongame_slots_assets_all_61b979ae308a40dc07803d10b84457da.bundle#-8197146339764736911",
-          "tint": "#FFFFE99F",
-          "need_bind": "ui.eq_slot_4_selected_arcana"
-        },
-        {
-          "type": "image",
-          "rect": [
-            540,
-            638,
-            160,
-            160
-          ],
-          "src_bind": "belmont.picker_slot_4_image",
-          "need_bind": "ui.eq_slot_4"
-        },
-        {
-          "type": "label",
-          "rect": [
-            620,
-            826,
-            0,
-            92
-          ],
-          "text": "",
-          "bind_text": "belmont.picker_slot_4_name",
-          "text_scale": 6,
-          "color": "#FFFFE99F",
-          "align": "center",
-          "wrap_width": 384,
-          "max_lines": 2,
-          "need_bind": "ui.eq_slot_4"
-        },
-        {
-          "type": "button",
-          "rect": [
-            438,
-            614,
-            364,
-            304
-          ],
-          "text": "",
-          "bg": "#00000000",
-          "border": 0,
-          "on_tap": "equipment_pick_4",
-          "need_bind": "ui.eq_slot_4"
-        },
-        {
-          "type": "image",
-          "rect": [
-            918,
-            622,
-            192,
-            192
-          ],
-          "src": "module:native:atlas-t_ui_overlay_weaponinventory_atlas_assets_all_670723fc58e8a2e715424b182c3a6751.bundle#-9017979426341355189",
-          "need_bind": "ui.eq_slot_5_grid",
-          "tint": "#FFBABABA"
-        },
-        {
-          "type": "image",
-          "rect": [
-            918,
-            622,
-            192,
-            192
-          ],
-          "src": "module:native:atlas-t_ui_commongame_slots_assets_all_61b979ae308a40dc07803d10b84457da.bundle#-8197146339764736911",
-          "need_bind": "ui.eq_slot_5_arcana"
-        },
-        {
-          "type": "image",
-          "rect": [
-            918,
-            622,
-            192,
-            192
-          ],
-          "src": "module:native:atlas-t_ui_overlay_weaponinventory_atlas_assets_all_670723fc58e8a2e715424b182c3a6751.bundle#-9017979426341355189",
-          "tint": "#FFFFE99F",
-          "need_bind": "ui.eq_slot_5_selected_grid"
-        },
-        {
-          "type": "image",
-          "rect": [
-            918,
-            622,
-            192,
-            192
-          ],
-          "src": "module:native:atlas-t_ui_commongame_slots_assets_all_61b979ae308a40dc07803d10b84457da.bundle#-8197146339764736911",
-          "tint": "#FFFFE99F",
-          "need_bind": "ui.eq_slot_5_selected_arcana"
-        },
-        {
-          "type": "image",
-          "rect": [
-            934,
-            638,
-            160,
-            160
-          ],
-          "src_bind": "belmont.picker_slot_5_image",
-          "need_bind": "ui.eq_slot_5"
-        },
-        {
-          "type": "label",
-          "rect": [
-            1014,
-            826,
-            0,
-            92
-          ],
-          "text": "",
-          "bind_text": "belmont.picker_slot_5_name",
-          "text_scale": 6,
-          "color": "#FFFFE99F",
-          "align": "center",
-          "wrap_width": 384,
-          "max_lines": 2,
-          "need_bind": "ui.eq_slot_5"
-        },
-        {
-          "type": "button",
-          "rect": [
-            832,
-            614,
-            364,
-            304
-          ],
-          "text": "",
-          "bg": "#00000000",
-          "border": 0,
-          "on_tap": "equipment_pick_5",
-          "need_bind": "ui.eq_slot_5"
+          "on_tap": "equipment_pick",
+          "need_bind": "belmont.picker_slot_{i}_ready",
+          "repeat": 128,
+          "repeat_bind": "belmont.picker_count",
+          "repeat_cols": 3,
+          "repeat_dx": 394,
+          "repeat_row_dy": 310,
+          "scroll": "equipment_picker",
+          "id": "equipment_slot_{i}",
+          "payload": "$belmont.picker_slot_{i}_token",
+          "hide_bind": "ui.eq_picker",
+          "hide_eq": 0
         },
         {
           "type": "image",
@@ -4050,131 +4248,6 @@
           "need_bind": "ui.eq_picker_control"
         },
         {
-          "type": "image",
-          "rect": [
-            624,
-            930,
-            288,
-            112
-          ],
-          "src": "module:native:ui-commonsingame_assets_all_acb23e9b0608a368aad72d2fe488a679.bundle#-2769851353036818519",
-          "need_bind": "ui.eq_prev",
-          "src_rect": [
-            0.029296875,
-            0.7001953125,
-            0.529296875,
-            0.8251953125
-          ],
-          "fill": "slice",
-          "slice": [
-            250,
-            0,
-            250,
-            0
-          ]
-        },
-        {
-          "type": "label",
-          "rect": [
-            768,
-            968,
-            0,
-            44
-          ],
-          "text": "Previous",
-          "text_scale": 6,
-          "color": "#FFFFE99F",
-          "align": "center",
-          "wrap_width": 256,
-          "max_lines": 1,
-          "need_bind": "ui.eq_prev"
-        },
-        {
-          "type": "button",
-          "rect": [
-            624,
-            930,
-            288,
-            112
-          ],
-          "text": "",
-          "bg": "#00000000",
-          "border": 0,
-          "on_tap": "equipment_prev",
-          "need_bind": "ui.eq_prev"
-        },
-        {
-          "type": "image",
-          "rect": [
-            928,
-            930,
-            288,
-            112
-          ],
-          "src": "module:native:ui-commonsingame_assets_all_acb23e9b0608a368aad72d2fe488a679.bundle#-2769851353036818519",
-          "need_bind": "ui.eq_next",
-          "src_rect": [
-            0.029296875,
-            0.7001953125,
-            0.529296875,
-            0.8251953125
-          ],
-          "fill": "slice",
-          "slice": [
-            250,
-            0,
-            250,
-            0
-          ]
-        },
-        {
-          "type": "label",
-          "rect": [
-            1072,
-            968,
-            0,
-            44
-          ],
-          "text": "Next",
-          "text_scale": 6,
-          "color": "#FFFFE99F",
-          "align": "center",
-          "wrap_width": 256,
-          "max_lines": 1,
-          "need_bind": "ui.eq_next"
-        },
-        {
-          "type": "button",
-          "rect": [
-            928,
-            930,
-            288,
-            112
-          ],
-          "text": "",
-          "bg": "#00000000",
-          "border": 0,
-          "on_tap": "equipment_next",
-          "need_bind": "ui.eq_next"
-        },
-        {
-          "type": "label",
-          "rect": [
-            468,
-            968,
-            0,
-            44
-          ],
-          "text": "",
-          "bind_text": "belmont.picker_page_text",
-          "text_scale": 6,
-          "color": "#FFFFE99F",
-          "align": "center",
-          "wrap_width": 264,
-          "max_lines": 1,
-          "need_bind": "ui.eq_picker"
-        },
-        {
           "type": "rect",
           "id": "presentation_dim",
           "rect": [
@@ -4190,6 +4263,28 @@
           "color": "#00000000",
           "frame": 0
         }
+      ],
+      "scrolls": [
+        {
+          "id": "equipment_picker",
+          "rect": [
+            24,
+            304,
+            1192,
+            614
+          ],
+          "count_bind": "belmont.picker_count",
+          "row_h": 310,
+          "cols": 3,
+          "show_bind": "ui.eq_picker",
+          "reset_bind": "belmont.picker_reset_epoch",
+          "axes": "y",
+          "fling": true,
+          "friction": 0.135,
+          "bar": "#FFC9B46A",
+          "bar_track": "#40231813",
+          "bar_w": 6
+        }
       ]
     }
   ],
@@ -4202,5 +4297,5 @@
     "ui.area_applied": false,
     "ui.equipment": false
   },
-  "_layout": "Owner-approved Direction A map with native discovered landmark engraving/ribbon overlays and current objective. Native Equipment context adds a touch tab, equipped Arcana card, weapon illustration, relic names/icons and final stats. Page switching retains map view; Equipment readiness is independent of optional map rendering. Unknown native formulas/assets stay unavailable. Owner correction: native ribbon endcaps uniformly scaled with central spans extended; two-stop Area/Sub-area rail, Reset, session-local native nine-icon pin chooser, presentation dim input veil. Native six-cell inventory view, source GridSlot/SquareSlot, category taps and source-state-gated controller pulses. Pin edit opens chooser before deletion. 2026-10-21 ownercorrection: centeredArea/Sub-area; nativePinbuttonselectsthenarmsplacement; retainedviewveilhastransparentoutline; Equipmentnative2rowstatplateinlineMapontop, body52pxlower; objectiveposition220. Objectiveusesnativefont24pxworkerimage1100x64at100,220,secondaryrole; map/worldunitsunchangedbyscaledmarkerbindings."
+  "_layout": "Owner-approved Direction A map with native discovered landmark engraving/ribbon overlays and current objective. Native Equipment context adds a touch tab, equipped Arcana card, weapon illustration, relic names/icons and final stats. Page switching retains map view; Equipment readiness is independent of optional map rendering. Unknown native formulas/assets stay unavailable. Owner correction: native ribbon endcaps uniformly scaled with central spans extended; two-stop Area/Sub-area rail, Reset, session-local native nine-icon pin chooser, presentation dim input veil. Native six-cell inventory view, source GridSlot/SquareSlot, category taps and source-state-gated controller pulses. Pin edit opens chooser before deletion. 2026-10-21 ownercorrection: centeredArea/Sub-area; nativePinbuttonselectsthenarmsplacement; retainedviewveilhastransparentoutline; Equipmentnative2rowstatplateinlineMapontop, body52pxlower; objectiveposition220. Objectiveusesnativefont24pxworkerimage1100x64at100,220,secondaryrole; map/worldunitsunchangedbyscaledmarkerbindings. Equipmentall-ownednative3columnverticalscrollusesstablelogicalpayloads, actualhostclip/hittest, fixedBackleftandMapright; noPrevious/Nextorpageindicator. Ownercompactrevision: statplate720widemaintainsnativefontsize; nativehealth/manaupgrades2x6icons56squareonright; Level992,154; mapPin/Equipmentpositionsswapped; EquipmentMapfixedbottomright."
 }

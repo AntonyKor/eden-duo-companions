@@ -37,6 +37,7 @@ std::string AreaKey(const belmont_map_sources::SourceRecipe& recipe) {
     return recipe.id == belmont_map_sources::Id::StreetsPoor ? "belmont_streetspoor" : std::string(recipe.world_name);
 }
 constexpr std::string_view ObjectivePrefix="module:belmont:objective:";
+constexpr std::string_view UpgradePrefix="module:belmont:upgrade:";
 constexpr std::string_view PickerPrefix="module:belmont:picker:";
 constexpr std::string_view EquipmentPrefix="module:belmont:equipment:";
 constexpr std::string_view LandmarkPrefix="module:belmont:landmark:";
@@ -177,7 +178,6 @@ struct Rendered {
     std::vector<LandmarkImage> overlays;
     std::vector<EquipmentImage> equipment_images;
 };
-struct PickerWork {std::uint64_t generation{};std::vector<belmont_inventory::Slot> slots;};
 struct LiveBundle {
     belmont::Snapshot base;
     belmont_objectives::Snapshot objective;
@@ -210,14 +210,14 @@ struct Module {
     belmont_inventory::Snapshot inventory;
     belmont_equipment_control::Controller equipment_controller;
     std::chrono::steady_clock::time_point inventory_at{};
-    std::optional<PickerWork> pending_picker;
+    // Separate worker-safe readers: image callbacks decode only demanded visible
+    // cells, without blocking the map worker or motion sampling mutex.
+    std::shared_ptr<belmont_equipment_assets::Reader> lazy_equipment_assets;
+    std::shared_ptr<belmont_assets::Reader> lazy_picker_ui;
     std::vector<EquipmentImage> picker_images;
     std::vector<belmont_inventory::Slot> picker_slots;
     std::string picker_signature;
     std::uint64_t picker_generation{};
-    std::size_t picker_page{},picker_pages{};
-    std::int32_t picker_native_page{-1},picker_category{};
-    bool picker_resume_last{};
     std::uint64_t generation{};
     bool in_flight{}, exposed{}, equipment_exposed{}, map_retry_required{};
     std::chrono::steady_clock::time_point retry_after{};
@@ -323,33 +323,14 @@ struct Module {
         belmont_landmark_render::Renderer overlay_renderer(&io_host,astc);
         belmont_objectives::EnglishReader objective_labels(&io_host);
         belmont_equipment_assets::Reader equipment_assets(&io_host,astc);
-        belmont_assets::Reader picker_ui(&io_host,astc);
         while (!stopping.load()) {
             std::optional<Work> job;
-            std::optional<PickerWork> picker_job;
             {
                 std::unique_lock lock{map_mutex};
-                wake.wait(lock, [&] { return stopping.load() || pending.has_value() || pending_picker.has_value(); });
+                wake.wait(lock, [&] { return stopping.load() || pending.has_value(); });
                 if (stopping.load()) return;
                 if(pending){job=std::move(pending);pending.reset();}
-                else {picker_job=std::move(pending_picker);pending_picker.reset();}
                 in_flight=true;
-            }
-            if(picker_job){
-                std::vector<EquipmentImage> images;
-                for(std::size_t n=0;n<picker_job->slots.size();++n){
-                    const auto& slot=picker_job->slots[n];
-                    if(slot.index<0&&slot.item.id.empty()){
-                        try{if(auto source=picker_ui.LoadImage("native:ui-items_assets_all_b43d65be14dfeab613bf4484f610b996.bundle#3721789137048354554"))if(auto image=SquareIcon(*source))images.push_back({std::to_string(n),"Empty slot",std::string(PickerPrefix)+std::to_string(picker_job->generation)+":"+std::to_string(n),std::move(image)});}catch(...){}
-                        continue;
-                    }
-                    try{if(auto source=equipment_assets.ResolveEnglish(static_cast<belmont_equipment_assets::Type>(slot.item.type),slot.item.id)){
-                        if(auto image=SquareIcon(source->image))images.push_back({std::to_string(n),source->name,std::string(PickerPrefix)+std::to_string(picker_job->generation)+":"+std::to_string(n),std::move(image)});
-                    }}catch(...){}
-                }
-                std::lock_guard lock{map_mutex};in_flight=false;
-                if(picker_job->generation==picker_generation&&!stopping.load())picker_images=std::move(images);
-                continue;
             }
             std::shared_ptr<Rendered> result;
             try {
@@ -484,7 +465,7 @@ void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = 
     i("belmont.picker_ready",0);i("belmont.pin_picker",0);i("belmont.pin_capture_pending",0);i("belmont.pin_armed",0);
     if(!m){
         i("belmont.pin_editing",0);i("belmont.picker_count",0);i("belmont.picker_can_prev",0);i("belmont.picker_can_next",0);
-        for(unsigned n=0;n<6;++n){const auto prefix="belmont.picker_slot_"+std::to_string(n);i((prefix+"_ready").c_str(),0);i((prefix+"_selected").c_str(),0);t((prefix+"_name").c_str(),"");t((prefix+"_image").c_str(),"");}
+        for(unsigned n=0;n<128;++n){const auto prefix="belmont.picker_slot_"+std::to_string(n);i((prefix+"_ready").c_str(),0);i((prefix+"_selected").c_str(),0);t((prefix+"_name").c_str(),"");t((prefix+"_image").c_str(),"");}
     }
     i("belmont.presentation_dim",dim);
     i("belmont.live_world",live?World(*live):World(s));
@@ -556,42 +537,44 @@ void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = 
         t("belmont.equipment_action_reason",m->equipment_controller.reason());
         const bool picker=fresh&&control.ready&&control.picker&&control.equipment_tab;
         std::vector<belmont_inventory::Slot> slots;
-        if(picker)for(const auto& slot:control.slots)if(slot.enabled&&slot.item.type==control.category&&
-            (control.holding_charm?slot.index<0:(slot.index>=0&&!slot.item.id.empty())))slots.push_back(slot);
-        const auto pages=(slots.size()+5)/6;
-        // A transient unavailable control snapshot must not consume an awaited
-        // native-page change or lose the previous-page destination.
-        if(picker){
-            if(control.category!=m->picker_category){m->picker_page=0;m->picker_resume_last=false;}
-            if(control.native_page!=m->picker_native_page){
-                m->picker_page=m->picker_resume_last&&pages?pages-1:0;m->picker_resume_last=false;
-            }
-            m->picker_category=control.category;m->picker_native_page=control.native_page;
-            if(m->picker_page>=pages)m->picker_page=0;
-        }
-        m->picker_pages=pages;
-        std::vector<belmont_inventory::Slot> visible;
-        const auto offset=m->picker_page*6;
-        for(std::size_t n=offset;n<std::min(slots.size(),offset+6);++n)visible.push_back(slots[n]);
-        std::string signature=std::to_string(control.category)+":"+std::to_string(control.holding_charm)+":"+std::to_string(m->picker_page);
-        for(const auto& slot:visible)signature+=":"+std::to_string(slot.index)+":"+std::to_string(slot.item.type)+":"+slot.item.id;
+        if(picker)for(const auto& slot:control.slots)
+            if(slot.item.type==control.category &&
+               (control.holding_charm ? (slot.index<0&&slot.enabled) :
+                (slot.index>=0&&!slot.item.id.empty()&&
+                 (slot.enabled||(control.category==3&&slot.native_page>=0&&slot.native_page<control.native_pages)))))
+                slots.push_back(slot);
+        // Membership identity deliberately excludes native focus/page/enable
+        // flags. Scrolling remains stable while the controller routes a relic
+        // to its source page and waits for fresh UIButton selection.
+        std::string signature=std::to_string(inv.entity)+":"+std::to_string(control.category)+":"+std::to_string(control.holding_charm);
+        for(const auto& slot:slots)signature+=":"+std::to_string(slot.index)+":"+std::to_string(slot.item.object)+":"+std::to_string(slot.item.type)+":"+slot.item.id;
         std::lock_guard lock{m->map_mutex};
-        if(!picker){m->picker_exposed=false;m->picker_signature.clear();m->picker_slots.clear();m->picker_images.clear();m->pending_picker.reset();++m->picker_generation;}
-        else if(signature!=m->picker_signature){m->picker_signature=signature;m->picker_slots=visible;m->picker_images.clear();++m->picker_generation;m->pending_picker=PickerWork{m->picker_generation,visible};m->wake.notify_one();}
+        const bool lost=!world||dim||!inv.ready||!inv.coherent||inv.entity!=s.entity||(control.ready&&!control.picker);
+        if(!picker&&lost){
+            if(!m->picker_signature.empty())++m->picker_generation;
+            m->picker_signature.clear();m->picker_slots.clear();m->picker_images.clear();
+        } else if(picker){
+            if(signature!=m->picker_signature){m->picker_signature=signature;m->picker_images.clear();++m->picker_generation;}
+            m->picker_slots=slots;
+        }
         m->picker_exposed=picker;
         i("belmont.picker_ready",picker);i("belmont.picker_category",picker?control.category:0);i("belmont.picker_count",picker?slots.size():0);
-        i("belmont.picker_can_prev",picker&&(m->picker_page>0||control.can_prev_page));i("belmont.picker_can_next",picker&&(m->picker_page+1<pages||control.can_next_page));
-        const char* title=control.holding_charm?"Choose relic slot":control.category==1?"Armoury":control.category==2?"Arcanas":"Relics";
-        t("belmont.picker_title",picker?title:"");
-        const auto page=picker&&pages?(control.native_pages>1&&!control.holding_charm?
-            std::to_string(control.native_page+1)+" / "+std::to_string(control.native_pages)+"   -   ":"")+std::to_string(m->picker_page+1)+" / "+std::to_string(pages):"";t("belmont.picker_page_text",page.c_str());
+        i("belmont.picker_reset_epoch",m->picker_generation);
+        i("belmont.picker_can_prev",0);i("belmont.picker_can_next",0);
+        const char* picker_title=control.holding_charm?"Choose relic slot":control.category==1?"Armoury":control.category==2?"Arcanas":"Relics";
+        t("belmont.picker_title",picker?picker_title:"");t("belmont.picker_page_text","");
         i("belmont.picker_selected_ready",0);t("belmont.picker_selected_name","");t("belmont.picker_selected_image","");
-        for(std::size_t n=0;n<6;++n){
+        for(std::size_t n=0;n<128;++n){
             const EquipmentImage* image=nullptr;for(const auto& entry:m->picker_images)if(entry.slot==std::to_string(n)){image=&entry;break;}
             const auto prefix="belmont.picker_slot_"+std::to_string(n);
-            const bool entry=picker&&n<visible.size();const bool selected=entry&&visible[n].selected;
+            const bool entry=picker&&n<slots.size();const bool selected=entry&&slots[n].selected;
+            const auto image_key=entry?std::string(PickerPrefix)+std::to_string(m->picker_generation)+":"+std::to_string(n):"";
             i((prefix+"_ready").c_str(),entry&&image);i((prefix+"_selected").c_str(),selected);
-            t((prefix+"_name").c_str(),entry&&image?image->name.c_str():"");t((prefix+"_image").c_str(),entry&&image?image->key.c_str():"");
+            i((prefix+"_token").c_str(),entry?m->picker_generation*128+n:0);
+            t((prefix+"_name").c_str(),entry&&image?image->name.c_str():"");
+            // Keys must be exposed before art-ready: visible repeats trigger
+            // the host asset worker to resolve this exact generation/index.
+            t((prefix+"_image").c_str(),image_key.c_str());
             if(selected&&image){i("belmont.picker_selected_ready",1);t("belmont.picker_selected_name",image->name.c_str());t("belmont.picker_selected_image",image->key.c_str());}
         }
     }
@@ -694,6 +677,20 @@ void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = 
         i((prefix+"_ready").c_str(),valid);t((prefix+"_text").c_str(),text.c_str());
     };
     pair("hp",stats.current_hp,stats.max_hp);pair("mp",stats.current_mp,stats.max_mp);
+    for (unsigned kind=0;kind<2;++kind) {
+        const auto& completed=kind?stats.mana_upgrades:stats.health_upgrades;
+        const auto& fragments=kind?stats.mana_fragments:stats.health_fragments;
+        const auto& needed=kind?stats.mana_fragments_needed:stats.health_fragments_needed;
+        const std::string prefix=kind?"belmont.mana_upgrade_":"belmont.health_upgrade_";
+        bool row_ready=stat_ready;
+        for(unsigned n=0;n<6;++n){
+            const auto pieces=belmont_equipment_stats::UpgradePieces(completed,fragments,needed,n);
+            row_ready=row_ready&&pieces.ready;
+            const auto key=stat_ready&&pieces.ready?std::string(UpgradePrefix)+std::to_string(kind)+":"+std::to_string(pieces.value):"";
+            t((prefix+std::to_string(n)+"_image").c_str(),key.c_str());
+        }
+        i(kind?"belmont.mana_upgrades_ready":"belmont.health_upgrades_ready",row_ready);
+    }
     t("belmont.state_reason", s.reason.c_str());
 }
 void Sample(void* p, const EdenDsmodHostApi* h) {
@@ -758,6 +755,12 @@ void Configure(void* p, const EdenDsmodHostExtensions* ext) {
             ext->abi_hash == EDEN_DSMOD_EXT_HASH && ext->decode_astc)
             astc = ce_unity::MakeHostAstcDecoder(ext->userdata, ext->decode_astc);
         if (!m.allowed.load() || !m.io_host.read_romfs) return;
+        {
+            std::lock_guard lock{m.map_mutex};
+            m.lazy_equipment_assets=std::make_shared<belmont_equipment_assets::Reader>(&m.io_host,astc);
+            m.lazy_picker_ui=std::make_shared<belmont_assets::Reader>(&m.io_host,astc);
+            m.picker_exposed=false;m.picker_signature.clear();m.picker_slots.clear();m.picker_images.clear();++m.picker_generation;
+        }
         m.stopping.store(false);
         m.font_worker = std::thread([&m] {
             while (!m.stopping.load() && m.allowed.load()) {
@@ -820,6 +823,53 @@ EdenDsmodBool LoadImage(void* p, const EdenDsmodHostApi* h, const char* key,
             sink(receiver,image->width,image->height,image->rgba.data(),image->rgba.size());return EDEN_DSMOD_TRUE;
         }catch(...){return EDEN_DSMOD_FALSE;}
     }
+    if(k->starts_with(PickerPrefix)||k->starts_with(UpgradePrefix)){
+        try {
+            const bool upgrade=k->starts_with(UpgradePrefix);
+            const auto tail=k->substr(upgrade?UpgradePrefix.size():PickerPrefix.size());
+            const auto separator=tail.find(':');
+            if(separator==std::string_view::npos)return EDEN_DSMOD_FALSE;
+            std::uint64_t first{},second{};
+            const auto parse=[](std::string_view v,std::uint64_t& n){auto p=std::from_chars(v.data(),v.data()+v.size(),n);return p.ec==std::errc{}&&p.ptr==v.data()+v.size();};
+            if(!parse(tail.substr(0,separator),first)||!parse(tail.substr(separator+1),second))return EDEN_DSMOD_FALSE;
+            std::shared_ptr<belmont_equipment_assets::Reader> reader;
+            std::shared_ptr<belmont_assets::Reader> ui;
+            belmont_inventory::Slot slot;
+            std::shared_ptr<const ce_unity::Image> output;
+            {
+                std::lock_guard lock{m.map_mutex};
+                reader=m.lazy_equipment_assets;ui=m.lazy_picker_ui;
+                if(!reader||m.stopping.load())return EDEN_DSMOD_FALSE;
+                if(!upgrade){
+                    if(!m.picker_exposed||first!=m.picker_generation||second>=m.picker_slots.size())return EDEN_DSMOD_FALSE;
+                    slot=m.picker_slots[second];
+                    for(const auto& image:m.picker_images)if(image.key==*k){output=image.image;break;}
+                }
+            }
+            std::string name;
+            if(upgrade){
+                if(first>1||second>4)return EDEN_DSMOD_FALSE;
+                if(auto image=reader->ResolveUpgrade(first!=0,unsigned(second)))output=std::make_shared<ce_unity::Image>(std::move(*image));
+            }else if(!output){
+                if(slot.index<0&&slot.item.id.empty()){
+                    if(ui)if(auto image=ui->LoadImage("native:ui-items_assets_all_b43d65be14dfeab613bf4484f610b996.bundle#3721789137048354554"))output=SquareIcon(*image);
+                    name="Empty slot";
+                }else if(auto item=reader->ResolveEnglish(static_cast<belmont_equipment_assets::Type>(slot.item.type),slot.item.id)){
+                    output=SquareIcon(item->image);name=item->name;
+                }
+                if(!output)return EDEN_DSMOD_FALSE;
+                // Decoding may overlap category/held-stage changes. Never
+                // install pixels/names from an older logical item generation.
+                std::lock_guard lock{m.map_mutex};
+                if(!m.picker_exposed||first!=m.picker_generation||second>=m.picker_slots.size()||
+                   m.picker_slots[second].index!=slot.index||m.picker_slots[second].item.object!=slot.item.object||
+                   m.picker_slots[second].item.id!=slot.item.id||m.stopping.load())return EDEN_DSMOD_FALSE;
+                m.picker_images.push_back({std::to_string(second),name,std::string(*k),output});
+            }
+            if(!output)return EDEN_DSMOD_FALSE;
+            sink(receiver,output->width,output->height,output->rgba.data(),output->rgba.size());return EDEN_DSMOD_TRUE;
+        }catch(...){return EDEN_DSMOD_FALSE;}
+    }
     if (!k->starts_with(ObjectivePrefix) && !k->starts_with(MapPrefix) && !k->starts_with(LandmarkPrefix) && !k->starts_with(EquipmentPrefix) && !k->starts_with(PickerPrefix)) return m.assets.LoadImage(key, receiver, sink);
     try {
         std::shared_ptr<const ce_unity::Image> output;
@@ -879,32 +929,20 @@ EdenDsmodBool Action(void* p,const char* action,std::int64_t argument){
         if(m.presentation_dim)return EDEN_DSMOD_FALSE;
         if(name=="equipment_category"){
             if(!m.control_ready||m.equipment_controller.busy()||argument<1||argument>3)return EDEN_DSMOD_FALSE;
-            m.picker_page=0;m.equipment_controller.RequestCategory(static_cast<std::int32_t>(argument));return EDEN_DSMOD_TRUE;
+            m.equipment_controller.RequestCategory(static_cast<std::int32_t>(argument));return EDEN_DSMOD_TRUE;
         }
         if(name=="equipment_back"){
             if(!m.control_ready)return EDEN_DSMOD_FALSE;
             m.equipment_controller.Back();return EDEN_DSMOD_TRUE;
-        }
-        if(name=="equipment_prev"||name=="equipment_next"){
-            if(!m.control_ready||!m.picker_exposed||m.equipment_controller.busy())return EDEN_DSMOD_FALSE;
-            const auto& control=m.inventory.control;
-            if(name=="equipment_prev"){
-                if(m.picker_page)--m.picker_page;
-                else if(control.can_prev_page){m.picker_resume_last=true;m.equipment_controller.RequestPage(-1);}
-                else return EDEN_DSMOD_FALSE;
-            }else{
-                if(m.picker_page+1<m.picker_pages)++m.picker_page;
-                else if(control.can_next_page){m.picker_resume_last=false;m.equipment_controller.RequestPage(1);}
-                else return EDEN_DSMOD_FALSE;
-            }
-            return EDEN_DSMOD_TRUE;
         }
         if(name=="equipment_pick"){
             if(!m.control_ready||m.equipment_controller.busy())return EDEN_DSMOD_FALSE;
             std::int32_t selected{};
             {
                 std::lock_guard lock{m.map_mutex};
-                if(!m.picker_exposed||argument<0||argument>=std::int64_t(m.picker_slots.size()))return EDEN_DSMOD_FALSE;
+                if(argument<0||std::uint64_t(argument)/128!=m.picker_generation)return EDEN_DSMOD_FALSE;
+                argument=std::int64_t(std::uint64_t(argument)%128);
+                if(!m.picker_exposed||argument>=std::int64_t(m.picker_slots.size()))return EDEN_DSMOD_FALSE;
                 bool art=false;for(const auto& image:m.picker_images)if(image.slot==std::to_string(argument))art=true;
                 if(!art)return EDEN_DSMOD_FALSE;
                 selected=m.picker_slots[std::size_t(argument)].index;

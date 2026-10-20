@@ -1146,3 +1146,64 @@ std::optional<Item> Reader::ResolveEnglish(Type type, std::string_view id) {
   }
 }
 } // namespace belmont_equipment_assets
+
+namespace belmont_equipment_assets {
+std::optional<ce_unity::Image> Reader::ResolveUpgrade(bool mana, unsigned pieces) {
+  if (pieces > 4) return {};
+  std::lock_guard lock(impl->mutex);
+  try {
+    constexpr std::string_view bundle = "atlas-t_ui_common_collectibles_atlas_assets_all_bedae6c7148baaa4ccbe315140f6aa8f.bundle";
+    auto file = File(impl->unity, bundle);
+    auto opened = impl->unity.OpenBundle(bundle);
+    if (!file || !opened || !opened->FindNode("CAB-2c35241d365106bdb8f637a8330bad87")) return {};
+    constexpr std::string_view owner = "ui-collectibles_assets_all_9b30a9bc23f36c43875163ebd92b0ec1.bundle";
+    auto atlasFile=File(impl->unity,owner);
+    auto atlasBundle=impl->unity.OpenBundle(owner);
+    auto atlasObject=atlasFile ? atlasFile->Find(1279585402129214424LL) : nullptr;
+    auto atlas=atlasObject && atlasObject->class_id==687078895 ? atlasFile->ReadObject(*atlasObject) : std::nullopt;
+    auto renderMap=atlas ? Array(atlas->Get("m_RenderDataMap"),4096) : nullptr;
+    if(!atlasBundle || !atlasBundle->FindNode("CAB-3498a4904ed5700f5b4444fd37e1a63e") || !renderMap) return {};
+    const auto round=[](double v){const auto f=std::floor(v),d=v-f;return std::int64_t(d<.5?f:d>.5?f+1:std::fmod(f,2)==0?f:f+1);};
+    const std::int64_t health[] = {-8420212106308902653LL,7111227746032146772LL,-5064570947253341100LL,7584853110640693420LL};
+    const std::int64_t magic[] = {-8687635812860969103LL,8378970302279540607LL,6552034755979668438LL,2002054895149306880LL};
+    std::vector<std::int64_t> layers{-6450544958166635071LL,-3603595132252081608LL};
+    for (unsigned i=0;i<pieces;++i) layers.push_back((mana ? magic : health)[i]);
+    std::optional<ce_unity::Image> out;
+    for (auto id: layers) {
+      auto object=file->Find(id);
+      auto sprite=object && object->class_id==213 ? file->ReadObject(*object) : std::nullopt;
+      if(!sprite) return {};
+      const V* render=nullptr;
+      for(const auto& pair:*renderMap)
+        if(impl->SameKey(sprite->Get("m_RenderDataKey"),pair.Get("first"))){if(render)return {};render=pair.Get("second");}
+      std::int64_t settings{},fileId{},textureId{},alphaId{};
+      if(!render || !Int(render->Get("settingsRaw"),settings) || (settings&3)!=3 || ((settings>>2)&15) ||
+         !Int(render->Path("texture.m_FileID"),fileId) || fileId ||
+         !Int(render->Path("texture.m_PathID"),textureId) ||
+         !Int(render->Path("alphaTexture.m_PathID"),alphaId) || alphaId) return {};
+      const auto num=[&](std::string_view path)->std::optional<double>{auto v=render->Path(path);return v&&v->kind==V::Kind::Float&&std::isfinite(v->f)&&std::abs(v->f)<16384?std::optional<double>(v->f):std::nullopt;};
+      auto x=num("textureRect.x"),y=num("textureRect.y"),w=num("textureRect.width"),h=num("textureRect.height"),ox=num("textureRectOffset.x"),oy=num("textureRectOffset.y");
+      if(!x||!y||!w||!h||!ox||!oy) return {};
+      auto texture=impl->textures.LoadImage("native:"+std::string(owner)+"#"+std::to_string(textureId));
+      if(!texture) return {};
+      const auto x0=round(*x),y0=round(*y),x1=round(*x+*w),y1=round(*y+*h),dx=round(*ox),dy=round(*oy);
+      const auto width=x1-x0,height=y1-y0;
+      if(x0<0||y0<0||width<=0||height<=0||x1>texture->width||y1>texture->height||dx<0||dy<0||dx+width>128||dy+height>128)return {};
+      ce_unity::Image layer{128,128,{}};layer.rgba.resize(128*128*4);
+      for(std::int64_t row=0;row<height;++row)
+        std::memcpy(layer.rgba.data()+((128-dy-height+row)*128+dx)*4,
+          texture->rgba.data()+((texture->height-y1+row)*texture->width+x0)*4,std::size_t(width)*4);
+      auto image=std::optional<ce_unity::Image>(std::move(layer));
+      if (!out) { out=std::move(image); continue; }
+      for (std::size_t i=0;i<out->rgba.size();i+=4) {
+        const unsigned sa=image->rgba[i+3], da=out->rgba[i+3];
+        const unsigned alpha=sa*255+da*(255-sa);
+        for(unsigned c=0;c<3;++c)
+          out->rgba[i+c]=alpha ? (unsigned(image->rgba[i+c])*sa*255+unsigned(out->rgba[i+c])*da*(255-sa)+alpha/2)/alpha : 0;
+        out->rgba[i+3]=(alpha+127)/255;
+      }
+    }
+    return out;
+  } catch (...) { return {}; }
+}
+} // namespace belmont_equipment_assets

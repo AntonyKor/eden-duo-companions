@@ -14,8 +14,23 @@ struct Snapshot {
   belmont::U64 entity{};
   Value atk, atk_bonus, atk_display, defense, defense_bonus, defense_display,
       max_hp, max_mp, level, current_hp, current_mp;
+  Value health_upgrades, health_fragments, health_fragments_needed,
+      mana_upgrades, mana_fragments, mana_fragments_needed;
   std::string reason{"unavailable"};
 };
+// Native six-display row: completed elements show four shards, only the
+// next element shows the unmerged fragment count. Missing inputs hide the row.
+inline Value UpgradePieces(const Value &completed, const Value &fragments,
+                           const Value &needed, unsigned index) {
+  if (!completed.ready || !fragments.ready || !needed.ready)
+    return {false, 0, "upgrade_inputs_unavailable"};
+  if (index >= 6 || completed.value < 0 || completed.value > 6 ||
+      needed.value != 4 || fragments.value < 0 || fragments.value >= 4 ||
+      (completed.value == 6 && fragments.value != 0))
+    return {false, 0, "upgrade_inputs_out_of_range"};
+  return {true, int(index) < completed.value ? 4 :
+      int(index) == completed.value ? fragments.value : 0, "ready"};
+}
 inline float RoundEven(float value) {
   const double lo = std::floor(double(value)), fraction = double(value) - lo;
   return float(fraction < .5                     ? lo
@@ -129,7 +144,11 @@ template <class Read> class Decoder {
            std::equal(b.begin(), b.end(), expected.begin());
   }
   bool Pins() {
-    return Pin(0x4deae1c, {0x81, 0xf6, 0x47, 0xf9, 0xe1, 0x00, 0x00, 0xb4}) &&
+    return Pin(0x1e2f1b0, {0x1f, 0x14, 0x00, 0x71, 0x48, 0x02, 0x00, 0x54}) &&
+           Pin(0x52c9144, {0x00, 0x03, 0x05, 0x07, 0x01, 0x09}) &&
+           Pin(0x1e2f1f8, {0x56, 0x5b, 0xf4, 0x17}) &&
+           Pin(0x1b45f50, {0x10, 0x89, 0x02, 0x90, 0x11, 0x36, 0x40, 0xf9, 0x10, 0xa2, 0x01, 0x91, 0x20, 0x02, 0x1f, 0xd6}) &&
+           Pin(0x4deae1c, {0x81, 0xf6, 0x47, 0xf9, 0xe1, 0x00, 0x00, 0xb4}) &&
            Pin(0x1279e54,
                {0x00, 0x09, 0x40, 0xf9, 0x20, 0x01, 0x00, 0xb4, 0x00, 0x41,
                 0x20, 0x1e, 0xe1, 0x03, 0x1f, 0xaa, 0x1d, 0xed, 0xd7, 0x97}) &&
@@ -367,6 +386,14 @@ template <class Read> class Decoder {
       break;
     case 4:
       out = v;
+      break;
+    case 5:
+      // Native StatOperationType.Modulo dispatches to imported fmodf.
+      if (v == 0) {
+        failure = "modulo_by_zero";
+        return {};
+      }
+      out = std::fmod(current, v);
       break;
     default:
       failure = "unsupported_operation";
@@ -653,6 +680,12 @@ public:
     out.level = ReadValue("Level", true);
     out.current_hp = ReadValue("HealthCurrent");
     out.current_mp = ReadValue("SpellManaCurrent");
+    out.health_upgrades = ReadValue("HealthUpgradeCount");
+    out.health_fragments = ReadValue("HealthUpgradeFragmentUnmergedCount");
+    out.health_fragments_needed = ReadValue("HealthUpgradeFragmentNeededToMergeCount");
+    out.mana_upgrades = ReadValue("ManaUpgradeCount");
+    out.mana_fragments = ReadValue("ManaUpgradeFragmentUnmergedCount");
+    out.mana_fragments_needed = ReadValue("ManaUpgradeFragmentNeededToMergeCount");
     out.atk_display = DisplaySum(out.atk, out.atk_bonus);
     out.defense_display = DisplaySum(out.defense, out.defense_bonus);
     if (malformed) {

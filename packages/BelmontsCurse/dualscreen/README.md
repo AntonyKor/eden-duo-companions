@@ -8,13 +8,16 @@ current main objective uses its installed English text. A touch tab opens the na
 composition: equipped Arcana card, weapon illustration, relic icons/names and final stats.
 Switching pages preserves the map view. Native geometry, explored-zone fog, font, biome and area names, menu art and
 the Rose marker are read from the player's recognized installation. Local touch pan/zoom, the
-centered zoom rail and Reset adjust the companion view. Use Pin at the bottom left to choose one of nine native marker symbols, then tap the map
+centered zoom rail and Reset adjust the companion view. Use Pin at the top right to choose one of nine native marker symbols, then tap the map
 to place it. Ordinary map taps do not open the chooser. Tap an existing pin to edit or remove
 it; Cancel abandons a pending placement. Pins last for the current session only. Equipment category taps open
-a six-item gallery of owned native items. Selecting an item navigates the game’s own equipment
+a scrolling grid of owned native items. Selecting an item navigates the game’s own equipment
 menu using ordinary controller inputs, checked against fresh native selection and menu state.
-Relics use the native two-step item and destination-slot selection. The Equipment stat plate
-sits across the top beside Map, with the equipment categories and artwork below. The module reads game
+Relics use the native two-step item and destination-slot selection; choices from another native
+Relics page first navigate to that page and verify its selection. The compact Equipment stat plate
+sits at the top, with native health/mana upgrade fragments to its right and the equipment
+categories and artwork below. Map stays at the bottom right in every Equipment view. On the
+map, Equipment is at the bottom left. The module reads game
 memory and RomFS without guest writes or calls. Equipment changes are real gameplay changes.
 
 Desktop live checks cover the opening area, walking/reveal changes, transition into the Sewers,

@@ -367,6 +367,15 @@ void CharmFixture(Memory &m, bool holding) {
   m.put(H + 0x7d028, H + 0x7f000);
   object(0x7e000, "InventoryCharmPage");
   object(0x7f000, "InventoryCharmPage");
+  for (unsigned page = 0; page < 2; ++page) {
+    const U64 list = H + 0x170000 + page * 0x1000;
+    m.put(H + 0x7e030 + page * 0x1000, list);
+    m.put(list + 0x10, list + 0x200);
+    m.put<int>(list + 0x18, page == 0 ? 1 : 0);
+    m.put<int>(list + 0x1c, 1);
+    m.put<U64>(list + 0x218, page == 0 ? 1 : 0);
+    m.put(list + 0x220, H + 0x5f000);
+  }
   m.put(H + 0x7e038, H + 0x80000);
   m.put(H + 0x7f038, H + 0x81000);
   m.put<int>(H + 0x59198, 0);
@@ -569,6 +578,8 @@ int main() {
       Check(fresh.ready && fresh.control.ready && fresh.control.category == 3 &&
                 fresh.control.native_pages == 2 && fresh.control.can_next_page,
             "native relic page count/bounds read");
+      Check(fresh.control.slots[0].native_page == 0,
+            "native page membership attaches to stable grid index");
       Check(fresh.control.slots.size() == 4 &&
                 fresh.control.slots[1].item.id == "Charm_Test",
             "actual equipped destination ID ignores null UI placeholder");
@@ -597,6 +608,9 @@ int main() {
       native.put<int>(H + 0x5d018, 2);
       native.put<U64>(H + 0x5e018, 2);
       native.put(H + 0x5e028, H + 0x85000);
+      native.put<int>(H + 0x170018, 2);
+      native.put<U64>(H + 0x170218, 2);
+      native.put(H + 0x170228, H + 0x85000);
       native.object(H + 0x85000, H + 0x185000, "InventoryCharmSlotController");
       native.alive(H + 0x85000);
       native.put(H + 0x85050, H + 0x10000);
@@ -617,6 +631,7 @@ int main() {
       Check(
           prior.control.ready && prior.control.selected_id == "Charm_Test",
           "source actual UIButton differs from stale native selected pointer");
+      native.put<std::uint8_t>(H + 0x600e8, 0);
       unsigned rereadIds = 0;
       native.observe = [&](U64 at) {
         if (at == H + 0x18010 || at == H + 0x84010)
@@ -629,6 +644,11 @@ int main() {
                 !rereadIds,
             "stale source page focus uses only selection flags plus fresh "
             "selected-slot validation");
+      Check(!fast.control.slots[0].enabled,"cached unselected native group becoming disabled is observed");
+      native.put<std::uint8_t>(H + 0x600e8,1);
+      auto settled=reader.SampleControl(native.identity(),native.source(),fast);
+      Check(settled.control.ready && settled.control.slots[0].enabled,
+            "cached page target becomes enabled after native canvas transition");
     }
     std::cout << "inventory reader tests passed\n";
   } catch (const std::exception &e) {

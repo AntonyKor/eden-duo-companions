@@ -71,6 +71,11 @@ struct Memory {
     return true;
   }
   Memory() {
+    bytes(B + 0x1e2f1b0, {0x1f, 0x14, 0x00, 0x71, 0x48, 0x02, 0x00, 0x54});
+    bytes(B + 0x52c9144, {0x00, 0x03, 0x05, 0x07, 0x01, 0x09});
+    bytes(B + 0x1e2f1f8, {0x56, 0x5b, 0xf4, 0x17});
+    bytes(B + 0x1b45f50, {0x10, 0x89, 0x02, 0x90, 0x11, 0x36, 0x40, 0xf9, 0x10, 0xa2, 0x01, 0x91, 0x20, 0x02, 0x1f, 0xd6});
+
     bytes(B + 0x1f52c90, {0x00, 0x28, 0x40, 0xf9, 0xc0, 0x03, 0x5f, 0xd6});
     bytes(B + 0x1f56f50, {0x00, 0x14, 0x40, 0xf9, 0xc0, 0x03, 0x5f, 0xd6});
     bytes(B + 0x1f56f60, {0x00, 0x18, 0x40, 0xf9, 0xc0, 0x03, 0x5f, 0xd6});
@@ -331,6 +336,13 @@ struct Fixture : Memory {
 };
 } // namespace
 int main() {
+  using belmont_equipment_stats::UpgradePieces;
+  using belmont_equipment_stats::Value;
+  const Value six{true,6,"ready"}, zero{true,0,"ready"}, four{true,4,"ready"},
+      two{true,2,"ready"}, three{true,3,"ready"};
+  for(unsigned i=0;i<6;++i) Check(UpgradePieces(six,zero,four,i).value==4,"late full upgrade icons");
+  Check(UpgradePieces(two,three,four,0).value==4 && UpgradePieces(two,three,four,2).value==3 && UpgradePieces(two,three,four,3).value==0,"completed partial and outline native upgrade states");
+  Check(!UpgradePieces({},zero,four,0).ready && !UpgradePieces(two,four,four,2).ready && !UpgradePieces(six,three,four,5).ready,"missing or inconsistent fragments never invent display");
   try {
     Fixture f;
     belmont_equipment_stats::Decoder d(f);
@@ -366,6 +378,22 @@ int main() {
     f.f32(Memory::H + 0x91014, 0);
     s = d.Sample(id, base);
     Check(!s.atk.ready && s.level.ready, "division zero hides affected field");
+    f.put<int>(Memory::H + 0x91010, 5);
+    f.f32(f.objects["PowerAttack"] + 0x18, 24.f);
+    f.f32(Memory::H + 0x91014, 4.f);
+    s = d.Sample(id, base);
+    Check(s.atk.ready && s.atk.value == 0, "native full upgrade fragment total modulo merge count");
+    f.f32(f.objects["PowerAttack"] + 0x18, 27.f);
+    s = d.Sample(id, base);
+    Check(s.atk.ready && s.atk.value == 3, "native partial fragment remainder");
+    f.f32(f.objects["PowerAttack"] + 0x18, -27.f);
+    s = d.Sample(id, base);
+    Check(s.atk.ready && s.atk.value == -3, "native fmodf keeps dividend sign rather than positive modulus");
+    f.f32(Memory::H + 0x91014, 0.f);
+    s = d.Sample(id, base);
+    Check(!s.atk.ready && s.atk.reason == "modulo_by_zero" && s.level.ready,
+          "zero modulo hides only affected field");
+    f.f32(f.objects["PowerAttack"] + 0x18, 10.8f);
     f.modifier("PowerAttack", "UseStatModifier");
     f.put<int>(Memory::H + 0x91010, 0);
     f.object(Memory::H + 0x93000, Memory::H + 0x94000, "Level");

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 #include "belmont_reader.h"
+#include <map>
 
 // Bounded native owned inventory and Equipment menu state. Read-only;
 // snapshots clear on races, transitions, unsupported builds and malformed data.
@@ -16,7 +17,7 @@ struct Item {
 struct Slot {
   Item item;
   U64 object{}, button{};
-  std::int32_t index{};
+  std::int32_t index{}, native_page{-1};
   bool selected{}, enabled{};
   std::array<U64, 4> navigation{};
 };
@@ -643,6 +644,7 @@ template <class Read> class Decoder {
                            "InventorySpellMenuManager",
                            "InventoryCharmsMenuManager"};
     int openCount = 0;
+    std::map<U64, std::int32_t> charmPages;
     for (int i = 0; i < 3; ++i) {
       bool opened{};
       U64 layer{};
@@ -663,6 +665,20 @@ template <class Read> class Decoder {
               out.native_page < 0 || out.native_page >= int(pageObjects.size()))
             return false;
           out.native_pages = int(pageObjects.size());
+          // InventoryCharmPage.charmsSlots is the source-owned page membership;
+          // disabled buttons alone do not identify an off-page owned item.
+          for (std::size_t pageIndex = 0; pageIndex < pageObjects.size(); ++pageIndex) {
+            U64 pageSlots{};
+            std::vector<U64> members;
+            if (!Object(pageObjects[pageIndex], "InventoryCharmPage") ||
+                !Alive(pageObjects[pageIndex]) ||
+                !Ptr(pageObjects[pageIndex] + 0x30, pageSlots) ||
+                !List(pageSlots, members, 256))
+              return false;
+            for (auto member : members)
+              if (!charmPages.emplace(member, int(pageIndex)).second)
+                return false;
+          }
           currentPage = pageObjects[std::size_t(out.native_page)];
           if (!Object(currentPage, "InventoryCharmPage") ||
               !Alive(currentPage) || !Ptr(currentPage + 0x38, header))
@@ -831,6 +847,27 @@ template <class Read> class Decoder {
         for (const auto &slot : out.slots)
           slots.push_back(slot.object);
       }
+      // Page acknowledgment can precede the native canvas-group transition.
+      // Immutable item IDs/graph may be cached, but live button availability
+      // is never cached: a newly shown page must become usable without an ID
+      // rescan, and a disabled button must not remain falsely enabled.
+      if (reuse)
+        for (auto &slot : out.slots) {
+          bool active{}, interactable{}, groups{}, cooldown{};
+          if (!Bit(slot.button + 0x20, active) ||
+              !Bit(slot.button + 0xd8, interactable) ||
+              !Bit(slot.button + 0xe8, groups) ||
+              !Bit(slot.button + 0x198, cooldown))
+            return false;
+          slot.enabled = active && interactable && groups && !cooldown;
+        }
+      if (out.category == 3)
+        for (auto &slot : out.slots) {
+          auto page = charmPages.find(slot.object);
+          if (page == charmPages.end())
+            return false;
+          slot.native_page = page->second;
+        }
       out.reason = "picker_selection_unavailable";
       // Fields are corroborating; active selection is the native UIButton flag.
       if (out.selected_index < -1 ||

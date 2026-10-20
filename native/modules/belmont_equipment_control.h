@@ -111,7 +111,8 @@ class Controller {
   unsigned pulses{};
   std::uint64_t last_pulse{};
   bool pulse_seen{};
-  bool focus_waiting{};
+  bool focus_waiting{}, page_settling{};
+  std::uint64_t page_settle_began{};
   std::uint64_t focus_began{};
   Button previous{Button::None};
   belmont_inventory::Control before;
@@ -128,7 +129,8 @@ class Controller {
     before = {};
     target_id.clear();
     waiting = initialized = bound_pick = false;
-    focus_waiting = false;
+    focus_waiting = page_settling = false;
+    page_settle_began = 0;
     focus_began = 0;
     reason_ = "requested";
     return true;
@@ -257,6 +259,11 @@ public:
         return Button::None;
       }
       waiting = false;
+      if (intent == Intent::Pick && before.picker && before.category == 3 &&
+          (previous == Button::L || previous == Button::R)) {
+        page_settling = true;
+        page_settle_began = now_ms;
+      }
       if (intent == Intent::Back || intent == Intent::Page) {
         Cancel(intent == Intent::Page ? "native_page_changed"
                                       : "back_complete");
@@ -297,7 +304,10 @@ public:
         category = c.category;
         const belmont_inventory::Slot *target = nullptr;
         for (const auto &slot : c.slots)
-          if (slot.index == index && slot.enabled)
+          if (slot.index == index &&
+              (slot.enabled || (c.category == 3 && !c.holding_charm &&
+               slot.native_page >= 0 && slot.native_page < c.native_pages &&
+               slot.native_page != c.native_page && !slot.item.id.empty())))
             target = &slot;
         if (!target || target->item.type != category ||
             (index < 0 && (!c.holding_charm || category != 3))) {
@@ -313,12 +323,32 @@ public:
       }
       const belmont_inventory::Slot *target = nullptr;
       for (const auto &slot : c.slots)
-        if (slot.index == index && slot.item.id == target_id && slot.enabled)
+        if (slot.index == index && slot.item.id == target_id)
           target = &slot;
       if (!target) {
         Cancel("native_item_changed");
         return Button::None;
       }
+      if (category == 3 && index >= 0 && target->native_page != c.native_page) {
+        if (target->native_page < 0 || target->native_page >= c.native_pages ||
+            c.holding_charm ||
+            (target->native_page < c.native_page ? !c.can_prev_page : !c.can_next_page)) {
+          Cancel("native_page_unavailable");
+          return Button::None;
+        }
+        step = {target->native_page < c.native_page ? Button::L : Button::R,
+                false, "route_owned_relic_page"};
+      } else {
+      if (!target->enabled) {
+        if (page_settling && now_ms >= page_settle_began &&
+            now_ms - page_settle_began < 1500) {
+          reason_ = "native_page_button_pending";
+          return Button::None;
+        }
+        Cancel(page_settling ? "native_page_button_timeout" : "native_button_disabled");
+        return Button::None;
+      }
+      page_settling = false;
       if (c.selected_button == target->button) {
         if (!c.confirm) {
           Cancel("native_button_disabled");
@@ -339,6 +369,7 @@ public:
       for (auto &slot : graph.slots)
         slot.item.id = slot.button == target->button ? "target" : "other";
       step = Navigate(graph, category, "target");
+      }
     }
     if (step.button == Button::None) {
       if (std::strcmp(step.reason, "selection_pending") == 0) {

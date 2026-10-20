@@ -23,6 +23,7 @@ public:
                   ce_unity::AstcDecoder astc = {});
   ~Reader();
   std::optional<Item> ResolveEnglish(Type type, std::string_view id);
+  std::optional<ce_unity::Image> ResolveUpgrade(bool mana, unsigned pieces);
   void ClearCache();
 
 private:
