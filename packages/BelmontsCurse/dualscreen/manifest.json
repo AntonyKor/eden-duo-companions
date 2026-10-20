@@ -1417,7 +1417,7 @@
           ],
           "text": "",
           "text_scale": 6,
-          "color": "#FFC9B46A",
+          "color": "#FFFFE99F",
           "align": "center",
           "wrap_width": 344,
           "max_lines": 1,
@@ -1664,7 +1664,7 @@
           "type": "label",
           "rect": [
             132,
-            910,
+            922,
             0,
             44
           ],
@@ -1698,12 +1698,12 @@
           "type": "label",
           "rect": [
             326,
-            910,
+            904,
             0,
-            44
+            72
           ],
           "text": "",
-          "text_scale": 7,
+          "text_scale": 10,
           "color": "#FFFFE99F",
           "align": "center",
           "need_bind": "ui.eq_atk",
@@ -1715,7 +1715,7 @@
           "type": "label",
           "rect": [
             132,
-            976,
+            988,
             0,
             44
           ],
@@ -1749,12 +1749,12 @@
           "type": "label",
           "rect": [
             326,
-            976,
+            970,
             0,
-            44
+            72
           ],
           "text": "",
-          "text_scale": 7,
+          "text_scale": 10,
           "color": "#FFFFE99F",
           "align": "center",
           "need_bind": "ui.eq_def",
@@ -1766,7 +1766,7 @@
           "type": "label",
           "rect": [
             532,
-            910,
+            922,
             0,
             44
           ],
@@ -1800,12 +1800,12 @@
           "type": "label",
           "rect": [
             842,
-            910,
+            904,
             0,
-            44
+            72
           ],
           "text": "",
-          "text_scale": 7,
+          "text_scale": 10,
           "color": "#FFFFE99F",
           "align": "center",
           "need_bind": "ui.eq_hp",
@@ -1817,7 +1817,7 @@
           "type": "label",
           "rect": [
             532,
-            976,
+            988,
             0,
             44
           ],
@@ -1851,12 +1851,12 @@
           "type": "label",
           "rect": [
             842,
-            976,
+            970,
             0,
-            44
+            72
           ],
           "text": "",
-          "text_scale": 7,
+          "text_scale": 10,
           "color": "#FFFFE99F",
           "align": "center",
           "need_bind": "ui.eq_mp",
