@@ -152,8 +152,10 @@ int main(int argc, char **argv) {
   assert(one->image.width == 3072 && one->image.height == 1152 &&
          one->image.rgba.size() <= 16u * 1024u * 1024u);
   const auto one_hash = Hash(one->image);
-  assert(one_hash == 18350825613865592981ull);
   dump("first-room-one-zone.rgba", one->image);
+  if (one_hash != 5457878935551348203ull)
+    std::cerr << "first-room-one-zone hash " << one_hash << '\n';
+  assert(one_hash == 5457878935551348203ull);
   const auto cold = renderer.GetStatistics();
   auto identical = renderer.Render(request);
   assert(identical == one && renderer.GetStatistics().unchanged_requests == 1);

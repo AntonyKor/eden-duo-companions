@@ -82,6 +82,9 @@ bool ImageValid(const ce_unity::Image &i) {
 }
 
 constexpr std::size_t MaximumImageBytes = 16u * 1024u * 1024u;
+// Reveal edge in world units beyond the explored-zone SDF: solid, then a
+// smoothstep fade (fitted to native map output, 2026-10-20).
+constexpr float kRevealSolid = .2f, kRevealFade = 1.3f;
 using Rect = belmont_map_fog::Rect;
 using ZoneKey = std::pair<std::size_t, std::size_t>;
 bool Overlaps(Rect a, Rect b) {
@@ -633,9 +636,26 @@ struct Renderer::State {
             std::lerp(texel(x0, y0 + 1), texel(x0 + 1, y0 + 1), tx), ty);
         const auto src = (std::size_t(y) * color.w + x) * 3,
                    dst = (std::size_t(color.y + y) * width + color.x + x) * 4;
-        std::memcpy(target.image.rgba.data() + dst,
-                    (f <= 0 ? color.revealed : color.clean).data() + src, 3);
-        target.image.rgba[dst + 3] = 255;
+        // R8 holds the clamped world distance / 10. Native reveal stays solid
+        // just past the shapes and fades out softly instead of cutting the
+        // revealed ink at the (mostly rectangular) zone boundary. Range and
+        // width are a still approximation fitted against native output;
+        // animated SDG noise displacement is intentionally omitted.
+        const float reveal =
+            1.f - Smooth((f * (10.f / 255.f) - kRevealSolid) / kRevealFade);
+        auto *out = target.image.rgba.data() + dst;
+        if (reveal >= 1.f)
+          std::memcpy(out, color.revealed.data() + src, 3);
+        else if (reveal <= 0.f)
+          std::memcpy(out, color.clean.data() + src, 3);
+        else
+          for (int c = 0; c < 3; ++c)
+            out[c] = std::uint8_t(std::lround(
+                Gamma(std::lerp(TexelLinear(color.clean[src + c]),
+                                TexelLinear(color.revealed[src + c]),
+                                reveal)) *
+                255.f));
+        out[3] = 255;
       }
     return true;
   }
