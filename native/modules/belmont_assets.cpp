@@ -205,7 +205,8 @@ float SampleAlpha(const Image& image, float x, float y) {
                      std::lerp(alpha(x0, y1), alpha(x1, y1), fx), fy);
 }
 } // namespace
-std::optional<HostFont> Reader::LoadHostFont(std::string_view name, std::uint32_t cap_height) {
+std::optional<HostFont> Reader::LoadHostFont(std::string_view name, std::uint32_t cap_height,
+                                             bool small_caps) {
     std::lock_guard lock{mutex};
     try {
         if (cap_height < 24 || cap_height > 96)
@@ -304,6 +305,91 @@ std::optional<HostFont> Reader::LoadHostFont(std::string_view name, std::uint32_
             h.bearing_y = static_cast<std::int16_t>(std::lround(
                 g.bearing_y * factor +
                 (static_cast<float>(out.source.atlas_h - g.rect_y - g.rect_h) * factor - h.y)));
+        }
+        if (small_caps) {
+            // Pack each capital again at 80% into strips under the atlas, evaluated from
+            // the same SDF, and point its lowercase pair at that copy.
+            constexpr float ratio_small = 0.8f;
+            const float sf = factor * ratio_small, small_scale = sdf_scale * ratio_small;
+            struct Placed {
+                std::uint32_t lower;
+                const ce_unity::TmpGlyph* g;
+                int x{}, y{}, right{}, bottom{}, w{}, h{}, px{}, py{};
+            };
+            std::vector<Placed> placed;
+            const auto upper_of = [](std::uint32_t cp) -> std::uint32_t {
+                if (cp >= 'a' && cp <= 'z')
+                    return cp - 0x20;
+                if (cp >= 0xE0 && cp <= 0xFE && cp != 0xF7)
+                    return cp - 0x20;
+                return 0;
+            };
+            int pen_x = 0, pen_y = static_cast<int>(out.atlas.height) + 2, row_h = 0;
+            for (const auto& [cp, index] : out.source.chars) {
+                const auto upper = upper_of(cp);
+                const auto it = upper ? out.source.chars.find(upper) : out.source.chars.end();
+                if (it == out.source.chars.end() || it->second >= out.source.glyphs.size())
+                    continue;
+                const auto& g = out.source.glyphs[it->second];
+                if (g.rect_w <= 0 || g.rect_h <= 0)
+                    continue;
+                Placed p{cp, &g};
+                p.x = std::max(0, g.rect_x - 1);
+                p.y = std::max(0, out.source.atlas_h - g.rect_y - g.rect_h - 1);
+                p.right = std::min(out.source.atlas_w, g.rect_x + g.rect_w + 1);
+                p.bottom = std::min(out.source.atlas_h, out.source.atlas_h - g.rect_y + 1);
+                p.w = static_cast<int>(std::ceil(static_cast<float>(p.right - p.x) * sf)) + 1;
+                p.h = static_cast<int>(std::ceil(static_cast<float>(p.bottom - p.y) * sf)) + 1;
+                if (p.w > static_cast<int>(out.atlas.width))
+                    return {};
+                if (pen_x + p.w > static_cast<int>(out.atlas.width)) {
+                    pen_x = 0;
+                    pen_y += row_h + 2;
+                    row_h = 0;
+                }
+                p.px = pen_x;
+                p.py = pen_y;
+                pen_x += p.w + 2;
+                row_h = std::max(row_h, p.h);
+                placed.push_back(p);
+            }
+            const auto height = static_cast<unsigned>(pen_y + row_h + 2);
+            const auto grown = static_cast<std::uint64_t>(out.atlas.width) * height * 4;
+            if (placed.empty() || height > 4096 || height > 0xFFFF || grown > ce_unity::MaxAlloc)
+                return {};
+            out.atlas.rgba.resize(static_cast<std::size_t>(grown), 255);
+            for (std::size_t i = static_cast<std::size_t>(out.atlas.width) * out.atlas.height;
+                 i < static_cast<std::size_t>(out.atlas.width) * height; ++i)
+                out.atlas.rgba[i * 4 + 3] = 0;
+            out.atlas.height = height;
+            for (const auto& p : placed) {
+                for (int yy = 0; yy < p.h; ++yy)
+                    for (int xx = 0; xx < p.w; ++xx) {
+                        const float sdf = SampleAlpha(
+                            out.source.atlas_image,
+                            static_cast<float>(p.x) + (static_cast<float>(xx) + .5f) / sf - .5f,
+                            static_cast<float>(p.y) + (static_cast<float>(yy) + .5f) / sf - .5f);
+                        const float coverage =
+                            std::clamp((sdf - .5f + weight) * small_scale + .5f, 0.0f, 1.0f);
+                        out.atlas.rgba[(static_cast<std::size_t>(p.py + yy) * out.atlas.width +
+                                        static_cast<std::size_t>(p.px + xx)) *
+                                           4 +
+                                       3] = static_cast<std::uint8_t>(std::lround(coverage * 255));
+                    }
+                const auto& g = *p.g;
+                auto& h = out.glyphs[p.lower - lo];
+                h.x = static_cast<std::uint16_t>(p.px);
+                h.y = static_cast<std::uint16_t>(p.py);
+                h.w = static_cast<std::uint16_t>(p.w);
+                h.h = static_cast<std::uint16_t>(p.h);
+                h.advance = static_cast<std::uint16_t>(std::lround(g.advance * sf));
+                h.bearing_x = static_cast<std::int16_t>(
+                    std::lround((g.bearing_x + static_cast<float>(p.x - g.rect_x)) * sf));
+                h.bearing_y = static_cast<std::int16_t>(std::lround(
+                    (g.bearing_y +
+                     static_cast<float>(out.source.atlas_h - g.rect_y - g.rect_h - p.y)) *
+                    sf));
+            }
         }
         return out;
     } catch (...) {

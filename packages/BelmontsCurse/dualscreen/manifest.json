@@ -24,8 +24,8 @@
       }
     }
   },
-  "font": "file:fonts/latin51.bfont",
-  "font_atlas": "module:belmont-font:LatinFont:51",
+  "font": "file:fonts/latin51sc.bfont",
+  "font_atlas": "module:belmont-font:LatinFont:51sc",
   "debug_page": false,
   "map": {
     "areas_src": "module:belmont:areas"
@@ -51,6 +51,10 @@
     "belmont.place_ready",
     "belmont.selected_place",
     "__font_epoch",
+    "belmont.area_x0",
+    "belmont.area_y0",
+    "belmont.area_x1",
+    "belmont.area_y1",
     "belmont.biome_name",
     "belmont.area_x0",
     "belmont.area_y0",
@@ -728,7 +732,7 @@
             0,
             34
           ],
-          "text": "WORLD",
+          "text": "World",
           "text_scale": 5,
           "color": "#FF8F7E57",
           "align": "center",
@@ -744,7 +748,7 @@
             0,
             34
           ],
-          "text": "AREA",
+          "text": "Area",
           "text_scale": 5,
           "color": "#FFFFE99F",
           "align": "center",
@@ -760,7 +764,7 @@
             0,
             34
           ],
-          "text": "AREA",
+          "text": "Area",
           "text_scale": 5,
           "color": "#FFB79D75",
           "align": "center",
@@ -776,7 +780,7 @@
             0,
             34
           ],
-          "text": "SUB-AREA",
+          "text": "Sub-Area",
           "text_scale": 5,
           "color": "#FFFFE99F",
           "align": "center",
@@ -792,7 +796,7 @@
             0,
             34
           ],
-          "text": "SUB-AREA",
+          "text": "Sub-Area",
           "text_scale": 5,
           "color": "#FFB79D75",
           "align": "center",

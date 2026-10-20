@@ -28,7 +28,10 @@ class Reader {
     std::optional<Font> LoadFont(std::string_view name);
     // Regular face, orthographic 2D coverage; cap height range 24..96.
     // Keep this result together: its atlas and integer metrics are a matching pair.
-    std::optional<HostFont> LoadHostFont(std::string_view name, std::uint32_t cap_height = 35);
+    // small_caps: lowercase letters (a-z, Latin-1 lowercase with an uppercase pair) draw as
+    // their capital at 80% size, the native menu small-caps style; capitals are unchanged.
+    std::optional<HostFont> LoadHostFont(std::string_view name, std::uint32_t cap_height = 35,
+                                         bool small_caps = false);
     void ClearCache();
 
   private:

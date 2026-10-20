@@ -129,15 +129,19 @@ class Callbacks {
     struct Spec {
         std::string_view name;
         std::uint32_t cap;
+        bool small_caps{};
     };
     static std::optional<Spec> Parse(std::string_view name, std::string_view cap) {
+        const bool small_caps = cap.ends_with("sc");
+        if (small_caps)
+            cap.remove_suffix(2);
         if ((name != "LatinFont" && name != "NotoSans_Latin") || cap.size() != 2)
             return {};
         std::uint32_t number{};
         const auto [end, error] = std::from_chars(cap.data(), cap.data() + cap.size(), number);
         if (error != std::errc{} || end != cap.data() + cap.size() || number < 24 || number > 96)
             return {};
-        return Spec{name, number};
+        return Spec{name, number, small_caps};
     }
     Reader& GetReader() {
         if (!reader_)
@@ -145,10 +149,11 @@ class Callbacks {
         return *reader_;
     }
     std::shared_ptr<const HostFont> GetFont(const Spec& spec) {
-        const auto key = std::string{spec.name} + ':' + std::to_string(spec.cap);
+        const auto key = std::string{spec.name} + ':' + std::to_string(spec.cap) +
+                         (spec.small_caps ? "sc" : "");
         if (const auto it = fonts_.find(key); it != fonts_.end())
             return it->second;
-        auto font = GetReader().LoadHostFont(spec.name, spec.cap);
+        auto font = GetReader().LoadHostFont(spec.name, spec.cap, spec.small_caps);
         if (!font || font->atlas.width == 0 || font->atlas.height == 0 ||
             std::uint64_t(font->atlas.width) * font->atlas.height * 4 != font->atlas.rgba.size() ||
             font->glyphs.empty() || font->line_height == 0)
