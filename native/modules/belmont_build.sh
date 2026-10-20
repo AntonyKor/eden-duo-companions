@@ -32,7 +32,7 @@ done
 "$compiler" "${common[@]}" "$source_dir/belmont_reader_test.cpp" "${objects[@]}" \
   -llz4 -o "$output_dir/belmont_reader_test"
 "$output_dir/belmont_reader_test"
-for test in belmont_objectives belmont_equipment belmont_equipment_stats; do
+for test in belmont_objectives belmont_equipment belmont_equipment_stats belmont_presentation belmont_pins belmont_inventory belmont_equipment_control; do
   "$compiler" "${common[@]}" "$source_dir/${test}_test.cpp" -o "$output_dir/${test}_test"
   "$output_dir/${test}_test"
 done

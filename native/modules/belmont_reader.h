@@ -64,6 +64,14 @@ struct Snapshot {
   bool landmarks_ready{};
   std::vector<std::string> discovered_landmarks;
   std::vector<ExplorationRoom> exploration;
+  // Bounded fast-path provenance. Populated only by this decoder; the caller
+  // must retain an unchanged full sample and cap its age (normally 100 ms).
+  struct MotionContract {
+    U64 base{}, dictionary{}, entries{}, explorer{}, room{}, position{}, layout_hash{};
+    std::int32_t count{}, live{}, version{};
+    bool operator==(const MotionContract &) const = default;
+  } motion;
+  bool motion_only{};
   // Static/synthetic evidence cannot promote a gameplay map to ready.
   bool map_ready{};
   // No map or last-good cache: unavailable never means empty/revealed.
@@ -357,13 +365,17 @@ template <class Read> class Decoder {
     result = std::move(decoded);
     return true;
   }
-  bool Components(U64 entity, Snapshot &out) {
+  bool Components(U64 entity, Snapshot &out, const Snapshot *history) {
     U64 dict{}, entries{};
     std::int32_t count{}, live{};
     if (!Ptr(entity + 0x30, dict) || !Dictionary(dict, entries, count, live))
       return false;
     U64 explorer{}, room{}, position{};
     std::int32_t found{};
+    U64 layout_hash = 14695981039346656037ULL;
+    const auto mix_layout = [&](U64 value) {
+      layout_hash = (layout_hash ^ value) * 1099511628211ULL;
+    };
     std::vector<std::int32_t> keys;
     for (std::int32_t i = 0; i < count; ++i) {
       const auto at = entries + 0x20 + 0x18 * U64(i);
@@ -372,10 +384,13 @@ template <class Read> class Decoder {
       if (!Get(at, hash) || !Get(at + 4, next) || !Get(at + 8, key) ||
           !Get(at + 0x10, value))
         return false;
+      mix_layout(U64(hash)); mix_layout(U64(next)); mix_layout(U64(key));
+      mix_layout(value);
       if (hash < 0)
         continue; // Removed entry: native Remove writes hash=-1, value=0.
       if (next < -1 || next >= count || !Pointer(value) || !Ptr(value, klass))
         return false;
+      mix_layout(klass);
       if (std::find(keys.begin(), keys.end(), key) != keys.end())
         return false;
       keys.push_back(key);
@@ -396,6 +411,15 @@ template <class Read> class Decoder {
     }
     if (found != live)
       return false;
+    std::int32_t dictionary_version{};
+    if (!Get(dict + 0x2c, dictionary_version)) return false;
+    const Snapshot::MotionContract current{base, dict, entries, explorer, room,
+        position, layout_hash, count, live, dictionary_version};
+    if (history && (!history->supported || !history->coherent || history->motion_only ||
+        !history->components_ready || history->motion != current ||
+        history->manager != out.manager || history->entity != entity))
+      return false;
+    out.motion = current;
     // Class/namespace and uniqueness establish candidates only. No projection
     // or Unity destroyed-object equality is inferred from these diagnostics.
     if (explorer) {
@@ -405,8 +429,9 @@ template <class Read> class Decoder {
           self == entity && Ptr(explorer + 0x30, exploration) &&
           Dictionary(exploration, e, allocated, n, 4096)) {
         out.explorer_candidate = true;
-        out.landmarks_ready =
-            DiscoveredLandmarks(explorer, out.discovered_landmarks);
+        if (!history)
+          out.landmarks_ready =
+              DiscoveredLandmarks(explorer, out.discovered_landmarks);
         out.exploration_count = n;
       }
     }
@@ -446,6 +471,21 @@ template <class Read> class Decoder {
         out.target_position = coords;
       }
     }
+    if (history) {
+      std::uint8_t debug{};
+      if (!out.explorer_candidate || !out.room_candidate ||
+          !out.position_candidate || out.room_id != history->room_id ||
+          !Get(explorer + 0xa8, debug) || debug != 0) {
+        return false;
+      }
+      out.exploration_ready = history->exploration_ready;
+      out.exploration_zones_ready = history->exploration_zones_ready;
+      out.exploration = history->exploration;
+      out.landmarks_ready = history->landmarks_ready;
+      out.discovered_landmarks = history->discovered_landmarks;
+      out.motion_only = true;
+      return true;
+    }
     if (out.explorer_candidate && out.room_candidate && out.room_state == 0) {
       U64 exploration{};
       std::vector<ExplorationRoom> decoded;
@@ -469,9 +509,7 @@ template <class Read> class Decoder {
     return true;
   }
 
-public:
-  explicit Decoder(Read &r) : read(r) {}
-  Snapshot Sample(const Identity &id) {
+  Snapshot Decode(const Identity &id, const Snapshot *history) {
     base = id.base;
     journal.clear();
     Snapshot out;
@@ -656,7 +694,7 @@ public:
     if (out.entity_ready && (out.initial_identity == 1 || out.paused == 1) &&
         out.loading_identity == 0 && out.application_loading == 0 &&
         out.room_loading == 0)
-      out.components_ready = Components(out.entity, out);
+      out.components_ready = Components(out.entity, out, history);
     if (!Coherent()) {
       Snapshot rejected;
       rejected.supported = true;
@@ -664,6 +702,14 @@ public:
       return rejected;
     }
     out.coherent = true;
+    if (history && !out.components_ready) {
+      out.explorer_candidate = out.room_candidate = out.position_candidate = false;
+      out.target_position = {};
+      out.room_id.clear();
+      out.motion = {};
+      out.reason = "motion_refresh_required";
+      return out;
+    }
     out.reason = out.application_loading == 1 || out.room_loading == 1 ||
                          out.loading_identity == 1
                      ? "loading"
@@ -675,6 +721,17 @@ public:
                      ? "loading_unavailable"
                      : "map_contract_unverified";
     return out;
+  }
+public:
+  explicit Decoder(Read &r) : read(r) {}
+  Snapshot Sample(const Identity &id) { return Decode(id, nullptr); }
+  // Reuses only exploration and landmark values from a recent *full* snapshot.
+  // Every root, state flag, component membership/type/native liveness, room and
+  // target position is re-read and journal-validated. Never chain motion results
+  // or keep them across room/entity/loading changes. Refresh full data at least
+  // every 100 ms; a refresh-required result carries no history or position.
+  Snapshot SampleMotion(const Identity &id, const Snapshot &full) {
+    return Decode(id, &full);
   }
 };
 } // namespace belmont

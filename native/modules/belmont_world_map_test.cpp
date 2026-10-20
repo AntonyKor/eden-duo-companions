@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2026 Eden DSMod fork
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "belmont_world_map.h"
+#include "belmont_map_decoration.h"
 #include <algorithm>
 #include <cassert>
 #include <chrono>
@@ -34,6 +35,31 @@ long Peak() {
 } // namespace
 int main(int argc, char **argv) {
   using namespace belmont_world_map;
+  {
+    using namespace belmont_map_decoration;
+    const Water p{.25f, .5f, .5f, .5f};
+    assert(WaterMask(0.f, 1.f, 0.f, p) == 0.f);
+    assert(WaterMask(1.f, 0.f, 0.f, p) == 0.f);
+    assert(WaterMask(1.f, 1.f, 0.f, p) == 1.f);
+    assert(std::abs(WaterMask(.75f, .5f, 0.f, p) - .25f) < 1e-6f);
+    assert(std::abs(WaterMask(1.f, 1.f, 1.f, p) - .75f) < 1e-6f);
+    assert(WaterMask(1.f, 1.f, 6.f, p) == -.5f);
+    auto invalid = p; invalid.contrast = 1.f;
+    assert(WaterMask(1.f, 1.f, 0.f, invalid) == 0.f);
+    assert(WaterMask(NAN, 1.f, 0.f, p) == 0.f);
+    assert(std::abs(WaterOffset(0.f, 1.f, .01f) + .03f) < 1e-6f);
+    assert(std::abs(WaterOffset(1.f, 1.f, .01f) - .01f) < 1e-6f);
+    assert(WaterOffset(-1.f, 1.f, .01f) == WaterOffset(1.f, 1.f, .01f));
+    Lines lines{0.f, 0.f, .5f, .5f, 2.f, .5f, .5f,
+                0.f, 0.f, 0.f, 0.f, {}, 0.f, 0.f, 0.f, 0.f, 0.f};
+    const Noise bright{1.f, 1.f, 1.f, 1.f};
+    assert(LineSignal(0.f, bright, bright, bright, lines) == 0.f);
+    assert(std::abs(LineSignal(1.f, bright, bright, bright, lines) - Smooth(.49f)) < 1e-6f);
+    assert(LineSignal(10.f, bright, bright, bright, lines) == 0.f);
+    lines.main_noise_strength = lines.second_noise_strength = 2.f;
+    assert(LineSignal(1.f, bright, bright, bright, lines) == 0.f);
+    assert(Gate(0.f, 0.f) == 0.f && Gate(1.f, 0.f) == 1.f);
+  }
   Renderer missing(ce_unity::RangeReader{});
   assert(!missing.Bounds());
   auto noncanonical = belmont_map_sources::StreetsPoor();
@@ -153,12 +179,19 @@ int main(int argc, char **argv) {
          one->image.rgba.size() <= 16u * 1024u * 1024u);
   const auto one_hash = Hash(one->image);
   dump("first-room-one-zone.rgba", one->image);
-  if (one_hash != 5457878935551348203ull)
+  if (one_hash != 16350129225810602313ull)
     std::cerr << "first-room-one-zone hash " << one_hash << '\n';
-  assert(one_hash == 5457878935551348203ull);
+  assert(one_hash == 16350129225810602313ull);
   const auto cold = renderer.GetStatistics();
   auto identical = renderer.Render(request);
   assert(identical == one && renderer.GetStatistics().unchanged_requests == 1);
+  const auto stationary_stats = renderer.GetStatistics();
+  request.player_x += .25f;
+  assert(renderer.Render(request) == one);
+  const auto moved_stats = renderer.GetStatistics();
+  assert(moved_stats.generations == stationary_stats.generations &&
+         moved_stats.composed_tiles == stationary_stats.composed_tiles &&
+         moved_stats.baked_tiles == stationary_stats.baked_tiles);
   identical.reset();
   request.explored_rooms[0].entered_zone_ids.push_back(first->zones[1].id);
   auto two = renderer.Render(request);

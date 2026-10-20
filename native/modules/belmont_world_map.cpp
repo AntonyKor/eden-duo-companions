@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "belmont_world_map.h"
 #include "belmont_map_assets.h"
+#include "belmont_map_decoration.h"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -121,8 +122,13 @@ struct Renderer::State {
   struct TileColor {
     unsigned x{}, y{}, w{}, h{};
     std::vector<std::uint8_t> clean, revealed;
+    std::vector<std::uint16_t> ornament_gate;
   };
   std::vector<TileColor> colors;
+  ce_unity::Image ornament_noise;
+  bool ornament_noise_srgb{};
+  Color ornament_nst{}, ornament_perlin_st{}, ornament_ink{};
+  belmont_map_decoration::Lines ornament_lines;
   std::set<ZoneKey> visible;
   std::shared_ptr<const Frame> front;
   Statistics statistics;
@@ -137,6 +143,7 @@ struct Renderer::State {
     data.reset();
     layout.clear();
     colors.clear();
+    ornament_noise = {};
     visible.clear();
     front.reset();
     room_indices.clear();
@@ -379,12 +386,22 @@ struct Renderer::State {
     for (const auto name :
          {"_SelectedBackColor", "_SelectedEdgeColor", "_LineColor",
           "_BackgroundST", "_SDGMaskNoiseTexST", "_BakcgroundNoiseMask",
-          "_GlobalNoiseST", "_BakgroundTexNoiseStrength"})
+          "_GlobalNoiseST", "_BakgroundTexNoiseStrength", "_WaterColor",
+          "_WaterNoiseStrength", "_SDGMaskNoiseStrength", "_GradientColorPerlinST"})
       if (!vectors.contains(name))
         return false;
     for (const auto name :
          {"_EdgeDetectMin", "_EdgeDetectMax", "_AlphaSDFRange",
-          "_AlphaSDFContrast", "_CloudSDFMaskRange", "_CloudSDFMaskContrast"})
+          "_AlphaSDFContrast", "_CloudSDFMaskRange", "_CloudSDFMaskContrast",
+          "_WaterSDFMaskRange", "_WaterSDFMaskContrast", "_WaterThickness",
+          "_WaterContrast", "_WaterLineDisplaceNumber", "_WaterLineDisplaceStrength",
+          "_CollisionSDFMaskRange", "_CollisionSDFMaskContrast", "_SDGGlobalRange",
+          "_SDGGlobalContrast", "_MainLineAddRange", "_MainLineThickness", "_MainLineContrast",
+          "_SecondLineAddRange", "_SecondLineThickness", "_SecondLineContrast",
+          "_MainLineNoiseMaskStrength", "_MainLineNoiseMaskContrast",
+          "_SecondLineNoiseMaskStrength", "_SecondLineNoiseMaskContrast",
+          "_GradientColorRange", "_GradientColorContrast",
+          "_GradientColorPerlinMaskRange", "_GradientColorPerlinMaskContrast"})
       if (!numbers.contains(name))
         return false;
 
@@ -395,6 +412,29 @@ struct Renderer::State {
                weights = Property("_BakcgroundNoiseMask"),
                global_st = Property("_GlobalNoiseST"),
                background_strength = Property("_BakgroundTexNoiseStrength");
+    const auto water_color = Property("_WaterColor", true),
+               water_noise_weights = Property("_WaterNoiseStrength");
+    const belmont_map_decoration::Water water{
+        Number("_WaterSDFMaskRange"), Number("_WaterSDFMaskContrast"),
+        Number("_WaterThickness"), Number("_WaterContrast")};
+    if (water.collision_contrast >= 1.f || water.contrast >= 1.f) return false;
+    const auto displacement = Property("_SDGMaskNoiseStrength");
+    ornament_lines = {Number("_SDGGlobalRange"), Number("_MainLineAddRange"),
+        Number("_MainLineThickness"), Number("_MainLineContrast"),
+        Number("_SecondLineAddRange"), Number("_SecondLineThickness"), Number("_SecondLineContrast"),
+        Number("_MainLineNoiseMaskStrength"), Number("_MainLineNoiseMaskContrast"),
+        Number("_SecondLineNoiseMaskStrength"), Number("_SecondLineNoiseMaskContrast"),
+        {displacement.r, displacement.g, displacement.b, displacement.a},
+        Number("_SDGGlobalContrast"), Number("_GradientColorRange"), Number("_GradientColorContrast"),
+        Number("_GradientColorPerlinMaskRange"), Number("_GradientColorPerlinMaskContrast")};
+    ornament_nst = nst; ornament_perlin_st = Property("_GradientColorPerlinST");
+    ornament_ink = Property("_LineColor", true);
+    const float collision_range = Number("_CollisionSDFMaskRange"),
+                collision_width = 1.f - Number("_CollisionSDFMaskContrast"),
+                cloud_range = Number("_CloudSDFMaskRange"),
+                cloud_width = 1.f - Number("_CloudSDFMaskContrast");
+    const float water_repetitions = Number("_WaterLineDisplaceNumber"),
+                water_strength = Number("_WaterLineDisplaceStrength");
     const float emin = Number("_EdgeDetectMin"),
                 emax = Number("_EdgeDetectMax");
     if (emax <= emin)
@@ -413,6 +453,7 @@ struct Renderer::State {
       auto &c = colors[i];
       c.clean.resize(std::size_t(c.w) * c.h * 3);
       c.revealed.resize(c.clean.size());
+      c.ornament_gate.resize(std::size_t(c.w) * c.h);
       for (unsigned y = 0; y < c.h; ++y)
         for (unsigned x = 0; x < c.w; ++x) {
           const float u = (float(x) + .5f) / float(c.w),
@@ -448,11 +489,37 @@ struct Renderer::State {
             // applying LineColor from collision alone invents a gold band.
             ink = Scale(ink, selection);
           }
+          // Native source alpha is the water distance field. Restore its
+          // material color/noise/shoreline contribution at time zero; keep it
+          // inside this same source-backed reveal, including side navigation.
+          const auto water_noise = zmap ? global_noise : Sample(n->image,
+              wx * global_st.r, wy * global_st.g, true, n->srgb);
+          const auto water_field = Sample(geometry->image, u,
+              v + belmont_map_decoration::WaterOffset(wx,
+                  water_repetitions, water_strength),
+              false, geometry->srgb);
+          const float water_mask = belmont_map_decoration::WaterMask(
+              water_field.a, fields.b, Dot(water_noise, water_noise_weights), water);
+          // Native noise attenuation may be negative: preserve extrapolation
+          // and clamp only the final output, as with the shader's linear RGB.
+          ink = {std::lerp(ink.r, water_color.r, water_mask),
+                 std::lerp(ink.g, water_color.g, water_mask),
+                 std::lerp(ink.b, water_color.b, water_mask), ink.a};
+          const float cloud = belmont_map_decoration::Gate(fields.g - cloud_range, cloud_width);
+          const float open = 1.f - belmont_map_decoration::Gate(fields.g - collision_range, collision_width);
+          const float native_selection = std::min(1.f - .25f * Dot(water_noise, background_strength),
+              zmap ? 1.f : 1.f - Sample(skyline->image, u, v, false, skyline->srgb).r);
+          // Quantized source-only gate, not another revealed image. The small
+          // retained native noise supplies the four moving patterns at time0.
+          c.ornament_gate[std::size_t(y) * c.w + x] = std::uint16_t(std::lround(
+              Clamp((1.f - cloud) * open * std::max(open, native_selection) * opacity) * 65535.f));
           const auto offset = (std::size_t(y) * c.w + x) * 3;
           PixelRgb(c.clean.data() + offset, clean);
           PixelRgb(c.revealed.data() + offset, Mix(clean, ink, opacity));
         }
     }
+    ornament_noise_srgb = n->srgb;
+    ornament_noise = std::move(n->image);
     // Static RGB source tiles now own every needed sample. Drop duplicate
     // Unity metadata/decompression caches before immutable output allocation.
     unity.ClearCache();
@@ -465,7 +532,9 @@ struct Renderer::State {
     statistics.baked_tiles += colors.size();
     statistics.source_color_bytes = 0;
     for (const auto &c : colors)
-      statistics.source_color_bytes += c.clean.size() + c.revealed.size();
+      statistics.source_color_bytes += c.clean.size() + c.revealed.size() +
+          c.ornament_gate.size() * sizeof(std::uint16_t);
+    statistics.source_color_bytes += ornament_noise.rgba.size();
     statistics.cold_source_ms = std::chrono::duration<double, std::milli>(
                                     std::chrono::steady_clock::now() - start)
                                     .count();
@@ -655,6 +724,27 @@ struct Renderer::State {
                                 TexelLinear(color.revealed[src + c]),
                                 reveal)) *
                 255.f));
+        const auto gate = color.ornament_gate[std::size_t(y) * color.w + x];
+        if (gate) {
+          const float u = (float(x) + .5f) / float(color.w),
+                      v = (float(color.h - y) - .5f) / float(color.h);
+          const auto noise = [&](float su, float sv) {
+            const auto n = Sample(ornament_noise, su, sv, true, ornament_noise_srgb);
+            return belmont_map_decoration::Noise{n.r, n.g, n.b, n.a};
+          };
+          const auto a = noise(u * ornament_nst.r * 2.f, v * ornament_nst.g * 2.f),
+                     b = noise((u * 2.f + .5f) * ornament_nst.r, (v * 2.f + .5f) * ornament_nst.g),
+                     c = noise(u * ornament_nst.r, v * ornament_nst.g),
+                     p = noise(u * ornament_perlin_st.r, v * ornament_perlin_st.g);
+          const float weight = 2.f * (float(gate) / 65535.f) *
+              belmont_map_decoration::LineFactor(f * (10.f / 255.f), a, b, c, p, ornament_lines);
+          if (weight > 0.f) {
+            const float ink[] = {ornament_ink.r, ornament_ink.g, ornament_ink.b};
+            for (unsigned channel = 0; channel < 3; ++channel)
+              out[channel] = std::uint8_t(std::lround(Gamma(TexelLinear(out[channel]) +
+                  ink[channel] * weight) * 255.f));
+          }
+        }
         out[3] = 255;
       }
     return true;

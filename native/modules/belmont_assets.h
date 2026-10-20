@@ -5,7 +5,7 @@
 #include <mutex>
 
 // Asset-free Belmont's Curse 1.1.0 reader. Keys are
-// native:<Addressables bundle basename>#<signed Texture2D path ID>.
+// native:<Addressables bundle basename>#<signed Texture2D or Sprite path ID>.
 // The caller owns any returned pixels; nothing is persisted by this reader.
 namespace belmont_assets {
 using Image = ce_unity::Image;
@@ -36,6 +36,7 @@ class Reader {
 
   private:
     std::optional<Image> Texture(std::string_view bundle, std::int64_t id);
+    std::optional<Image> AtlasSprite(std::string_view bundle, const ce_unity::Value& sprite);
     std::recursive_mutex mutex;
     ce_unity::Reader unity;
     ce_unity::AstcDecoder astc;

@@ -851,6 +851,7 @@ int main() {
       h.texts["belmont.map_image"] = "stale"; h.texts["belmont.map_area"] = "stale";
       h.texts["belmont.area_name"] = "stale"; h.numbers["belmont.player_x"] = 999;
       for(const auto* key:{"belmont.equipment_ready","belmont.equipment_assets_ready","belmont.equipment_weapon_ready","belmont.equipment_arcana_ready","belmont.equipment_atk_ready","belmont.equipment_hp_ready"})h.values[key]=1;
+      for(const auto* key:{"belmont.equipment_input_button","belmont.equipment_control_ready","belmont.picker_ready","belmont.pin_picker"})h.values[key]=4;
       h.texts["belmont.equipment_weapon_name"]="stale";h.texts["belmont.equipment_arcana_image"]="stale";
       h.texts["belmont.equipment_atk_text"]="stale";h.texts["belmont.equipment_hp_text"]="stale";
       h.memory.put<belmont::U64>(Memory::Heap + 0x50b0, 0);
@@ -866,6 +867,7 @@ int main() {
             "ABI loading actively clears stale texture/name/player/home fields");
       for(const auto* key:{"belmont.equipment_ready","belmont.equipment_assets_ready","belmont.equipment_weapon_ready","belmont.equipment_arcana_ready","belmont.equipment_atk_ready","belmont.equipment_hp_ready"})Check(h.values[key]==0,"ABI loading clears equipped assets/final-stat gates");
       Check(h.texts["belmont.equipment_weapon_name"].empty()&&h.texts["belmont.equipment_arcana_image"].empty()&&h.texts["belmont.equipment_atk_text"].empty()&&h.texts["belmont.equipment_hp_text"].empty(),"ABI loading clears equipped names/card keys/final text");
+      for(const auto* key:{"belmont.equipment_input_button","belmont.equipment_control_ready","belmont.picker_ready","belmont.pin_picker"})Check(h.values[key]==0,"loading clears native controller pulses and interactive pickers");
       host.build_id[31] = 1;
       const auto reads = h.memory.reads.load();
       module->sample(instance, &host);
@@ -964,6 +966,88 @@ int main() {
       m.put<std::int32_t>(H+0x60018,1025);Check(!m.sample().landmarks_ready,"discovery list bounded");
       m.put<std::int32_t>(H+0x60018,1);m.put<std::uint8_t>(H+0x1400,1);x=m.sample();
       Check(!x.landmarks_ready&&x.discovered_landmarks.empty(),"loading clears discovery");
+    }
+    {
+      M m; m.exploration(); m.put<std::uint8_t>(H + 0xe0a8, 0);
+      auto full = m.sample();
+      Check(full.coherent && full.exploration_ready && !full.motion_only,
+            "motion source is full coherent exploration");
+      unsigned history_reads{};
+      m.observe = [&](auto at) {
+        if (at >= H + 0x20020 && at < H + 0x30000) ++history_reads;
+      };
+      belmont::Decoder motion_decoder(m);
+      const auto before = m.reads.load();
+      m.put<std::uint32_t>(H + 0x11040, 0x40200000); // 2.5
+      auto motion = motion_decoder.SampleMotion(m.id(), full);
+      const auto motion_reads = m.reads.load() - before;
+      Check(motion.coherent && motion.components_ready && motion.motion_only &&
+            motion.target_position[0] == 2.5f && motion.room_id == full.room_id &&
+            motion.exploration.size() == full.exploration.size() &&
+            motion.exploration[0].entered_zone_ids == full.exploration[0].entered_zone_ids &&
+            history_reads == 0,
+            "motion uses fresh position and stable copied exploration without history reads");
+      auto chained = motion_decoder.SampleMotion(m.id(), motion);
+      Check(!chained.components_ready && !chained.position_candidate &&
+            chained.reason == "motion_refresh_required" && chained.exploration.empty(),
+            "motion snapshots cannot extend full-history freshness by chaining");
+      std::cout << "Motion sample guest reads " << motion_reads << ", history reads " << history_reads << '\n';
+      m.observe = {};
+      m.put<std::int32_t>(H + 0xc02c, 11);
+      auto version = motion_decoder.SampleMotion(m.id(), full);
+      Check(!version.components_ready && version.exploration.empty() && version.target_position[0] == 0,
+            "component dictionary version change forces full refresh");
+      m.put<std::int32_t>(H + 0xc02c, 10);
+      m.put<std::int32_t>(H + 0xd028, 999);
+      Check(!motion_decoder.SampleMotion(m.id(), full).components_ready,
+            "same-version component layout mutation forces refresh");
+      m.put<std::int32_t>(H + 0xd028, 123);
+      m.bytes(H + 0x1b014, {'n', 0, 'e', 0, 'w', 0, 'r', 0});
+      auto room = motion_decoder.SampleMotion(m.id(), full);
+      Check(!room.components_ready && room.room_id.empty() && room.exploration.empty(),
+            "same-pointer room identity change rejects reused exploration");
+      m.bytes(H + 0x1b014, {'r', 0, 'o', 0, 'o', 0, 'm', 0});
+      m.put<belmont::U64>(H + 0x11010, 0);
+      Check(!motion_decoder.SampleMotion(m.id(), full).components_ready,
+            "destroyed position component cannot reuse cached pointer");
+      m.native(H + 0x11000);
+      m.put<std::uint8_t>(H + 0xe0a8, 1);
+      Check(!motion_decoder.SampleMotion(m.id(), full).components_ready,
+            "debug reveal mutation rejects cached exploration");
+      m.put<std::uint8_t>(H + 0xe0a8, 0);
+      m.put<std::uint8_t>(H + 0x1400, 1);
+      auto loading = motion_decoder.SampleMotion(m.id(), full);
+      Check(loading.coherent && loading.application_loading == 1 &&
+            !loading.components_ready && loading.exploration.empty(),
+            "motion reads current loading flags and clears history");
+      m.put<std::uint8_t>(H + 0x1400, 0);
+      const auto state = H + 0x28000, klass = H + 0x29000;
+      m.put(state, klass); m.klass(klass, "EditorParameteredGameState", "");
+      m.native(state); m.put(H + 0x9018, state);
+      for (unsigned i = 0; i < 14; ++i) m.put<std::uint8_t>(state + 0x18 + i, 0);
+      m.put<std::uint8_t>(state + 0x18, 1); m.put<std::uint8_t>(state + 0x19, 1);
+      m.put<std::uint8_t>(state + 0x23, 1);
+      auto pause = motion_decoder.SampleMotion(m.id(), full);
+      Check(pause.coherent && pause.paused == 1 && pause.initial_identity == 0 &&
+            pause.components_ready && pause.exploration_ready,
+            "motion validates fresh native pause flags while retaining same world");
+      m.put<std::uint8_t>(state + 0x19, 0);
+      auto cinematic = motion_decoder.SampleMotion(m.id(), full);
+      Check(cinematic.coherent && cinematic.paused == 0 &&
+            !cinematic.components_ready && cinematic.exploration.empty(),
+            "motion validates cinematic flags instead of inheriting cached pause");
+      m.put(H + 0x9018, H + 0x6000);
+      auto bad_identity = m.id(); bad_identity.build[31] = 1;
+      const auto before_wrong = m.reads.load();
+      Check(!motion_decoder.SampleMotion(bad_identity, full).supported &&
+            m.reads == before_wrong, "motion wrong build performs no guest reads");
+      unsigned version_observations{};
+      m.observe = [&](auto at) {
+        if (at == H + 0xc02c && ++version_observations == 3)
+          m.put<std::int32_t>(H + 0xc02c, 11);
+      };
+      Check(!motion_decoder.SampleMotion(m.id(), full).coherent,
+            "mid-sample component mutation rejected by journal");
     }
     std::cout << "Belmont synthetic state tests passed\n";
   } catch (const std::exception &e) {

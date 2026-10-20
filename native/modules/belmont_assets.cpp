@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2026 Eden DSMod fork
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "belmont_assets.h"
+#include "belmont_map_refs.h"
 #include <algorithm>
 #include <charconv>
 #include <cmath>
@@ -84,8 +85,21 @@ std::optional<Image> Reader::LoadImage(std::string_view key) {
 std::optional<Image> Reader::Texture(std::string_view bundle, std::int64_t id) {
     const auto sf = unity.OpenSerialized(bundle);
     const auto* object = sf ? sf->Find(id) : nullptr;
-    if (!object || object->class_id != 28 || sf->Platform() != 38 || sf->Version() != 22)
+    if (!object || sf->Platform() != 38 || sf->Version() != 22)
         return {};
+    if (object->class_id == 213) {
+        const auto sprite = sf->ReadObject(*object);
+        const auto* name = sprite ? sprite->Get("m_Name") : nullptr;
+        if (!name || name->kind != ce_unity::Value::Kind::String ||
+            name->AsString().empty() || name->AsString().size() > 256) return {};
+        // The SDK applies the native tight mesh for local sprites. These menu
+        // inventories instead point to an atlas in a separate serialized CAB.
+        const auto* atlas = sprite->Get("m_SpriteAtlas");
+        if (atlas && I(*atlas, "m_FileID") != 0)
+            return AtlasSprite(bundle, *sprite);
+        return unity.LoadSpritePinned(bundle, name->AsString(), {0, id});
+    }
+    if (object->class_id != 28) return {};
     const auto value = sf->ReadObject(*object);
     if (!value)
         return {};
@@ -152,6 +166,88 @@ std::optional<Image> Reader::Texture(std::string_view bundle, std::int64_t id) {
         return out;
     }
     return ce_unity::DecodeTextureData(raw, t, astc, 0);
+}
+std::optional<Image> Reader::AtlasSprite(std::string_view bundle,
+                                        const ce_unity::Value& sprite) {
+    // Installed UI atlases only; match the serialized external CAB rather than
+    // treating a PPtr's file ID as a guessed bundle or a guessed texture crop.
+    const auto source = unity.OpenBundle(bundle);
+    if (!source || source->Nodes().empty()) return {};
+    const auto cabs = belmont_map_refs::ExternalCabs(source->NodeSource(source->Nodes().front()));
+    const auto* ptr = sprite.Get("m_SpriteAtlas");
+    const auto file = ptr ? I(*ptr, "m_FileID") : 0;
+    const auto id = ptr ? I(*ptr, "m_PathID") : 0;
+    if (!cabs || file <= 0 || static_cast<std::uint64_t>(file) > cabs->size() || !id)
+        return {};
+    constexpr std::string_view owners[]{
+        "ui-gamemenus_assets_all_866519f7d6a7057a8ba1c459a5b3f694.bundle",
+        "ui-commonsingame_assets_all_acb23e9b0608a368aad72d2fe488a679.bundle"};
+    for (const auto owner : owners) {
+        const auto atlas_bundle = unity.OpenBundle(owner);
+        if (!atlas_bundle || atlas_bundle->Nodes().empty() ||
+            atlas_bundle->Nodes().front().path != (*cabs)[file - 1]) continue;
+        const auto sf = unity.OpenSerialized(owner);
+        const auto* object = sf ? sf->Find(id) : nullptr;
+        const auto atlas = object && object->class_id == 687078895 ? sf->ReadObject(*object)
+                                                                  : std::nullopt;
+        const auto* map = atlas ? atlas->Get("m_RenderDataMap") : nullptr;
+        const auto* key = sprite.Get("m_RenderDataKey");
+        if (!map || map->kind != ce_unity::Value::Kind::Array || map->items.size() > 4096 || !key)
+            return {};
+        const ce_unity::Value* render = nullptr;
+        for (const auto& pair : map->items) {
+            const auto* candidate = pair.Get("first");
+            const auto* a = key->Get("first");
+            const auto* b = candidate ? candidate->Get("first") : nullptr;
+            if (!candidate || !a || !b || a->fields.size() != 4 || b->fields.size() != 4 ||
+                I(*key, "second") != I(*candidate, "second")) continue;
+            bool same = true;
+            for (std::size_t i = 0; i < 4; ++i)
+                same = same && a->fields[i].first == b->fields[i].first &&
+                       a->fields[i].second.AsInt() == b->fields[i].second.AsInt();
+            if (same) {
+                if (render) return {};
+                render = pair.Get("second");
+            }
+        }
+        // Rectangular, unrotated atlas packing only. Tight local sprites still
+        // take the SDK mask path above; unknown cross-atlas mesh policies hide.
+        if (!render || (I(*render, "settingsRaw") & 3) != 3 ||
+            ((I(*render, "settingsRaw") >> 2) & 15) != 0) return {};
+        const auto* texture = render->Get("texture");
+        const auto* alpha = render->Get("alphaTexture");
+        if (!texture || I(*texture, "m_FileID") != 0 ||
+            (alpha && I(*alpha, "m_PathID") != 0)) return {};
+        const auto image = Texture(owner, I(*texture, "m_PathID"));
+        const auto* rect = render->Get("textureRect");
+        if (!image || !rect) return {};
+        auto number = [&](std::string_view name) -> std::optional<double> {
+            const auto* value = rect->Get(name);
+            if (!value || value->kind != ce_unity::Value::Kind::Float ||
+                !std::isfinite(value->f) || std::fabs(value->f) > (1 << 24)) return {};
+            return value->f;
+        };
+        const auto x = number("x"), y = number("y"), w = number("width"), h = number("height");
+        if (!x || !y || !w || !h || *w <= 0 || *h <= 0) return {};
+        const auto round_even = [](double value) {
+            const double lo = std::floor(value), fraction = value - lo;
+            return static_cast<std::int64_t>(fraction < .5 ? lo : fraction > .5 ? lo + 1
+                : std::fmod(lo, 2.) == 0 ? lo : lo + 1);
+        };
+        const auto x0 = round_even(*x), y0 = round_even(*y),
+                   x1 = round_even(*x + *w), y1 = round_even(*y + *h);
+        if (x0 < 0 || y0 < 0 || x1 <= x0 || y1 <= y0 ||
+            x1 > image->width || y1 > image->height || x1 - x0 > 2048 || y1 - y0 > 2048)
+            return {};
+        Image out{static_cast<unsigned>(x1 - x0), static_cast<unsigned>(y1 - y0), {}};
+        out.rgba.resize(static_cast<std::size_t>(out.width) * out.height * 4);
+        for (unsigned row = 0; row < out.height; ++row)
+            std::memcpy(out.rgba.data() + static_cast<std::size_t>(row) * out.width * 4,
+                image->rgba.data() + ((image->height - y1 + row) * image->width + x0) * 4,
+                static_cast<std::size_t>(out.width) * 4);
+        return out;
+    }
+    return {};
 }
 std::optional<Font> Reader::LoadFont(std::string_view name) {
     std::lock_guard lock{mutex};
