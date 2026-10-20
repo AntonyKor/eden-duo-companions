@@ -850,6 +850,9 @@ int main() {
       h.values["belmont.map_ready"] = h.values["belmont.marker_ready"] = 1;
       h.texts["belmont.map_image"] = "stale"; h.texts["belmont.map_area"] = "stale";
       h.texts["belmont.area_name"] = "stale"; h.numbers["belmont.player_x"] = 999;
+      for(const auto* key:{"belmont.equipment_ready","belmont.equipment_assets_ready","belmont.equipment_weapon_ready","belmont.equipment_arcana_ready","belmont.equipment_atk_ready","belmont.equipment_hp_ready"})h.values[key]=1;
+      h.texts["belmont.equipment_weapon_name"]="stale";h.texts["belmont.equipment_arcana_image"]="stale";
+      h.texts["belmont.equipment_atk_text"]="stale";h.texts["belmont.equipment_hp_text"]="stale";
       h.memory.put<belmont::U64>(Memory::Heap + 0x50b0, 0);
       h.memory.put<std::uint8_t>(Memory::Heap + 0x1400, 1);
       module->sample(instance, &host);
@@ -861,6 +864,8 @@ int main() {
                 h.texts["belmont.area_name"].empty() && h.numbers["belmont.player_x"] == 0 &&
                 h.numbers["belmont.view_x0"] == 0,
             "ABI loading actively clears stale texture/name/player/home fields");
+      for(const auto* key:{"belmont.equipment_ready","belmont.equipment_assets_ready","belmont.equipment_weapon_ready","belmont.equipment_arcana_ready","belmont.equipment_atk_ready","belmont.equipment_hp_ready"})Check(h.values[key]==0,"ABI loading clears equipped assets/final-stat gates");
+      Check(h.texts["belmont.equipment_weapon_name"].empty()&&h.texts["belmont.equipment_arcana_image"].empty()&&h.texts["belmont.equipment_atk_text"].empty()&&h.texts["belmont.equipment_hp_text"].empty(),"ABI loading clears equipped names/card keys/final text");
       host.build_id[31] = 1;
       const auto reads = h.memory.reads.load();
       module->sample(instance, &host);
@@ -911,6 +916,7 @@ int main() {
       const auto guest_before = h.memory.reads.load(), romfs_before = h.romfs_reads.load();
       Check(!images->load_image(instance, &host, "module:belmont:map:0", &sinks, image_sink) &&
                 !images->load_image(instance, &host, "module:belmont:map:999999", &sinks, image_sink) &&
+                !images->load_image(instance, &host, "module:belmont:equipment:999999:weapon", &sinks, image_sink) &&
                 !data->load_data(instance, &host, "module:belmont:unknown", &sinks, data_sink) &&
                 sinks == 0 && h.memory.reads == guest_before && h.romfs_reads == romfs_before,
             "unknown/unready map generations and unknown data keys fail before any I/O/sink");

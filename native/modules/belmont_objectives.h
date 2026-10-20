@@ -122,6 +122,74 @@ template <class Read> class Decoder {
     return Bytes(base + offset, got.data(), got.size()) &&
            std::equal(got.begin(), got.end(), bytes.begin(), bytes.end());
   }
+  bool CurrentPins(U64 base) {
+    // Same native static-root/getter and pause-field pins as the base reader.
+    // No exploration, room history or rendered map data is read here.
+    if (!Pin(base, 0x1d4bc74,
+             {0x88, 0x02, 0x40, 0xf9, 0xf4, 0x4f, 0x41, 0xa9, 0x08, 0x5d, 0x40,
+              0xf9, 0x00, 0x01, 0x40, 0xf9}) ||
+        !Pin(base, 0x40d4b44,
+             {0x88, 0x02, 0x40, 0xf9, 0xf4, 0x4f, 0x41, 0xa9, 0x08, 0x5d, 0x40,
+              0xf9, 0x00, 0x01, 0x40, 0x39}) ||
+        !Pin(base, 0x4107104,
+             {0x88, 0x02, 0x40, 0xf9, 0xf4, 0x4f, 0x41, 0xa9, 0x08, 0x5d, 0x40,
+              0xf9, 0x00, 0x01, 0x40, 0x39}) ||
+        !Pin(base, 0x40e2d90,
+             {0x60, 0x1a, 0x40, 0xf9, 0x00, 0x01, 0x00, 0xb4, 0xe8,
+              0x58, 0x01, 0xb0, 0x08, 0x5d, 0x40, 0xf9, 0x02, 0x01,
+              0x40, 0xf9, 0xf4, 0x4f, 0x42, 0xa9, 0xf6, 0x57, 0x41,
+              0xa9, 0xfd, 0x7b, 0xc3, 0xa8, 0xa8, 0x6b, 0xdd, 0x17}))
+      return false;
+    for (const auto &[rva, offset] :
+         std::array<std::pair<U64, std::uint8_t>, 4>{{{0x1d4ef20, 0x60},
+                                                      {0x1d4ef30, 0x64},
+                                                      {0x1d4ef40, 0x68},
+                                                      {0x1d4efd0, 0x8c}}})
+      if (!Pin(base, rva, {0x00, offset, 0x40, 0x39, 0xc0, 0x03, 0x5f, 0xd6}))
+        return false;
+    return true;
+  }
+  bool ClearLoading(U64 base, U64 root, const char *name, const char *ns) {
+    U64 klass{}, fields{};
+    std::uint8_t flag{};
+    return Ptr(base + root, klass) && Klass(klass, name, ns) &&
+           Ptr(klass + 0xb8, fields) && Get(fields, flag) && flag == 0;
+  }
+  bool Current(const belmont::Identity &id, const belmont::Snapshot &state) {
+    U64 klass{}, manager_class{}, fields{}, manager{}, entity{}, initial{},
+        loading{}, stack{}, items{}, length{}, tuple{}, active{};
+    std::int32_t count{}, version{};
+    std::uint8_t destroyed{}, enabled{};
+    if (!Ptr(id.base + 0x6d42540, klass) ||
+        !Klass(klass, "GameStateManager", "") || !Ptr(klass + 0xb8, fields) ||
+        !Ptr(fields, manager) || manager != state.manager ||
+        !Ptr(manager, manager_class) || manager_class != klass ||
+        !Ptr(manager + 0xb0, entity) || entity != state.entity ||
+        !Object(entity, "Entity", "MotherBase.EntityFramework") ||
+        !Alive(entity) || !Get(entity + 0x20, destroyed) || destroyed != 0 ||
+        !Get(entity + 0x2c8, enabled) || enabled != 1 ||
+        !Get(manager + 0x20, initial) || !Get(manager + 0x68, loading) ||
+        !Ptr(manager + 0xa0, stack) || !Ptr(stack + 0x10, items) ||
+        !Get(stack + 0x18, count) || !Get(stack + 0x1c, version) ||
+        !Get(items + 0x18, length) || count <= 0 || count > 128 ||
+        length > 128 || U64(count) > length ||
+        !Ptr(items + 0x20 + 8 * U64(count - 1), tuple) ||
+        !Ptr(tuple + 0x18, active) || active != state.active ||
+        !belmont::Pointer(loading) || active == loading ||
+        !ClearLoading(id.base, 0x6d3f780, "ApplicationFlowManager",
+                      "MotherBase.ApplicationFlowManager") ||
+        !ClearLoading(id.base, 0x6d46228, "RoomManagerSystem", "RoomManager"))
+      return false;
+    if (state.initial_identity == 1 && active == initial)
+      return true;
+    std::array<std::uint8_t, 14> flags{};
+    return state.paused == 1 &&
+           Object(active, "EditorParameteredGameState", "") && Alive(active) &&
+           Bytes(active + 0x18, flags.data(), flags.size()) &&
+           std::all_of(flags.begin(), flags.end(),
+                       [](auto b) { return b <= 1; }) &&
+           flags[0] == 1 && flags[1] == 1 && flags[2] == 0 && flags[11] == 1;
+  }
   bool Component(U64 entity, U64 &component) {
     U64 dict{}, entries{}, capacity{};
     std::int32_t count{}, free{}, version{};
@@ -190,7 +258,8 @@ public:
     }
     // Native stores/getters: current objective, cached entity, description,
     // SavableScriptableObject GUID, table and entry reference structures.
-    if (!Pin(id.base, 0x1c33c64, {0x93, 0x26, 0x00, 0xf9}) ||
+    if (!CurrentPins(id.base) ||
+        !Pin(id.base, 0x1c33c64, {0x93, 0x26, 0x00, 0xf9}) ||
         !Pin(id.base, 0x1c33a6c, {0x60, 0x2a, 0x40, 0xf9}) ||
         !Pin(id.base, 0x1f1ef84, {0x21, 0x10, 0x40, 0xf9}) ||
         !Pin(id.base, 0x1e0fff0, {0x00, 0x0c, 0x40, 0xf9}) ||
@@ -199,6 +268,10 @@ public:
         !Pin(id.base, 0x4b03990, {0x08, 0x04, 0x41, 0xa9}) ||
         !Pin(id.base, 0x4b052d0, {0x00, 0x00, 0x40, 0xf9})) {
       out.reason = "instruction_mismatch";
+      return out;
+    }
+    if (!Current(id, state)) {
+      out.reason = "stale_state";
       return out;
     }
     U64 entity{}, guid{};
@@ -241,13 +314,10 @@ public:
       out.reason = "localization_unavailable";
       return out;
     }
-    // Revalidate the native gameplay chain after the objective copy. This
-    // deliberately favors safety over avoiding a second base-reader sample.
-    belmont::Decoder verifier(read);
-    const auto after = verifier.Sample(id);
-    if (!Gameplay(after) || after.entity != state.entity ||
-        after.manager != state.manager || after.active != state.active ||
-        !Coherent()) {
+    // Only the bounded native gameplay/entity chain is revalidated. The
+    // supplied coherent base snapshot already decoded exploration history;
+    // objective sampling must never traverse it a second time.
+    if (!Current(id, state) || !Coherent()) {
       out.reason = "incoherent";
       return out;
     }

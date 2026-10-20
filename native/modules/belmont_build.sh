@@ -19,7 +19,7 @@ sources=("$source_dir/0100BA4026E94000.cpp" "$source_dir/belmont_assets.cpp" \
   "$source_dir/belmont_map_assets.cpp" "$source_dir/belmont_map_tiles.cpp" \
   "$source_dir/belmont_map_fog.cpp" "$source_dir/belmont_map_render.cpp" "$source_dir/belmont_world_map.cpp" \
   "$source_dir/belmont_map_labels.cpp" "$source_dir/belmont_map_landmarks.cpp" \
-  "$source_dir/belmont_landmark_render.cpp" "$source_dir/belmont_objective_labels.cpp" "$source_dir/chained_echoes_unity.cpp")
+  "$source_dir/belmont_equipment_assets.cpp" "$source_dir/belmont_landmark_render.cpp" "$source_dir/belmont_objective_labels.cpp" "$source_dir/chained_echoes_unity.cpp")
 objects=("$output_dir/belmont-bc.o")
 for source in "${sources[@]}"; do
   object="$output_dir/$(basename -- "${source%.cpp}").o"
@@ -32,7 +32,7 @@ done
 "$compiler" "${common[@]}" "$source_dir/belmont_reader_test.cpp" "${objects[@]}" \
   -llz4 -o "$output_dir/belmont_reader_test"
 "$output_dir/belmont_reader_test"
-for test in belmont_objectives belmont_equipment; do
+for test in belmont_objectives belmont_equipment belmont_equipment_stats; do
   "$compiler" "${common[@]}" "$source_dir/${test}_test.cpp" -o "$output_dir/${test}_test"
   "$output_dir/${test}_test"
 done

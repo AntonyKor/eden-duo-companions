@@ -231,6 +231,7 @@ struct ObjectiveMemory : Memory {
   }
   ObjectiveMemory() {
     components();
+    put<std::int32_t>(Heap + 0x701c, 7);
     bytes(Base + 0x1c33c64, {0x93, 0x26, 0, 0xf9});
     bytes(Base + 0x1c33a6c, {0x60, 0x2a, 0x40, 0xf9});
     bytes(Base + 0x1f1ef84, {0x21, 0x10, 0x40, 0xf9});
@@ -351,6 +352,133 @@ int main() {
       Check(!s.ready && s.objective_guid.empty() && !s.objective &&
                 !s.description.entry_id,
             "failure clears previously available objective");
+    }
+    {
+      ObjectiveMemory m;
+      const auto source = m.sample();
+      m.put<belmont::U64>(Memory::Heap + 0x50b0, Memory::Heap + 0x70000);
+      belmont_objectives::Decoder decoder(m);
+      Check(!decoder.Sample(m.id(), source).ready,
+            "supplied coherent snapshot with a stale entity is rejected");
+    }
+    for (const auto address : {Memory::Heap + 0x1400, Memory::Heap + 0x2400}) {
+      ObjectiveMemory m;
+      const auto source = m.sample();
+      m.observe = [&](auto at) {
+        if (at == ObjectiveMemory::Localized + 0x44)
+          m.put<std::uint8_t>(address, 1);
+      };
+      belmont_objectives::Decoder decoder(m);
+      const auto result = decoder.Sample(m.id(), source);
+      Check(!result.ready && result.reason == "incoherent" &&
+                result.objective_guid.empty(),
+            "application/room loading beginning during copy clears objective");
+    }
+    for (const auto address : {Memory::Heap + 0x4400, Memory::Heap + 0x50b0,
+                               Memory::Heap + 0x9018}) {
+      ObjectiveMemory m;
+      const auto source = m.sample();
+      m.observe = [&](auto at) {
+        if (at == ObjectiveMemory::Localized + 0x44)
+          m.put<belmont::U64>(address, Memory::Heap + 0x70000);
+      };
+      belmont_objectives::Decoder decoder(m);
+      const auto result = decoder.Sample(m.id(), source);
+      Check(!result.ready && result.reason == "incoherent",
+            "manager/entity/active replacement during copy fails closed");
+    }
+    {
+      ObjectiveMemory m;
+      const auto source = m.sample();
+      unsigned reads{};
+      m.observe = [&](auto at) {
+        if (at == Memory::Heap + 0x50b0 && ++reads == 3)
+          m.put<belmont::U64>(at, Memory::Heap + 0x70000);
+      };
+      belmont_objectives::Decoder decoder(m);
+      Check(!decoder.Sample(m.id(), source).ready,
+            "manager entity mutation during final journal replay is rejected");
+    }
+    {
+      ObjectiveMemory m;
+      const auto source = m.sample();
+      m.put<std::uint8_t>(Memory::Base + 0x40d4b44, 0);
+      belmont_objectives::Decoder decoder(m);
+      Check(!decoder.Sample(m.id(), source).ready,
+            "supplied snapshot cannot bypass native loading accessor pins");
+    }
+    {
+      ObjectiveMemory m;
+      const auto state = Memory::Heap + 0x4a000;
+      m.put(state, Memory::Heap + 0x4b000);
+      m.klass(Memory::Heap + 0x4b000, "EditorParameteredGameState", "");
+      m.native(state);
+      m.put(Memory::Heap + 0x9018, state);
+      for (unsigned n = 0; n < 14; ++n)
+        m.put<std::uint8_t>(state + 0x18 + n, 0);
+      m.put<std::uint8_t>(state + 0x18, 1);
+      m.put<std::uint8_t>(state + 0x19, 1);
+      m.put<std::uint8_t>(state + 0x23, 1);
+      const auto source = m.sample();
+      belmont_objectives::Decoder decoder(m);
+      Check(source.paused == 1 && decoder.Sample(m.id(), source).ready,
+            "coherent native paused state retains objective");
+      m.observe = [&](auto at) {
+        if (at == ObjectiveMemory::Localized + 0x44)
+          m.put<std::uint8_t>(state + 0x19, 0);
+      };
+      Check(!decoder.Sample(m.id(), source).ready,
+            "pause-to-cinematic flags during copy clear objective");
+    }
+    unsigned baseline_reads{};
+    for (const int rooms : {1, 64}) {
+      ObjectiveMemory m;
+      m.exploration();
+      // Genuine bounded native exploration dictionaries of different sizes,
+      // not merely a bigger already-copied source vector.
+      m.put<std::int32_t>(Memory::Heap + 0xc028, 0);
+      m.put<std::int32_t>(Memory::Heap + 0xd038, 12);
+      m.put(Memory::Heap + 0xd048, ObjectiveMemory::Component);
+      const auto entries = Memory::Heap + 0x200000;
+      m.put(Memory::Heap + 0x15018, entries);
+      m.put<std::int32_t>(Memory::Heap + 0x15020, rooms);
+      m.put<std::int32_t>(Memory::Heap + 0x15028, 0);
+      m.put<belmont::U64>(entries + 0x18, rooms);
+      for (int i = 0; i < rooms; ++i) {
+        const auto at = entries + 0x20 + 0x18 * i;
+        const auto key = Memory::Heap + 0x400000 + 0x1000 * i;
+        m.put<std::int32_t>(at, i);
+        m.put<std::int32_t>(at + 4, -1);
+        m.put(at + 8, key);
+        m.put(at + 0x10, Memory::Heap + 0x21000);
+        m.string(key, ("room" + std::to_string(i)).c_str());
+      }
+      const auto source = m.sample();
+      Check(source.exploration_ready &&
+                source.exploration.size() == std::size_t(rooms),
+            "actual native exploration dictionary baseline is valid");
+      unsigned exploration_reads{};
+      m.reads = 0;
+      m.observe = [&](auto at) {
+        if (at == Memory::Heap + 0xe030 ||
+            (at >= Memory::Heap + 0x15000 && at < Memory::Heap + 0x16000) ||
+            (at >= Memory::Heap + 0x20000 && at < Memory::Heap + 0x30000) ||
+            (at >= entries && at < entries + 0x20 + 0x18 * rooms) ||
+            (at >= Memory::Heap + 0x400000 &&
+             at < Memory::Heap + 0x400000 + 0x1000 * rooms))
+          ++exploration_reads;
+      };
+      belmont_objectives::Decoder decoder(m);
+      Check(decoder.Sample(m.id(), source).ready && exploration_reads == 0,
+            "supplied objective snapshot never rewalks explored rooms");
+      if (rooms == 1)
+        baseline_reads = m.reads;
+      Check(m.reads == baseline_reads && m.reads < 1000,
+            "objective read count is bounded and independent of native room "
+            "history");
+      std::cout << "Supplied objective snapshot native rooms " << rooms
+                << "; reads " << m.reads.load() << "; explored-room reads "
+                << exploration_reads << '\n';
     }
     std::cout << "Belmont objective reader tests passed\n";
   } catch (const std::exception &e) {
