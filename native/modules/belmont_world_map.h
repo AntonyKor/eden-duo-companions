@@ -15,6 +15,8 @@ struct Request {
 struct Frame {
   ce_unity::Image image;
   belmont_map_fog::Rect world_bounds;
+  // Union of the revealed zones' shape bounds (world units); empty when none.
+  belmont_map_fog::Rect revealed_bounds;
   std::uint32_t revealed_zone_count{}, updated_tiles{};
   std::uint64_t generation{};
   std::int64_t navigation_zone_id{};

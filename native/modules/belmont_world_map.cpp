@@ -730,6 +730,18 @@ std::shared_ptr<const Frame> Renderer::Render(
   frame->source_id = s.source->id;
   frame->pixels_per_world = s.pixels_per_world;
   frame->revealed_zone_count = std::uint32_t(next.size());
+  {
+    float x0 = std::numeric_limits<float>::max(), y0 = x0, x1 = -x0, y1 = -x0;
+    for (auto key : next)
+      for (const auto &shape : s.Zone(key).shapes) {
+        x0 = std::min(x0, shape.bounds.x);
+        y0 = std::min(y0, shape.bounds.y);
+        x1 = std::max(x1, shape.bounds.x + shape.bounds.width);
+        y1 = std::max(y1, shape.bounds.y + shape.bounds.height);
+      }
+    if (x1 > x0 && y1 > y0)
+      frame->revealed_bounds = {x0, y0, x1 - x0, y1 - y0};
+  }
   frame->generation = s.statistics.generations + 1;
   for (std::size_t i = 0; i < dirty.size(); ++i)
     if (dirty[i]) {

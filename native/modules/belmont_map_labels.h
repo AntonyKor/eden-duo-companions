@@ -11,6 +11,8 @@ public:
   explicit Reader(ce_unity::RangeReader romfs);
   explicit Reader(const EdenDsmodHostApi *host);
   std::optional<std::string> LoadAreaEnglish(std::string_view room_id);
+  // The room's biome title ("Paris Streets"); empty when not resolvable.
+  std::optional<std::string> LoadBiomeEnglish(std::string_view room_id);
   std::optional<std::string> LoadFirstRoomAreaEnglish();
   void ClearCache();
 
@@ -19,7 +21,7 @@ private:
   ce_unity::RangeReader romfs;
   ce_unity::Reader unity;
   bool initialized{};
-  std::string active_world;
+  std::string active_world, biome;
   std::map<std::string, std::string, std::less<>> labels;
 };
 } // namespace belmont_map_labels

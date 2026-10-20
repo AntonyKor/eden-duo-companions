@@ -8,6 +8,7 @@
 #include "belmont_map_labels.h"
 #include "belmont_world_map.h"
 #include "core/mods/modules/dsmod_module_sdk.h"
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -102,7 +103,7 @@ struct Rendered {
     std::shared_ptr<const belmont_world_map::Frame> frame;
     belmont_map_fog::Rect navigation_bounds;
     bool navigation_proven{};
-    std::string area_name, area_key;
+    std::string area_name, area_key, biome_name;
 };
 struct Module {
     // Copied table is used only for read_romfs on workers. userdata is kept alive
@@ -250,6 +251,7 @@ struct Module {
                                 result->area_key = AreaKey(*recipe);
                                 // Explicit English fixture only; no locale autodetection claim.
                                 if (const auto name = labels.LoadAreaEnglish(job->request.current_room_id)) result->area_name = *name;
+                                if (const auto biome = labels.LoadBiomeEnglish(job->request.current_room_id)) result->biome_name = *biome;
                             }
                         }
                     }
@@ -326,13 +328,30 @@ void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = 
     i("belmont.diag.locale_fixture_only", 1);
     t("belmont.map_area", ready ? rendered->area_key.c_str() : ""); t("belmont.map_image", ready ? key.c_str() : "");
     t("belmont.area_name", ready ? rendered->area_name.c_str() : ""); t("belmont.selected_place", "");
+    t("belmont.biome_name", ready ? rendered->biome_name.c_str() : "");
     // Home width is a layout scale, not authored geometry. Source world bounds
     // and visibility remain native; host pan/zoom owns the independent view.
-    constexpr double width = 96.0, height = width * 524.0 / 1124.0;
+    // Sub-area home: a fixed world window at the full 1240x1080 map widget.
+    constexpr double aspect = 1080.0 / 1240.0, width = 96.0, height = width * aspect;
     const double x = ready ? s.target_position[0] : 0, y = ready ? s.target_position[1] : 0;
     f("belmont.player_x", x); f("belmont.player_y", y);
     f("belmont.view_x0", ready ? x - width / 2 : 0); f("belmont.view_y0", ready ? y - height / 2 : 0);
     f("belmont.view_x1", ready ? x + width / 2 : 0); f("belmont.view_y1", ready ? y + height / 2 : 0);
+    // Area home: everything revealed in this navigation group (plus a margin),
+    // at least twice the sub-area window, fitted to the widget aspect.
+    double ax0 = 0, ay0 = 0, ax1 = 0, ay1 = 0;
+    if (ready) {
+        constexpr double margin = 24.0;
+        auto b = rendered->frame->revealed_bounds;
+        if (b.width <= 0 || b.height <= 0) b = rendered->navigation_bounds;
+        double w = std::max<double>(b.width + 2 * margin, 2 * width),
+               h = std::max<double>(b.height + 2 * margin, 2 * height);
+        if (h / w > aspect) w = h / aspect; else h = w * aspect;
+        const double cx = b.x + b.width * .5, cy = b.y + b.height * .5;
+        ax0 = cx - w / 2; ax1 = cx + w / 2; ay0 = cy - h / 2; ay1 = cy + h / 2;
+    }
+    f("belmont.area_x0", ax0); f("belmont.area_y0", ay0);
+    f("belmont.area_x1", ax1); f("belmont.area_y1", ay1);
     t("belmont.state_reason", s.reason.c_str());
 }
 void Sample(void* p, const EdenDsmodHostApi* h) {

@@ -223,6 +223,44 @@ std::optional<std::string> Lookup(const V &display, const V &shared,
   }
   return result;
 }
+// The biome title is the collection's "<Biome>_BiomeName" entry (e.g.
+// World_StreetPoor -> StreetPoor_BiomeName), found by key, never by a stored ID.
+std::optional<std::string> BiomeName(const V &shared, const V &english,
+                                     const LabelSource &source) {
+  constexpr std::string_view prefix = "World_";
+  if (!source.collection.starts_with(prefix) ||
+      !Equals(shared.Get("m_TableCollectionName"), source.collection) ||
+      !Equals(english.Get("m_Name"), std::string(source.collection) + "_en") ||
+      !Equals(english.Path("m_LocaleId.m_Code"), "en"))
+    return {};
+  const auto wanted =
+      std::string(source.collection.substr(prefix.size())) + "_BiomeName";
+  const auto *shared_rows = Array(shared.Get("m_Entries"), 4096);
+  const auto *rows = Array(english.Get("m_TableData"), 4096);
+  if (!shared_rows || !rows)
+    return {};
+  std::int64_t key{};
+  for (const auto &r : *shared_rows) {
+    std::int64_t k{};
+    if (Equals(r.Get("m_Key"), wanted)) {
+      if (key || !I(r.Get("m_Id"), k) || k <= 0)
+        return {};
+      key = k;
+    }
+  }
+  if (!key)
+    return {};
+  for (const auto &r : *rows) {
+    std::int64_t k{};
+    if (I(r.Get("m_Id"), k) && k == key) {
+      auto t = Text(r.Get("m_Localized"), 256);
+      if (!t || t->empty() || !PlainUtf8(*t))
+        return {};
+      return std::string(*t);
+    }
+  }
+  return {};
+}
 // Minimal bounded JSON traversal for the installed Addressables catalog. It
 // retains views into one capped file buffer, not a general-purpose DOM.
 struct Json {
@@ -546,6 +584,12 @@ std::optional<std::string> Reader::LoadFirstRoomAreaEnglish() {
   return LoadAreaEnglish(
       "World_Biome_01_Streets_Poor_StreetsPoor_FirstRoom_uid73");
 }
+std::optional<std::string> Reader::LoadBiomeEnglish(std::string_view room_id) {
+  if (!LoadAreaEnglish(room_id))
+    return {};
+  std::lock_guard lock(mutex);
+  return biome.empty() ? std::nullopt : std::optional<std::string>(biome);
+}
 std::optional<std::string> Reader::LoadAreaEnglish(std::string_view room_id) {
   std::lock_guard lock(mutex);
   if (room_id.empty() || room_id.size() > 256 ||
@@ -570,6 +614,7 @@ std::optional<std::string> Reader::LoadAreaEnglish(std::string_view room_id) {
     initialized = false;
     labels.clear();
     active_world.clear();
+    biome.clear();
     unity.ClearCache();
     auto bundle = unity.OpenBundle(source->district_bundle);
     auto sf = unity.OpenSerialized(source->district_bundle);
@@ -668,6 +713,7 @@ std::optional<std::string> Reader::LoadAreaEnglish(std::string_view room_id) {
                source->english_id, std::string(source->collection) + "_en");
     if (!shared || !english)
       return {};
+    biome = BiomeName(*shared, *english, *source).value_or(std::string{});
     std::map<std::string, std::string> guid_labels;
     for (const auto &[guid, address] : *addresses) {
       auto entry = display_ids.find(address);

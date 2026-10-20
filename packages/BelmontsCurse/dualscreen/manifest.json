@@ -50,7 +50,12 @@
     "belmont.area_name",
     "belmont.place_ready",
     "belmont.selected_place",
-    "__font_epoch"
+    "__font_epoch",
+    "belmont.biome_name",
+    "belmont.area_x0",
+    "belmont.area_y0",
+    "belmont.area_x1",
+    "belmont.area_y1"
   ],
   "derived": [
     {
@@ -109,50 +114,6 @@
       "b": 0
     },
     {
-      "name": "ui.not_menu",
-      "cmp": "eq",
-      "a": "belmont.ui_menu",
-      "b": 0
-    },
-    {
-      "name": "ui.return",
-      "all_nonzero": [
-        "ui.map",
-        "ui.custom"
-      ]
-    },
-    {
-      "name": "ui.hint",
-      "all_nonzero": [
-        "ui.map",
-        "ui.not_menu"
-      ]
-    },
-    {
-      "name": "ui.menu_follow",
-      "all_nonzero": [
-        "ui.map",
-        "belmont.ui_menu"
-      ]
-    },
-    {
-      "name": "ui.menu_custom",
-      "all_nonzero": [
-        "ui.map",
-        "ui.custom",
-        "belmont.ui_menu"
-      ]
-    },
-    {
-      "name": "ui.place",
-      "all_nonzero": [
-        "ui.map",
-        "ui.custom",
-        "ui.not_menu",
-        "belmont.place_ready"
-      ]
-    },
-    {
       "name": "ui.wait",
       "expr": "ui.native && !ui.title && !ui.loading && !ui.map"
     },
@@ -164,32 +125,95 @@
       ]
     },
     {
-      "name": "ui.reset",
-      "all_nonzero": [
-        "ui.not_map",
-        "ui.custom"
-      ]
+      "name": "ui.sub",
+      "expr": "ui.map && @flag:ui.area_tier == 0"
+    },
+    {
+      "name": "ui.area",
+      "expr": "ui.map && @flag:ui.area_tier == 1"
+    },
+    {
+      "name": "ui.focus_on",
+      "expr": "ui.map && (@flag:ui.area_tier == 1 || 'view_custom:belmont_map' != 0)"
+    },
+    {
+      "name": "ui.focus_sub",
+      "expr": "ui.map && @flag:ui.area_tier == 0 && 'view_custom:belmont_map' != 0"
+    },
+    {
+      "name": "ui.enforce",
+      "expr": "@flag:ui.area_tier != @flag:ui.area_applied || (!ui.map && 'view_custom:belmont_map' != 0)"
+    },
+    {
+      "name": "ui.vx0",
+      "expr": "@flag:ui.area_tier == 1 ? belmont.area_x0 : belmont.view_x0"
+    },
+    {
+      "name": "ui.vy0",
+      "expr": "@flag:ui.area_tier == 1 ? belmont.area_y0 : belmont.view_y0"
+    },
+    {
+      "name": "ui.vx1",
+      "expr": "@flag:ui.area_tier == 1 ? belmont.area_x1 : belmont.view_x1"
+    },
+    {
+      "name": "ui.vy1",
+      "expr": "@flag:ui.area_tier == 1 ? belmont.area_y1 : belmont.view_y1"
     }
   ],
   "enforce": [
     {
       "action": "clear_view",
       "every_ms": 1
+    },
+    {
+      "action": "tier_ack_sub",
+      "every_ms": 1,
+      "flag": "ui.area_tier",
+      "value": false
+    },
+    {
+      "action": "tier_ack_area",
+      "every_ms": 1,
+      "flag": "ui.area_tier",
+      "value": true
     }
   ],
   "enforce_gate": {
-    "point": "ui.reset",
+    "point": "ui.enforce",
     "max": 1
   },
   "actions": {
     "return_to_rose": {
       "kind": "view_reset",
       "view": "belmont_map",
-      "enabled_bind": "ui.return"
+      "enabled_bind": "ui.focus_sub"
     },
     "clear_view": {
       "kind": "view_reset",
       "view": "belmont_map"
+    },
+    "tier_sub": {
+      "kind": "flag",
+      "flag": "ui.area_tier",
+      "value": false,
+      "enabled_bind": "ui.map"
+    },
+    "tier_area": {
+      "kind": "flag",
+      "flag": "ui.area_tier",
+      "value": true,
+      "enabled_bind": "ui.map"
+    },
+    "tier_ack_sub": {
+      "kind": "flag",
+      "flag": "ui.area_applied",
+      "value": false
+    },
+    "tier_ack_area": {
+      "kind": "flag",
+      "flag": "ui.area_applied",
+      "value": true
     }
   },
   "pages": [
@@ -247,6 +271,122 @@
           "need_bind": "!ui.native"
         },
         {
+          "type": "rect",
+          "rect": [
+            0,
+            0,
+            1240,
+            1080
+          ],
+          "bg": "#FF110A0E",
+          "border": 0,
+          "need_bind": "ui.title"
+        },
+        {
+          "type": "image",
+          "rect": [
+            -60,
+            520,
+            1024,
+            601
+          ],
+          "src": "module:native:atlas-t_ui_maintitle_spriteatlas_assets_all_01749c9a9c6a3897813ad551aee94b4d.bundle#-8304774180472453021",
+          "need_bind": "ui.title",
+          "tint": "#FFCCCCCC"
+        },
+        {
+          "type": "image",
+          "rect": [
+            560,
+            600,
+            922,
+            358
+          ],
+          "src": "module:native:atlas-t_ui_maintitle_spriteatlas_assets_all_01749c9a9c6a3897813ad551aee94b4d.bundle#-5513436945465970698",
+          "need_bind": "ui.title",
+          "tint": "#FFCCCCCC"
+        },
+        {
+          "type": "image",
+          "rect": [
+            -120,
+            680,
+            1024,
+            423
+          ],
+          "src": "module:native:atlas-t_ui_maintitle_spriteatlas_assets_all_01749c9a9c6a3897813ad551aee94b4d.bundle#972395474892273724",
+          "need_bind": "ui.title",
+          "tint": "#FFCCCCCC"
+        },
+        {
+          "type": "image",
+          "rect": [
+            520,
+            640,
+            1024,
+            543
+          ],
+          "src": "module:native:atlas-t_ui_maintitle_spriteatlas_assets_all_01749c9a9c6a3897813ad551aee94b4d.bundle#-1368755841992549680",
+          "need_bind": "ui.title",
+          "tint": "#FFCCCCCC"
+        },
+        {
+          "type": "image",
+          "rect": [
+            0,
+            547,
+            1240,
+            593
+          ],
+          "src": "module:native:atlas-t_ui_maintitle_housebundlend_spriteatlas_assets_all_5703934dabf061107f38f076957418bb.bundle#-2700243943468672124",
+          "need_bind": "ui.title"
+        },
+        {
+          "type": "image",
+          "rect": [
+            0,
+            0,
+            620,
+            503
+          ],
+          "src": "module:native:atlas-t_ui_maintitle_housebundlend_spriteatlas_assets_all_5703934dabf061107f38f076957418bb.bundle#5475906166278085232",
+          "need_bind": "ui.title"
+        },
+        {
+          "type": "image",
+          "rect": [
+            620,
+            0,
+            620,
+            503
+          ],
+          "src": "module:native:atlas-t_ui_maintitle_housebundlend_spriteatlas_assets_all_5703934dabf061107f38f076957418bb.bundle#5475906166278085232",
+          "need_bind": "ui.title",
+          "flip_x": true
+        },
+        {
+          "type": "image",
+          "rect": [
+            440,
+            110,
+            360,
+            652
+          ],
+          "src": "module:native:atlas-t_ui_commonall_cards_assets_all_44dfd9cf5fef7440f0f32398be8fb808.bundle#-4984553437625016568",
+          "need_bind": "ui.title"
+        },
+        {
+          "type": "image",
+          "rect": [
+            150,
+            755,
+            300,
+            255
+          ],
+          "src": "module:native:atlas-t_ui_maintitle_housebundlend_spriteatlas_assets_all_5703934dabf061107f38f076957418bb.bundle#-3775048146746077750",
+          "need_bind": "ui.title"
+        },
+        {
           "type": "image",
           "rect": [
             0,
@@ -254,133 +394,82 @@
             1240,
             1080
           ],
-          "src": "module:native:ui-commonsingame_assets_all_acb23e9b0608a368aad72d2fe488a679.bundle#-1731143959702592593",
-          "need_bind": "ui.native",
-          "src_rect": [
-            0.212962963,
+          "src": "module:native:ui-commonsingame_assets_all_acb23e9b0608a368aad72d2fe488a679.bundle#-1352968502877869065",
+          "need_bind": "ui.title",
+          "tint": "#40110A0E"
+        },
+        {
+          "type": "rect",
+          "rect": [
             0,
-            0.787037037,
-            1
-          ]
-        },
-        {
-          "type": "image",
-          "rect": [
-            415,
-            60,
-            410,
-            743
-          ],
-          "src": "module:native:atlas-t_ui_commonall_cards_assets_all_44dfd9cf5fef7440f0f32398be8fb808.bundle#-4984553437625016568",
-          "need_bind": "ui.title"
-        },
-        {
-          "type": "label",
-          "rect": [
-            620,
-            949,
             0,
-            70
+            1240,
+            1080
           ],
-          "text": "Map available after loading",
-          "text_scale": 6,
-          "color": "#FFFFE99F",
-          "align": "center",
-          "wrap_width": 1120,
-          "max_lines": 1,
-          "need_bind": "ui.title"
-        },
-        {
-          "type": "image",
-          "rect": [
-            40,
-            156,
-            1160,
-            652
-          ],
-          "src": "module:native:atlas-t_ui_loading_atlas_assets_all_3e3d7325eb562ae25546c80bd8a4ba09.bundle#2293220914864325745",
+          "bg": "#FF110A0E",
+          "border": 0,
           "need_bind": "ui.wait_art"
         },
         {
           "type": "image",
           "rect": [
-            100,
-            240,
-            1040,
-            514
+            0,
+            0,
+            1240,
+            1080
+          ],
+          "src": "module:native:atlas-t_ui_loading_atlas_assets_all_3e3d7325eb562ae25546c80bd8a4ba09.bundle#2293220914864325745",
+          "need_bind": "ui.wait_art",
+          "src_rect": [
+            0.177,
+            0,
+            0.823,
+            1
+          ]
+        },
+        {
+          "type": "rect",
+          "rect": [
+            0,
+            0,
+            1240,
+            1080
+          ],
+          "bg": "#78110A0E",
+          "border": 0,
+          "need_bind": "ui.wait_art"
+        },
+        {
+          "type": "image",
+          "rect": [
+            130,
+            278,
+            980,
+            484
           ],
           "src": "module:native:atlas-t_ui_loading_atlas_assets_all_3e3d7325eb562ae25546c80bd8a4ba09.bundle#4376938908137726197",
           "need_bind": "ui.wait_art"
         },
         {
-          "type": "label",
-          "rect": [
-            620,
-            885,
-            0,
-            80
-          ],
-          "text": "Loading",
-          "text_scale": 10,
-          "color": "#FFFFE99F",
-          "align": "center",
-          "wrap_width": 1120,
-          "max_lines": 1,
-          "need_bind": "ui.loading"
-        },
-        {
-          "type": "label",
-          "rect": [
-            620,
-            885,
-            0,
-            80
-          ],
-          "text": "Map unavailable",
-          "text_scale": 10,
-          "color": "#FFFFE99F",
-          "align": "center",
-          "wrap_width": 1120,
-          "max_lines": 1,
-          "need_bind": "ui.wait"
-        },
-        {
-          "type": "label",
-          "rect": [
-            620,
-            86,
-            0,
-            115
-          ],
-          "text": "",
-          "text_scale": 10,
-          "color": "#FFFFE99F",
-          "align": "center",
-          "wrap_width": 1120,
-          "max_lines": 2,
-          "need_bind": "ui.map",
-          "bind_text": "belmont.area_name",
-          "line_gap": 6
-        },
-        {
           "type": "image",
           "rect": [
-            20,
-            215,
-            1200,
-            600
+            0,
+            0,
+            1240,
+            1080
           ],
-          "src": "module:native:ui-commonsingame_assets_all_acb23e9b0608a368aad72d2fe488a679.bundle#-6006451545844514120",
-          "need_bind": "ui.map"
+          "src": "module:native:ui-commonsingame_assets_all_acb23e9b0608a368aad72d2fe488a679.bundle#-1352968502877869065",
+          "need_bind": "ui.wait_art",
+          "tint": "#40110A0E"
         },
         {
           "type": "map",
           "id": "belmont_map",
           "rect": [
-            58,
-            253,
-            1124,
-            524
+            0,
+            0,
+            1240,
+            1080
           ],
           "image_bind": "belmont.map_image",
           "area_label": false,
@@ -388,10 +477,10 @@
           "min_zoom": 0.25,
           "max_zoom": 6.0,
           "view_idle_ms": 0,
-          "view_rect_x0_bind": "belmont.view_x0",
-          "view_rect_y0_bind": "belmont.view_y0",
-          "view_rect_x1_bind": "belmont.view_x1",
-          "view_rect_y1_bind": "belmont.view_y1",
+          "view_rect_x0_bind": "ui.vx0",
+          "view_rect_y0_bind": "ui.vy0",
+          "view_rect_x1_bind": "ui.vx1",
+          "view_rect_y1_bind": "ui.vy1",
           "view_rect_pad": 0,
           "marker_x_bind": "belmont.player_x",
           "marker_y_bind": "belmont.player_y",
@@ -410,141 +499,525 @@
           "room_bind": "belmont.map_area"
         },
         {
+          "type": "image",
+          "rect": [
+            0,
+            0,
+            1240,
+            1080
+          ],
+          "src": "module:native:ui-commonsingame_assets_all_acb23e9b0608a368aad72d2fe488a679.bundle#-1352968502877869065",
+          "need_bind": "ui.map",
+          "tint": "#38110A0E"
+        },
+        {
+          "type": "image",
+          "rect": [
+            5,
+            4,
+            349,
+            186
+          ],
+          "src": "module:native:atlas-t_ui_notifications_atlas_assets_all_6f661c193dac745d4ba20df027a2b4d7.bundle#-3711504956996856269",
+          "need_bind": "ui.map",
+          "src_rect": [
+            0.00098,
+            0.04883,
+            0.3418,
+            0.41211
+          ]
+        },
+        {
+          "type": "image",
+          "rect": [
+            865,
+            4,
+            371,
+            249
+          ],
+          "src": "module:native:atlas-t_ui_notifications_atlas_assets_all_6f661c193dac745d4ba20df027a2b4d7.bundle#-4311657552727577045",
+          "need_bind": "ui.map",
+          "src_rect": [
+            0.01074,
+            0.04883,
+            0.37305,
+            0.53516
+          ],
+          "flip_x": true
+        },
+        {
+          "type": "image",
+          "rect": [
+            4,
+            825,
+            399,
+            251
+          ],
+          "src": "module:native:atlas-t_ui_notifications_atlas_assets_all_6f661c193dac745d4ba20df027a2b4d7.bundle#5212531094561995084",
+          "need_bind": "ui.map",
+          "src_rect": [
+            0.01953,
+            0.0,
+            0.40918,
+            0.49023
+          ],
+          "flip_y": true
+        },
+        {
+          "type": "image",
+          "rect": [
+            886,
+            890,
+            349,
+            186
+          ],
+          "src": "module:native:atlas-t_ui_notifications_atlas_assets_all_6f661c193dac745d4ba20df027a2b4d7.bundle#-3711504956996856269",
+          "need_bind": "ui.map",
+          "src_rect": [
+            0.00098,
+            0.04883,
+            0.3418,
+            0.41211
+          ],
+          "flip_x": true,
+          "flip_y": true
+        },
+        {
+          "type": "image",
+          "rect": [
+            14,
+            26,
+            900,
+            275
+          ],
+          "src": "module:native:ui-gamemenus_assets_all_866519f7d6a7057a8ba1c459a5b3f694.bundle#-4496773848569495013",
+          "need_bind": "ui.map",
+          "fill": "slice",
+          "slice": [
+            206,
+            0,
+            264,
+            0
+          ],
+          "tint": "#FF2A5539"
+        },
+        {
+          "type": "image",
+          "rect": [
+            14,
+            26,
+            900,
+            275
+          ],
+          "src": "module:native:ui-gamemenus_assets_all_866519f7d6a7057a8ba1c459a5b3f694.bundle#3649290484648742653",
+          "need_bind": "ui.map",
+          "fill": "slice",
+          "slice": [
+            206,
+            0,
+            264,
+            0
+          ]
+        },
+        {
           "type": "label",
           "rect": [
-            620,
-            945,
+            389,
+            36,
             0,
-            65
+            50
           ],
-          "text": "Drag to inspect the map",
+          "text": "",
+          "text_scale": 7,
+          "color": "#FFC9B46A",
+          "align": "center",
+          "wrap_width": 594,
+          "max_lines": 1,
+          "need_bind": "ui.map",
+          "bind_text": "belmont.biome_name"
+        },
+        {
+          "type": "label",
+          "rect": [
+            389,
+            86,
+            0,
+            40
+          ],
+          "text": "",
+          "text_scale": 5,
+          "color": "#FFC9B46A",
+          "align": "center",
+          "wrap_width": 594,
+          "max_lines": 1,
+          "need_bind": "ui.map",
+          "bind_text": "belmont.area_name"
+        },
+        {
+          "type": "image",
+          "rect": [
+            122,
+            962,
+            406,
+            13
+          ],
+          "src": "module:native:ui-gamemenus_assets_all_866519f7d6a7057a8ba1c459a5b3f694.bundle#6167385503816666154",
+          "need_bind": "ui.map"
+        },
+        {
+          "type": "image",
+          "rect": [
+            106,
+            956,
+            32,
+            25
+          ],
+          "src": "module:native:atlas-t_ui_playerhud_atlas_assets_all_3806cd4bc765c4c15d03f7488b0b08f4.bundle#8546841169644123591",
+          "need_bind": "ui.map",
+          "tint": "#8CFFFFFF"
+        },
+        {
+          "type": "image",
+          "rect": [
+            309,
+            956,
+            32,
+            25
+          ],
+          "src": "module:native:atlas-t_ui_playerhud_atlas_assets_all_3806cd4bc765c4c15d03f7488b0b08f4.bundle#8546841169644123591",
+          "need_bind": "ui.map"
+        },
+        {
+          "type": "image",
+          "rect": [
+            512,
+            956,
+            32,
+            25
+          ],
+          "src": "module:native:atlas-t_ui_playerhud_atlas_assets_all_3806cd4bc765c4c15d03f7488b0b08f4.bundle#8546841169644123591",
+          "need_bind": "ui.map"
+        },
+        {
+          "type": "image",
+          "rect": [
+            293,
+            936,
+            64,
+            64
+          ],
+          "src": "module:native:ui-gamemenus_assets_all_866519f7d6a7057a8ba1c459a5b3f694.bundle#6595636995178029733",
+          "need_bind": "ui.area"
+        },
+        {
+          "type": "image",
+          "rect": [
+            496,
+            936,
+            64,
+            64
+          ],
+          "src": "module:native:ui-gamemenus_assets_all_866519f7d6a7057a8ba1c459a5b3f694.bundle#6595636995178029733",
+          "need_bind": "ui.sub"
+        },
+        {
+          "type": "label",
+          "rect": [
+            122,
+            996,
+            0,
+            34
+          ],
+          "text": "WORLD",
+          "text_scale": 5,
+          "color": "#FF8F7E57",
+          "align": "center",
+          "wrap_width": 1120,
+          "max_lines": 1,
+          "need_bind": "ui.map"
+        },
+        {
+          "type": "label",
+          "rect": [
+            325,
+            996,
+            0,
+            34
+          ],
+          "text": "AREA",
           "text_scale": 5,
           "color": "#FFFFE99F",
           "align": "center",
           "wrap_width": 1120,
           "max_lines": 1,
-          "need_bind": "ui.hint",
-          "hide_bind": "ui.custom",
-          "hide_eq": 1
+          "need_bind": "ui.area"
         },
         {
           "type": "label",
           "rect": [
-            620,
-            940,
+            325,
+            996,
             0,
-            70
+            34
           ],
-          "text": "Game menu",
-          "text_scale": 6,
-          "color": "#FFFFE99F",
+          "text": "AREA",
+          "text_scale": 5,
+          "color": "#FFB79D75",
           "align": "center",
           "wrap_width": 1120,
           "max_lines": 1,
-          "need_bind": "ui.menu_follow",
-          "hide_bind": "ui.custom",
-          "hide_eq": 1
+          "need_bind": "ui.sub"
         },
         {
           "type": "label",
           "rect": [
-            620,
-            836,
+            528,
+            996,
             0,
-            55
+            34
           ],
-          "text": "Game menu",
-          "text_scale": 6,
+          "text": "SUB-AREA",
+          "text_scale": 5,
           "color": "#FFFFE99F",
           "align": "center",
           "wrap_width": 1120,
           "max_lines": 1,
-          "need_bind": "ui.menu_custom"
+          "need_bind": "ui.sub"
         },
         {
           "type": "label",
           "rect": [
-            620,
-            836,
+            528,
+            996,
             0,
-            65
+            34
           ],
-          "text": "",
-          "text_scale": 6,
-          "color": "#FFFFE99F",
+          "text": "SUB-AREA",
+          "text_scale": 5,
+          "color": "#FFB79D75",
           "align": "center",
           "wrap_width": 1120,
           "max_lines": 1,
-          "need_bind": "ui.place",
-          "bind_text": "belmont.selected_place"
-        },
-        {
-          "type": "image",
-          "rect": [
-            280,
-            912,
-            200,
-            128
-          ],
-          "src": "module:native:ui-commonsingame_assets_all_acb23e9b0608a368aad72d2fe488a679.bundle#-3213707602970972065",
-          "need_bind": "ui.return",
-          "src_rect": [
-            0,
-            0,
-            0.1953125,
-            1
-          ]
-        },
-        {
-          "type": "image",
-          "rect": [
-            480,
-            912,
-            280,
-            128
-          ],
-          "src": "module:native:ui-commonsingame_assets_all_acb23e9b0608a368aad72d2fe488a679.bundle#-3213707602970972065",
-          "need_bind": "ui.return",
-          "src_rect": [
-            0.1953125,
-            0,
-            0.8046875,
-            1
-          ]
-        },
-        {
-          "type": "image",
-          "rect": [
-            760,
-            912,
-            200,
-            128
-          ],
-          "src": "module:native:ui-commonsingame_assets_all_acb23e9b0608a368aad72d2fe488a679.bundle#-3213707602970972065",
-          "need_bind": "ui.return",
-          "src_rect": [
-            0.8046875,
-            0,
-            1,
-            1
-          ]
+          "need_bind": "ui.area"
         },
         {
           "type": "button",
-          "id": "return_to_rose",
+          "id": "tier_area",
           "rect": [
-            280,
-            912,
-            680,
-            128
+            223,
+            930,
+            203,
+            112
           ],
-          "text": "Return to Rose",
-          "text_scale": 6,
-          "align": "center",
+          "text": "",
           "bg": "#00000000",
-          "color": "#FFFFE99F",
           "border": 0,
-          "need_bind": "ui.return",
+          "need_bind": "ui.map",
+          "on_tap": "tier_area"
+        },
+        {
+          "type": "button",
+          "id": "tier_sub",
+          "rect": [
+            426,
+            930,
+            214,
+            112
+          ],
+          "text": "",
+          "bg": "#00000000",
+          "border": 0,
+          "need_bind": "ui.map",
+          "on_tap": "tier_sub"
+        },
+        {
+          "type": "image",
+          "rect": [
+            880,
+            930,
+            44,
+            112
+          ],
+          "src": "module:native:atlas-t_ui_commonsall_utilitaries_assets_all_e81a39d634c838a9e41af086812075aa.bundle#-7522817365830531493",
+          "need_bind": "ui.map",
+          "src_rect": [
+            0,
+            0,
+            0.390625,
+            1
+          ],
+          "tint": "#EB140E0C"
+        },
+        {
+          "type": "image",
+          "rect": [
+            924,
+            930,
+            248,
+            112
+          ],
+          "src": "module:native:atlas-t_ui_commonsall_utilitaries_assets_all_e81a39d634c838a9e41af086812075aa.bundle#-7522817365830531493",
+          "need_bind": "ui.map",
+          "src_rect": [
+            0.390625,
+            0,
+            0.609375,
+            1
+          ],
+          "tint": "#EB140E0C"
+        },
+        {
+          "type": "image",
+          "rect": [
+            1172,
+            930,
+            44,
+            112
+          ],
+          "src": "module:native:atlas-t_ui_commonsall_utilitaries_assets_all_e81a39d634c838a9e41af086812075aa.bundle#-7522817365830531493",
+          "need_bind": "ui.map",
+          "src_rect": [
+            0.609375,
+            0,
+            1,
+            1
+          ],
+          "tint": "#EB140E0C"
+        },
+        {
+          "type": "image",
+          "rect": [
+            884,
+            935,
+            34,
+            101
+          ],
+          "src": "module:native:atlas-t_ui_commonall_cards_assets_all_44dfd9cf5fef7440f0f32398be8fb808.bundle#-8462339935619911549",
+          "need_bind": "ui.map",
+          "src_rect": [
+            0.00390625,
+            0.265625,
+            0.1640625,
+            0.7421875
+          ],
+          "tint": "#96FFFFFF"
+        },
+        {
+          "type": "image",
+          "rect": [
+            1178,
+            935,
+            34,
+            101
+          ],
+          "src": "module:native:atlas-t_ui_commonall_cards_assets_all_44dfd9cf5fef7440f0f32398be8fb808.bundle#-8462339935619911549",
+          "need_bind": "ui.map",
+          "src_rect": [
+            0.00390625,
+            0.265625,
+            0.1640625,
+            0.7421875
+          ],
+          "tint": "#96FFFFFF",
+          "flip_x": true
+        },
+        {
+          "type": "image",
+          "rect": [
+            884,
+            935,
+            34,
+            101
+          ],
+          "src": "module:native:atlas-t_ui_commonall_cards_assets_all_44dfd9cf5fef7440f0f32398be8fb808.bundle#-8462339935619911549",
+          "need_bind": "ui.focus_on",
+          "src_rect": [
+            0.00390625,
+            0.265625,
+            0.1640625,
+            0.7421875
+          ],
+          "tint": "#FFFFFFFF"
+        },
+        {
+          "type": "image",
+          "rect": [
+            1178,
+            935,
+            34,
+            101
+          ],
+          "src": "module:native:atlas-t_ui_commonall_cards_assets_all_44dfd9cf5fef7440f0f32398be8fb808.bundle#-8462339935619911549",
+          "need_bind": "ui.focus_on",
+          "src_rect": [
+            0.00390625,
+            0.265625,
+            0.1640625,
+            0.7421875
+          ],
+          "tint": "#FFFFFFFF",
+          "flip_x": true
+        },
+        {
+          "type": "label",
+          "rect": [
+            1048,
+            966,
+            0,
+            40
+          ],
+          "text": "Focus on Rose",
+          "text_scale": 5,
+          "color": "#FFB79D75",
+          "align": "center",
+          "wrap_width": 1120,
+          "max_lines": 1,
+          "need_bind": "ui.map"
+        },
+        {
+          "type": "label",
+          "rect": [
+            1048,
+            966,
+            0,
+            40
+          ],
+          "text": "Focus on Rose",
+          "text_scale": 5,
+          "color": "#FFFFE99F",
+          "align": "center",
+          "wrap_width": 1120,
+          "max_lines": 1,
+          "need_bind": "ui.focus_on"
+        },
+        {
+          "type": "button",
+          "id": "focus_area",
+          "rect": [
+            880,
+            930,
+            336,
+            112
+          ],
+          "text": "",
+          "bg": "#00000000",
+          "border": 0,
+          "need_bind": "ui.area",
+          "on_tap": "tier_sub"
+        },
+        {
+          "type": "button",
+          "id": "focus_sub",
+          "rect": [
+            880,
+            930,
+            336,
+            112
+          ],
+          "text": "",
+          "bg": "#00000000",
+          "border": 0,
+          "need_bind": "ui.focus_sub",
           "on_tap": "return_to_rose"
         }
       ]
@@ -553,5 +1026,10 @@
   "_status": "UNRELEASED internal candidate. Native source rendering checks pass for nine biomes; ten metadata sources. Actual desktop progression covers opening StreetsPoor and Sewers. Ending null skyline, secret overlays, full-game live coverage, physical Thor and Android/NCE execution remain pending.",
   "_map_contract": "Module publishes current coherent source area/image/player/home only after native geometry, fog, image, area metadata, English label, font and Rose glyph join succeeds. Unsupported/loading data actively clears readiness.",
   "_font_contract": "Authored request descriptor +native51coverage. Host wantedcap is5*text_scale; scales10/6/5 =>50/30/25wantedcap.",
-  "_reset_contract": "Host-only localview reset while map invalid and customview exists. Root must invalidate map across session/area changes and ensure return-home transition before exposing new context."
+  "_reset_contract": "Host-only localview reset while map invalid and customview exists. Root must invalidate map across session/area changes and ensure return-home transition before exposing new context.",
+  "flags": {
+    "ui.area_tier": false,
+    "ui.area_applied": false
+  },
+  "_layout": "Direction A (owner pick 2026-10-20): native Map tab always open. Objective line, World tier, landmark art/ribbons and the Equipment page wait for verified readers; nothing is invented."
 }
