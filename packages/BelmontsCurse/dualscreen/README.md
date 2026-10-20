@@ -3,7 +3,8 @@
 Map-first companion for Castlevania: Belmont's Curse, the exact supported1.1.0 executable and
 Eden Duo runtime22. The second screen is laid out as the game's pause-menu Map tab, always open:
 full-screen map, area ribbon (biome and sub-area), gilt corners, a World/Area/Sub-area zoom rail
-and Focus on Rose. Native geometry, explored-zone fog, font, biome and area names, menu art and
+and Focus on Rose. Discovered landmarks add native engravings and black/gold name ribbons; the
+current main objective uses its installed English text. Native geometry, explored-zone fog, font, biome and area names, menu art and
 the Rose marker are read from the player's recognized installation. Local touch pan/zoom, the
 zoom rail and Focus on Rose leave gameplay controls available. All declared actions change only the companion view; the module reads game
 memory and RomFS without guest writes or calls.
@@ -32,8 +33,12 @@ requires the target device. English area labels are explicit; automatic language
 pending.
 
 The explored-zone edge fades softly as in the native map. Decorative noise, water and moving
-ornament effects are simplified at frozen time. Objective text, landmark art and the equipment
-page wait for verified readers and are not shown. Source room
+ornament effects are simplified at frozen time. Landmark visibility requires coherent native
+discovery and navigation; landmarks with unresolved reveal conditions remain hidden. Engravings
+scale with the map while name ribbons retain their native screen-relative size. Objective and
+equipment readers fail closed during loading or incoherent data. Equipped weapon, spell, skin
+and charm-slot IDs are diagnostic bindings only; an Equipment page still needs native name/icon
+joins and verified final stats. Source room
 contours, palette, entered-zone shapes and selected navigation remain native. Exact shader pixel
 parity, separate secret-item overlays, FastTravel map geometry and the world-overview screen are
 not claimed. Optional DLC absence alone is not an error; no DLC-dependent companion feature is

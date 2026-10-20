@@ -61,6 +61,8 @@ struct Snapshot {
   std::string room_id;
   std::string reason{"unavailable"};
   bool exploration_ready{}, exploration_zones_ready{};
+  bool landmarks_ready{};
+  std::vector<std::string> discovered_landmarks;
   std::vector<ExplorationRoom> exploration;
   // Static/synthetic evidence cannot promote a gameplay map to ready.
   bool map_ready{};
@@ -75,6 +77,7 @@ inline bool Pointer(U64 p) {
 // flags. Policy caps are reader limits, not alleged game maxima.
 template <class Read> class Decoder {
   Read &read;
+  U64 base{};
   struct Span {
     U64 at;
     std::vector<std::uint8_t> bytes;
@@ -240,6 +243,54 @@ template <class Read> class Decoder {
     result = std::move(ids);
     return true;
   }
+  bool DiscoveredLandmarks(U64 explorer, std::vector<std::string> &result) {
+    // Native discoveredLandmarks getter and SavableScriptableObject.guid
+    // getter.
+    constexpr std::array<std::uint8_t, 8> list_pin{0x00, 0x30, 0x40, 0xf9,
+                                                   0xc0, 0x03, 0x5f, 0xd6};
+    constexpr std::array<std::uint8_t, 8> guid_pin{0x00, 0x0c, 0x40, 0xf9,
+                                                   0xc0, 0x03, 0x5f, 0xd6};
+    std::array<std::uint8_t, 8> code{};
+    if (!Bytes(base + 0x1c28230, code.data(), code.size()) ||
+        code != list_pin ||
+        !Bytes(base + 0x1e0fff0, code.data(), code.size()) || code != guid_pin)
+      return false;
+    U64 list{}, items{}, capacity{};
+    std::int32_t count{}, version{};
+    std::uint8_t debug{};
+    if (!Get(explorer + 0xa8, debug) || debug != 0 ||
+        !Ptr(explorer + 0x60, list) ||
+        !Object(list, "List`1", "System.Collections.Generic") ||
+        !Get(list + 0x18, count) || count < 0 || count > 1024 ||
+        !Get(list + 0x1c, version) || !Get(list + 0x10, items))
+      return false;
+    if (count == 0 && items == 0) {
+      result.clear();
+      return true;
+    }
+    if (!Pointer(items) || !Get(items + 0x18, capacity) || capacity > 4096 ||
+        U64(count) > capacity)
+      return false;
+    std::vector<std::string> ids;
+    for (std::int32_t n = 0; n < count; ++n) {
+      U64 asset{}, guid{};
+      std::string text;
+      if (!Ptr(items + 0x20 + 8 * U64(n), asset) ||
+          !Object(asset, "LandmarkData", "") || !NativeAlive(asset) ||
+          !Ptr(asset + 0x18, guid) || !Object(guid, "String", "System") ||
+          !Utf16(guid, text) || text.size() != 32 ||
+          !std::all_of(text.begin(), text.end(),
+                       [](char c) {
+                         return (c >= '0' && c <= '9') ||
+                                (c >= 'a' && c <= 'f');
+                       }) ||
+          std::find(ids.begin(), ids.end(), text) != ids.end())
+        return false;
+      ids.push_back(std::move(text));
+    }
+    result = std::move(ids);
+    return true;
+  }
   bool Exploration(U64 dict, std::vector<ExplorationRoom> &result) {
     U64 entries{};
     std::int32_t count{}, live{}, found{};
@@ -354,6 +405,8 @@ template <class Read> class Decoder {
           self == entity && Ptr(explorer + 0x30, exploration) &&
           Dictionary(exploration, e, allocated, n, 4096)) {
         out.explorer_candidate = true;
+        out.landmarks_ready =
+            DiscoveredLandmarks(explorer, out.discovered_landmarks);
         out.exploration_count = n;
       }
     }
@@ -419,6 +472,7 @@ template <class Read> class Decoder {
 public:
   explicit Decoder(Read &r) : read(r) {}
   Snapshot Sample(const Identity &id) {
+    base = id.base;
     journal.clear();
     Snapshot out;
     if (id.title != Title || id.build != Build || !Pointer(id.base) ||

@@ -6,6 +6,10 @@
 #include "belmont_map_assets.h"
 #include "belmont_map_fog.h"
 #include "belmont_map_labels.h"
+#include "belmont_map_landmarks.h"
+#include "belmont_landmark_render.h"
+#include "belmont_equipment.h"
+#include "belmont_objective_labels.h"
 #include "belmont_world_map.h"
 #include "core/mods/modules/dsmod_module_sdk.h"
 #include <algorithm>
@@ -25,6 +29,7 @@ namespace {
 std::string AreaKey(const belmont_map_sources::SourceRecipe& recipe) {
     return recipe.id == belmont_map_sources::Id::StreetsPoor ? "belmont_streetspoor" : std::string(recipe.world_name);
 }
+constexpr std::string_view LandmarkPrefix="module:belmont:landmark:";
 constexpr std::string_view MapPrefix = "module:belmont:map:";
 bool Valid(const EdenDsmodHostApi* h) {
     return dsmod_sdk::HostAbiMatches(h) && h->is_mapped && h->read_memory &&
@@ -58,19 +63,38 @@ bool SameRoom(const belmont::ExplorationRoom& a, const belmont::ExplorationRoom&
            a.entered_zones_ready == b.entered_zones_ready &&
            a.entered_zone_ids == b.entered_zone_ids;
 }
+bool SameObjective(const belmont_objectives::Snapshot& a,const belmont_objectives::Snapshot& b) {
+    return a.ready==b.ready && a.objective_guid==b.objective_guid &&
+      a.description.table_type==b.description.table_type && a.description.table_guid==b.description.table_guid &&
+      a.description.table_name==b.description.table_name && a.description.entry_type==b.description.entry_type &&
+      a.description.entry_id==b.description.entry_id && a.description.entry_key==b.description.entry_key;
+}
+void JsonText(std::ostream& out,std::string_view s) {
+    out << '"';for(unsigned char c:s){if(c=='"'||c=='\\')out<<'\\'<<c;else if(c>=32)out<<c;}out<<'"';
+}
+struct LandmarkMeta {
+    belmont_map_landmarks::Landmark source;
+    belmont_landmark_render::Placement art,name;
+    std::string english;
+};
+struct LandmarkImage { std::string guid,kind,key; std::shared_ptr<const ce_unity::Image> image; float x{},y{}; };
 struct Fingerprint {
     belmont::U64 manager{}, entity{};
     std::string room;
     std::vector<belmont::ExplorationRoom> exploration;
-    explicit Fingerprint(const belmont::Snapshot& s)
-        : manager(s.manager), entity(s.entity), room(s.room_id), exploration(s.exploration) {}
+    bool landmarks_ready{};
+    std::vector<std::string> discovered;
+    belmont_objectives::Snapshot objective;
+    explicit Fingerprint(const belmont::Snapshot& s, const belmont_objectives::Snapshot& ob)
+        : manager(s.manager), entity(s.entity), room(s.room_id), exploration(s.exploration),
+          landmarks_ready(s.landmarks_ready),discovered(s.discovered_landmarks),objective(ob) {}
     bool operator==(const Fingerprint& b) const {
-        return manager == b.manager && entity == b.entity && room == b.room &&
+        return manager == b.manager && entity == b.entity && room == b.room && landmarks_ready==b.landmarks_ready && discovered==b.discovered && SameObjective(objective,b.objective) &&
             exploration.size() == b.exploration.size() &&
             std::equal(exploration.begin(), exploration.end(), b.exploration.begin(), SameRoom);
     }
-    bool Matches(const belmont::Snapshot& s) const {
-        if (manager != s.manager || entity != s.entity || room != s.room_id ||
+    bool Matches(const belmont::Snapshot& s, const belmont_objectives::Snapshot& ob) const {
+        if (manager != s.manager || entity != s.entity || room != s.room_id || landmarks_ready!=s.landmarks_ready || discovered!=s.discovered_landmarks || !SameObjective(objective,ob) ||
             exploration.size() != s.exploration.size()) return false;
         for (std::size_t n = 0; n < exploration.size(); ++n)
             if (!SameRoom(exploration[n], s.exploration[n])) return false;
@@ -90,7 +114,7 @@ struct Work {
     std::uint64_t generation{};
     Fingerprint fingerprint;
     belmont_world_map::Request request;
-    Work(std::uint64_t g, const belmont::Snapshot& s) : generation(g), fingerprint(s) {
+    Work(std::uint64_t g, const belmont::Snapshot& s, const belmont_objectives::Snapshot& ob) : generation(g), fingerprint(s,ob) {
         request.current_room_id = s.room_id;
         request.player_x = s.target_position[0];
         request.player_y = s.target_position[1];
@@ -104,6 +128,8 @@ struct Rendered {
     belmont_map_fog::Rect navigation_bounds;
     bool navigation_proven{};
     std::string area_name, area_key, biome_name;
+    std::string objective_name;
+    std::vector<LandmarkImage> overlays;
 };
 struct Module {
     // Copied table is used only for read_romfs on workers. userdata is kept alive
@@ -118,6 +144,8 @@ struct Module {
     std::shared_ptr<const Rendered> completed;
     std::map<belmont_map_sources::Id, belmont_map_fog::Rect> tile_bounds;
     bool areas_initialized{};
+    std::map<belmont_map_sources::Id,std::vector<LandmarkMeta>> landmark_meta;
+    std::vector<std::pair<std::string,std::string>> published_overlays;
     std::string areas_json, current_key;
     std::uint64_t generation{};
     bool in_flight{}, exposed{};
@@ -143,9 +171,27 @@ struct Module {
         if (!areas_initialized) {
             belmont_world_map::Renderer source(&io_host);
             std::map<belmont_map_sources::Id, belmont_map_fog::Rect> found;
+            std::map<belmont_map_sources::Id,std::vector<LandmarkMeta>> found_landmarks;
+            belmont_map_assets::Reader source_registry(&io_host);
+            belmont_map_landmarks::Reader source_landmarks(&io_host);
+            belmont_map_labels::Reader source_labels(&io_host);
+            belmont_landmark_render::Renderer placement(&io_host);
             for (const auto& candidate : belmont_map_sources::Recipes) {
                 const auto bounds = source.Bounds(candidate);
-                if (bounds && Finite(*bounds)) found.emplace(candidate.id, *bounds);
+                if (bounds && Finite(*bounds)) {
+                    found.emplace(candidate.id, *bounds);
+                    const auto world=source_registry.LoadWorld(candidate);
+                    if(!world||world->rooms.empty())continue;
+                    const auto landmarks=source_landmarks.LoadForRoom(world->rooms.front().id);
+                    if(!landmarks)continue;
+                    for(const auto& item:landmarks->landmarks) {
+                        if(!item.unconditional_policy)continue;
+                        const auto name=source_labels.LoadLandmarkEnglish(world->rooms.front().id,item.name_table,item.name_key_id);
+                        const auto art=belmont_landmark_render::ArtPlacement(item);
+                        const auto label=name?placement.NamePlacement(item,*name):std::nullopt;
+                        if(art&&label&&name)found_landmarks[candidate.id].push_back({item,*art,*label,*name});
+                    }
+                }
             }
             if (!found.contains(belmont_map_sources::Id::StreetsPoor)) return {};
             std::ostringstream out;
@@ -160,28 +206,41 @@ struct Module {
                 const auto& r = it->second;
                 out << '\"' << AreaKey(candidate) << "\":{\"image\":\"module:belmont:map:0\",\"min\":["
                     << r.x << ',' << r.y << "],\"max\":[" << r.x + r.width << ',' << r.y + r.height
-                    << "],\"clamp_view\":true,\"no_pin\":false}";
+                    << "],\"clamp_view\":true,\"no_pin\":false,\"dynamic_markers\":[";
+                bool first_marker=true;
+                for(const auto& landmark:found_landmarks[candidate.id]) for(const auto* kind:{"art","name"}) {
+                    if(!first_marker)out<<',';
+                    first_marker=false;
+                    const auto prefix="belmont.landmark."+landmark.source.guid+"."+kind;
+                    out<<"{\"count\":1,\"x\":";JsonText(out,prefix+".x");out<<",\"y\":";JsonText(out,prefix+".y");
+                    out<<",\"show_bind\":";JsonText(out,prefix+".ready");out<<",\"icon_src_bind\":";JsonText(out,prefix+".image");
+                    if(std::string_view(kind)=="art")out<<",\"size_world\":"<<landmark.art.size;
+                    else out<<",\"size\":"<<std::lround(landmark.name.size);
+                    out<<",\"anchor\":[0.5,0.5]}";
+                }
+                out<<"]}";
             }
             out << '}';
-            areas_json = out.str(); tile_bounds = std::move(found); areas_initialized = true;
+            areas_json = out.str(); tile_bounds = std::move(found);
+            landmark_meta = std::move(found_landmarks); areas_initialized = true;
         }
         const auto it = tile_bounds.find(recipe.id);
         return it == tile_bounds.end() ? std::nullopt : std::optional(it->second);
     }
-    void Queue(const belmont::Snapshot& s) {
+    void Queue(const belmont::Snapshot& s,const belmont_objectives::Snapshot& ob) {
         const bool eligible = World(s) && belmont_map_sources::FindSourceForRoom(s.room_id) &&
             std::any_of(s.exploration.begin(), s.exploration.end(), [&](const auto& r) {
                 return r.room_id == s.room_id && r.entered_zones_ready && !r.entered_zone_ids.empty();
             });
         std::lock_guard lock{map_mutex};
         if (!eligible || !allowed.load()) { InvalidateLocked(); return; }
-        if (!requested || !requested->Matches(s)) {
-            ++generation; requested.emplace(s); completed.reset(); exposed = false;
+        if (!requested || !requested->Matches(s,ob)) {
+            ++generation; requested.emplace(s,ob); completed.reset(); exposed = false;
             current_key = std::string(MapPrefix) + std::to_string(generation);
-            pending.emplace(generation, s); retry_after = {}; wake.notify_one();
+            pending.emplace(generation, s,ob); retry_after = {}; wake.notify_one();
         } else if (!completed && !pending && !in_flight &&
                    std::chrono::steady_clock::now() >= retry_after) {
-            pending.emplace(generation, s); wake.notify_one();
+            pending.emplace(generation, s,ob); wake.notify_one();
         }
     }
     void Run(ce_unity::AstcDecoder astc) {
@@ -189,6 +248,8 @@ struct Module {
         belmont_map_assets::Reader registry(&io_host);
         belmont_map_fog::Reader fog(&io_host);
         belmont_map_labels::Reader labels(&io_host);
+        belmont_landmark_render::Renderer overlay_renderer(&io_host,astc);
+        belmont_objectives::EnglishReader objective_labels(&io_host);
         while (!stopping.load()) {
             std::optional<Work> job;
             {
@@ -252,6 +313,20 @@ struct Module {
                                 // Explicit English fixture only; no locale autodetection claim.
                                 if (const auto name = labels.LoadAreaEnglish(job->request.current_room_id)) result->area_name = *name;
                                 if (const auto biome = labels.LoadBiomeEnglish(job->request.current_room_id)) result->biome_name = *biome;
+                                if (const auto objective=objective_labels.Load(job->fingerprint.objective))result->objective_name=*objective;
+                                if(job->fingerprint.landmarks_ready) {
+                                    std::vector<LandmarkMeta> metadata;
+                                    {std::lock_guard lock{layout_mutex};metadata=landmark_meta[recipe->id];}
+                                    for(const auto& landmark:metadata) {
+                                        if(!belmont_map_landmarks::Visible(landmark.source,job->fingerprint.discovered,job->request.culled_navigation_zone_ids))continue;
+                                        auto art=overlay_renderer.RenderArt(landmark.source);
+                                        auto name=overlay_renderer.RenderName(landmark.source,landmark.english);
+                                        if(!art||!name)continue;
+                                        const auto key=std::string(LandmarkPrefix)+std::to_string(job->generation)+":"+landmark.source.guid;
+                                        result->overlays.push_back({landmark.source.guid,"art",key+":art",std::make_shared<ce_unity::Image>(std::move(art->image)),art->world_center_x,art->world_center_y});
+                                        result->overlays.push_back({landmark.source.guid,"name",key+":name",std::make_shared<ce_unity::Image>(std::move(name->image)),name->world_center_x,name->world_center_y});
+                                    }
+                                }
                             }
                         }
                     }
@@ -275,7 +350,7 @@ void* Create(const EdenDsmodHostApi* h, const char*) {
     catch (...) { return nullptr; }
 }
 void Destroy(void* p) { try { delete static_cast<Module*>(p); } catch (...) {} }
-void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = nullptr) {
+void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = nullptr, const belmont_objectives::Snapshot& ob = {}, const belmont_equipment::Snapshot& equipment = {}) {
     const auto i = [&](const char* key, std::int64_t v) { h.publish_i64(h.userdata, key, v); };
     const auto t = [&](const char* key, const char* v) { h.publish_text(h.userdata, key, v); };
     const auto f = [&](const char* key, double v) { if (h.publish_f64) h.publish_f64(h.userdata, key, v); };
@@ -310,7 +385,7 @@ void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = 
         std::lock_guard lock{m->map_mutex};
         rendered = m->completed;
         ready = native && world && h.publish_f64 && m->requested &&
-            m->requested->Matches(s) && rendered && rendered->generation == m->generation &&
+            m->requested->Matches(s,ob) && rendered && rendered->generation == m->generation &&
             rendered->navigation_proven && !rendered->area_name.empty() && !rendered->area_key.empty() && m->areas_served.load() && m->marker_native_ready.load() &&
             Contains(rendered->navigation_bounds, s.target_position[0], s.target_position[1]) &&
             Contains(rendered->frame->world_bounds, s.target_position[0], s.target_position[1]);
@@ -352,6 +427,26 @@ void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = 
     }
     f("belmont.area_x0", ax0); f("belmont.area_y0", ay0);
     f("belmont.area_x1", ax1); f("belmont.area_y1", ay1);
+    i("belmont.landmarks_ready",s.landmarks_ready&&world);
+    i("belmont.landmark_overlay_count",ready?rendered->overlays.size()/2:0);
+    if(m) {
+        for(const auto& [prefix,key]:m->published_overlays) { i((prefix+".ready").c_str(),0);t((prefix+".image").c_str(),"");f((prefix+".x").c_str(),0);f((prefix+".y").c_str(),0); }
+        m->published_overlays.clear();
+        if(ready)for(const auto& overlay:rendered->overlays) {
+            const auto prefix="belmont.landmark."+overlay.guid+"."+overlay.kind;
+            i((prefix+".ready").c_str(),1);t((prefix+".image").c_str(),overlay.key.c_str());f((prefix+".x").c_str(),overlay.x);f((prefix+".y").c_str(),overlay.y);
+            m->published_overlays.emplace_back(prefix,overlay.key);
+        }
+    }
+    const bool objective_ready=ready&&ob.ready&&!rendered->objective_name.empty();
+    i("belmont.objective_ready",objective_ready);t("belmont.objective",objective_ready?rendered->objective_name.c_str():"");
+    const bool equipment_ready=world&&equipment.ready&&equipment.coherent;
+    i("belmont.equipment_ready",equipment_ready);
+    t("belmont.equipment_weapon",equipment_ready?equipment.weapon.id.c_str():"");
+    t("belmont.equipment_spell",equipment_ready?equipment.spell.id.c_str():"");
+    t("belmont.equipment_skin",equipment_ready?equipment.skin.id.c_str():"");
+    i("belmont.equipment_charm_slots",equipment_ready?equipment.charms.size():0);
+    for(unsigned n=0;n<16;++n) {const auto key="belmont.equipment_charm_"+std::to_string(n);t(key.c_str(),equipment_ready&&n<equipment.charms.size()?equipment.charms[n].id.c_str():"");}
     t("belmont.state_reason", s.reason.c_str());
 }
 void Sample(void* p, const EdenDsmodHostApi* h) {
@@ -364,7 +459,13 @@ void Sample(void* p, const EdenDsmodHostApi* h) {
         };
         belmont::Decoder decoder(read);
         const auto s = decoder.Sample(Identity(*h));
-        m.allowed.store(s.supported); m.Queue(s); Publish(*h, s, &m);
+        belmont_objectives::Snapshot objective;
+        belmont_equipment::Snapshot equipment;
+        if(World(s)) {
+            belmont_objectives::Decoder objective_reader(read);objective=objective_reader.Sample(Identity(*h),s);
+            belmont_equipment::Decoder equipment_reader(read);equipment=equipment_reader.Sample(Identity(*h),s);
+        }
+        m.allowed.store(s.supported); m.Queue(s,objective); Publish(*h, s, &m,objective,equipment);
     } catch (...) {
         try {
             std::lock_guard lock{m.map_mutex}; m.InvalidateLocked();
@@ -429,14 +530,21 @@ EdenDsmodBool LoadImage(void* p, const EdenDsmodHostApi* h, const char* key,
     if (!m.allowed.load()) return EDEN_DSMOD_FALSE;
     const auto k = Key(key);
     if (!k) return EDEN_DSMOD_FALSE;
-    if (!k->starts_with(MapPrefix)) return m.assets.LoadImage(key, receiver, sink);
+    if (!k->starts_with(MapPrefix) && !k->starts_with(LandmarkPrefix)) return m.assets.LoadImage(key, receiver, sink);
     try {
         // The sole frame is immutable and bounded to the SDK image cap. Keep the sink
         // copy serialized with invalidation, never a RomFS/render operation.
         std::lock_guard lock{m.map_mutex};
         const auto frame = m.completed;
-        if (!m.exposed || !frame || frame->generation != m.generation || *k != m.current_key)
+        if (!m.exposed || !frame || frame->generation != m.generation)
             return EDEN_DSMOD_FALSE;
+        if(k->starts_with(LandmarkPrefix)) {
+            for(const auto& overlay:frame->overlays)if(*k==overlay.key) {
+                sink(receiver,overlay.image->width,overlay.image->height,overlay.image->rgba.data(),overlay.image->rgba.size());return EDEN_DSMOD_TRUE;
+            }
+            return EDEN_DSMOD_FALSE;
+        }
+        if(*k!=m.current_key)return EDEN_DSMOD_FALSE;
         sink(receiver, frame->frame->image.width, frame->frame->image.height,
              frame->frame->image.rgba.data(), frame->frame->image.rgba.size());
         return EDEN_DSMOD_TRUE;

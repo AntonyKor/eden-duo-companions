@@ -16,11 +16,11 @@
     "libraries": {
       "linux-x86_64": {
         "path": "modules/linux-x86_64/0100BA4026E94000.so",
-        "sha256": "e9b7eff3670d47998477a7a9d7c3ca2eb85688e226ee0f45b0b5754776ab6c44"
+        "sha256": "cd8a63020b61df093e2c06e339e63c70cfd344585f38d43179dbe9918d3eaf00"
       },
       "android-arm64-v8a": {
         "path": "modules/android-arm64-v8a/0100BA4026E94000.so",
-        "sha256": "425ebd5d3c191aae64dbf277436ab52be566bfe32684f12f5d94e9ccdda41d5b"
+        "sha256": "2779cc8e143e62b09ec352e312d1651919fc21c071254d8bf4c434c8988e5821"
       }
     }
   },
@@ -59,7 +59,16 @@
     "belmont.area_x0",
     "belmont.area_y0",
     "belmont.area_x1",
-    "belmont.area_y1"
+    "belmont.area_y1",
+    "belmont.landmarks_ready",
+    "belmont.landmark_overlay_count",
+    "belmont.objective_ready",
+    "belmont.objective",
+    "belmont.equipment_ready",
+    "belmont.equipment_weapon",
+    "belmont.equipment_spell",
+    "belmont.equipment_skin",
+    "belmont.equipment_charm_slots"
   ],
   "derived": [
     {
@@ -1023,6 +1032,22 @@
           "border": 0,
           "need_bind": "ui.focus_sub",
           "on_tap": "return_to_rose"
+        },
+        {
+          "type": "label",
+          "rect": [
+            1200,
+            184,
+            0,
+            108
+          ],
+          "align": "right",
+          "text_scale": 5,
+          "color": "#FFC9B46A",
+          "wrap_width": 650,
+          "max_lines": 3,
+          "need_bind": "belmont.objective_ready",
+          "bind_text": "belmont.objective"
         }
       ]
     }
@@ -1035,5 +1060,5 @@
     "ui.area_tier": false,
     "ui.area_applied": false
   },
-  "_layout": "Direction A (owner pick 2026-10-20): native Map tab always open. Objective line, World tier, landmark art/ribbons and the Equipment page wait for verified readers; nothing is invented."
+  "_layout": "Owner-approved Direction A. Native discovered landmark art and responsive name ribbons over the map; current objective from live progression. World tier remains unavailable. Equipment IDs are read-only diagnostics until native name/icon/stats joins support the Equipment page."
 }

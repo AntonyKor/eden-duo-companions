@@ -224,7 +224,8 @@ std::optional<std::string> Lookup(const V &display, const V &shared,
   return result;
 }
 // The biome title is the collection's "<Biome>_BiomeName" entry (e.g.
-// World_StreetPoor -> StreetPoor_BiomeName), found by key, never by a stored ID.
+// World_StreetPoor -> StreetPoor_BiomeName), found by key, never by a stored
+// ID.
 std::optional<std::string> BiomeName(const V &shared, const V &english,
                                      const LabelSource &source) {
   constexpr std::string_view prefix = "World_";
@@ -743,6 +744,56 @@ std::optional<std::string> Reader::LoadAreaEnglish(std::string_view room_id) {
     auto it = labels.find(room_id);
     return it == labels.end() ? std::nullopt
                               : std::optional<std::string>(it->second);
+  } catch (...) {
+    return {};
+  }
+}
+std::optional<std::string>
+Reader::LoadLandmarkEnglish(std::string_view room_id,
+                            std::string_view table_reference,
+                            std::int64_t entry_id) {
+  std::lock_guard lock(mutex);
+  const auto *recipe = belmont_map_sources::FindSourceForRoom(room_id);
+  if (!recipe || entry_id <= 0)
+    return {};
+  const LabelSource *source = nullptr;
+  for (const auto &candidate : LabelSources)
+    if (candidate.world == recipe->world_name)
+      source = &candidate;
+  if (!source)
+    return {};
+  try {
+    auto shared = Object(
+        unity, SharedBundle, "CAB-187dd10d55d33bb2e6150ae0122d9552",
+        source->shared_id, std::string(source->collection) + " Shared Data");
+    auto english =
+        Object(unity, EnglishBundle, "CAB-e34d1e205cce7543c57e1e8468e132b0",
+               source->english_id, std::string(source->collection) + "_en");
+    if (!shared || !english)
+      return {};
+    V display;
+    display.kind = V::Kind::Object;
+    V localized;
+    localized.kind = V::Kind::Object;
+    V table;
+    table.kind = V::Kind::Object;
+    V name;
+    name.kind = V::Kind::String;
+    name.s = table_reference;
+    table.fields.emplace_back("m_TableCollectionName", std::move(name));
+    V entry;
+    entry.kind = V::Kind::Object;
+    V id;
+    id.kind = V::Kind::Int;
+    id.i = entry_id;
+    entry.fields.emplace_back("m_KeyId", std::move(id));
+    V key;
+    key.kind = V::Kind::String;
+    entry.fields.emplace_back("m_Key", std::move(key));
+    localized.fields.emplace_back("m_TableReference", std::move(table));
+    localized.fields.emplace_back("m_TableEntryReference", std::move(entry));
+    display.fields.emplace_back("districtDisplayName", std::move(localized));
+    return Lookup(display, *shared, *english, *source);
   } catch (...) {
     return {};
   }

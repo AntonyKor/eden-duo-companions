@@ -939,6 +939,26 @@ int main() {
       module->destroy(instance); // joins preparation and idle map worker before userdata dies
     }
 #endif
+    {
+      M m; m.components();
+      m.bytes(M::Base+0x1c28230,{0x00,0x30,0x40,0xf9,0xc0,0x03,0x5f,0xd6});
+      m.bytes(M::Base+0x1e0fff0,{0x00,0x0c,0x40,0xf9,0xc0,0x03,0x5f,0xd6});
+      m.put<std::uint8_t>(H+0xe0a8,0);m.put(H+0xe060,H+0x60000);
+      m.put(H+0x60000,H+0x70000);m.klass(H+0x70000,"List`1","System.Collections.Generic");
+      m.put(H+0x60010,H+0x61000);m.put<std::int32_t>(H+0x60018,1);m.put<std::int32_t>(H+0x6001c,1);
+      m.put<belmont::U64>(H+0x61018,2);m.put(H+0x61020,H+0x62000);
+      m.put(H+0x62000,H+0x72000);m.klass(H+0x72000,"LandmarkData","");m.native(H+0x62000);
+      m.put(H+0x62018,H+0x63000);m.put(H+0x63000,H+0x74000);m.klass(H+0x74000,"String","System");
+      constexpr char guid[]="0123456789abcdef0123456789abcdef";
+      m.put<std::int32_t>(H+0x63010,32);for(unsigned n=0;n<32;++n)m.put<std::uint16_t>(H+0x63014+2*n,guid[n]);
+      auto x=m.sample();Check(x.landmarks_ready&&x.discovered_landmarks==std::vector<std::string>{guid},"native landmark discovery GUIDs decoded");
+      m.put<std::uint8_t>(H+0xe0a8,1);x=m.sample();Check(!x.landmarks_ready&&x.discovered_landmarks.empty(),"debug reveal does not leak undiscovered landmarks");
+      m.put<std::uint8_t>(H+0xe0a8,0);m.put<std::int32_t>(H+0x60018,2);m.put(H+0x61028,H+0x62000);
+      x=m.sample();Check(!x.landmarks_ready&&x.discovered_landmarks.empty(),"duplicate discovered landmarks rejected");
+      m.put<std::int32_t>(H+0x60018,1025);Check(!m.sample().landmarks_ready,"discovery list bounded");
+      m.put<std::int32_t>(H+0x60018,1);m.put<std::uint8_t>(H+0x1400,1);x=m.sample();
+      Check(!x.landmarks_ready&&x.discovered_landmarks.empty(),"loading clears discovery");
+    }
     std::cout << "Belmont synthetic state tests passed\n";
   } catch (const std::exception &e) {
     std::cerr << e.what() << '\n';

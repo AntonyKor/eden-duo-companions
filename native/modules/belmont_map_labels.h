@@ -14,6 +14,9 @@ public:
   // The room's biome title ("Paris Streets"); empty when not resolvable.
   std::optional<std::string> LoadBiomeEnglish(std::string_view room_id);
   std::optional<std::string> LoadFirstRoomAreaEnglish();
+  std::optional<std::string>
+  LoadLandmarkEnglish(std::string_view room_id,
+                      std::string_view table_reference, std::int64_t entry_id);
   void ClearCache();
 
 private:
