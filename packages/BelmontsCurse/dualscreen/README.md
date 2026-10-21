@@ -73,3 +73,5 @@ not claimed. Optional DLC absence alone is not an error; no DLC-dependent compan
 claimed. Module libraries and their manifest hashes must match the actual build being packaged.
 
 Map marker coverage includes Rose, session pins, verified discovered landmarks, used native save points, and discovered non-secret elevator endpoints. Save points use the native normal or last-used glyph only when coherent room usage, last-save identity, map-revelation policy and navigation agree. Unknown conditions stay hidden. Elevator endpoints require an exact coherent entered-zone match; secret-linked and used-only reveals remain hidden. Their native base responsive sizes are retained; native maximum-zoom growth is not mapped to companion pinch zoom. Conditional door, activable, biome-transition, full elevator/link, mirror, character, death and secret overlays still need separate live-reader coverage.
+
+Navigation and action buttons use the native dark leather tab material, with a brighter armed/active state. Their existing touch bounds and actions are retained.

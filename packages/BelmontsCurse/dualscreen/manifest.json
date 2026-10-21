@@ -2145,143 +2145,43 @@
         },
         {
           "type": "image",
+          "id": "reset_leather_idle",
           "rect": [
             880,
-            930,
-            44,
-            112
+            944,
+            336,
+            84
           ],
-          "src": "module:native:atlas-t_ui_commonsall_utilitaries_assets_all_e81a39d634c838a9e41af086812075aa.bundle#-7522817365830531493",
-          "need_bind": "ui.map",
+          "src": "module:native:ui-commonsingame_assets_all_acb23e9b0608a368aad72d2fe488a679.bundle#-2769851353036818519",
           "src_rect": [
-            0,
-            0,
-            0.390625,
-            1
+            0.029296875,
+            0.7001953125,
+            0.529296875,
+            0.8251953125
           ],
-          "tint": "#EB140E0C",
+          "tint": "#FF383838",
+          "need_bind": "ui.map",
           "hide_bind": "ui.equipment_page",
           "hide_eq": 1
         },
         {
           "type": "image",
+          "id": "reset_leather_active",
           "rect": [
-            924,
-            930,
-            248,
-            112
+            880,
+            944,
+            336,
+            84
           ],
-          "src": "module:native:atlas-t_ui_commonsall_utilitaries_assets_all_e81a39d634c838a9e41af086812075aa.bundle#-7522817365830531493",
-          "need_bind": "ui.map",
+          "src": "module:native:ui-commonsingame_assets_all_acb23e9b0608a368aad72d2fe488a679.bundle#-2769851353036818519",
           "src_rect": [
-            0.390625,
-            0,
-            0.609375,
-            1
+            0.029296875,
+            0.7001953125,
+            0.529296875,
+            0.8251953125
           ],
-          "tint": "#EB140E0C",
-          "hide_bind": "ui.equipment_page",
-          "hide_eq": 1
-        },
-        {
-          "type": "image",
-          "rect": [
-            1172,
-            930,
-            44,
-            112
-          ],
-          "src": "module:native:atlas-t_ui_commonsall_utilitaries_assets_all_e81a39d634c838a9e41af086812075aa.bundle#-7522817365830531493",
-          "need_bind": "ui.map",
-          "src_rect": [
-            0.609375,
-            0,
-            1,
-            1
-          ],
-          "tint": "#EB140E0C",
-          "hide_bind": "ui.equipment_page",
-          "hide_eq": 1
-        },
-        {
-          "type": "image",
-          "rect": [
-            884,
-            935,
-            34,
-            101
-          ],
-          "src": "module:native:atlas-t_ui_commonall_cards_assets_all_44dfd9cf5fef7440f0f32398be8fb808.bundle#-8462339935619911549",
-          "need_bind": "ui.map",
-          "src_rect": [
-            0.00390625,
-            0.265625,
-            0.1640625,
-            0.7421875
-          ],
-          "tint": "#96FFFFFF",
-          "hide_bind": "ui.equipment_page",
-          "hide_eq": 1
-        },
-        {
-          "type": "image",
-          "rect": [
-            1178,
-            935,
-            34,
-            101
-          ],
-          "src": "module:native:atlas-t_ui_commonall_cards_assets_all_44dfd9cf5fef7440f0f32398be8fb808.bundle#-8462339935619911549",
-          "need_bind": "ui.map",
-          "src_rect": [
-            0.00390625,
-            0.265625,
-            0.1640625,
-            0.7421875
-          ],
-          "tint": "#96FFFFFF",
-          "flip_x": true,
-          "hide_bind": "ui.equipment_page",
-          "hide_eq": 1
-        },
-        {
-          "type": "image",
-          "rect": [
-            884,
-            935,
-            34,
-            101
-          ],
-          "src": "module:native:atlas-t_ui_commonall_cards_assets_all_44dfd9cf5fef7440f0f32398be8fb808.bundle#-8462339935619911549",
+          "tint": "#FFA6A6A6",
           "need_bind": "ui.focus_on",
-          "src_rect": [
-            0.00390625,
-            0.265625,
-            0.1640625,
-            0.7421875
-          ],
-          "tint": "#FFFFFFFF",
-          "hide_bind": "ui.equipment_page",
-          "hide_eq": 1
-        },
-        {
-          "type": "image",
-          "rect": [
-            1178,
-            935,
-            34,
-            101
-          ],
-          "src": "module:native:atlas-t_ui_commonall_cards_assets_all_44dfd9cf5fef7440f0f32398be8fb808.bundle#-8462339935619911549",
-          "need_bind": "ui.focus_on",
-          "src_rect": [
-            0.00390625,
-            0.265625,
-            0.1640625,
-            0.7421875
-          ],
-          "tint": "#FFFFFFFF",
-          "flip_x": true,
           "hide_bind": "ui.equipment_page",
           "hide_eq": 1
         },
@@ -2294,7 +2194,7 @@
             40
           ],
           "text": "Reset",
-          "text_scale": 5,
+          "text_scale": 6,
           "color": "#FFB79D75",
           "align": "center",
           "wrap_width": 1120,
@@ -2312,7 +2212,7 @@
             40
           ],
           "text": "Reset",
-          "text_scale": 5,
+          "text_scale": 6,
           "color": "#FFFFE99F",
           "align": "center",
           "wrap_width": 1120,
@@ -2372,27 +2272,42 @@
           "type": "image",
           "rect": [
             928,
-            28,
+            48,
             288,
-            112
+            72
           ],
           "src": "module:native:ui-commonsingame_assets_all_acb23e9b0608a368aad72d2fe488a679.bundle#-2769851353036818519",
-          "need_bind": "ui.map",
+          "need_bind": "ui.pin_idle",
           "src_rect": [
             0.029296875,
             0.7001953125,
             0.529296875,
             0.8251953125
           ],
-          "fill": "slice",
-          "slice": [
-            250,
-            0,
-            250,
-            0
+          "hide_bind": "ui.equipment_page",
+          "hide_eq": 1,
+          "tint": "#FF5E5E5E"
+        },
+        {
+          "type": "image",
+          "rect": [
+            928,
+            48,
+            288,
+            72
+          ],
+          "src": "module:native:ui-commonsingame_assets_all_acb23e9b0608a368aad72d2fe488a679.bundle#-2769851353036818519",
+          "need_bind": "ui.pin_armed",
+          "src_rect": [
+            0.029296875,
+            0.7001953125,
+            0.529296875,
+            0.8251953125
           ],
           "hide_bind": "ui.equipment_page",
-          "hide_eq": 1
+          "hide_eq": 1,
+          "tint": "#FFA6A6A6",
+          "id": "pin_leather_armed"
         },
         {
           "type": "label",
@@ -3198,9 +3113,9 @@
           "type": "image",
           "rect": [
             24,
-            930,
+            950,
             288,
-            112
+            72
           ],
           "src": "module:native:ui-commonsingame_assets_all_acb23e9b0608a368aad72d2fe488a679.bundle#-2769851353036818519",
           "need_bind": "ui.equipment_available",
@@ -3210,15 +3125,9 @@
             0.529296875,
             0.8251953125
           ],
-          "fill": "slice",
-          "slice": [
-            250,
-            0,
-            250,
-            0
-          ],
           "hide_bind": "ui.equipment_page",
-          "hide_eq": 1
+          "hide_eq": 1,
+          "tint": "#FF5E5E5E"
         },
         {
           "type": "label",
@@ -3258,9 +3167,9 @@
           "type": "image",
           "rect": [
             928,
-            930,
+            950,
             288,
-            112
+            72
           ],
           "src": "module:native:ui-commonsingame_assets_all_acb23e9b0608a368aad72d2fe488a679.bundle#-2769851353036818519",
           "need_bind": "ui.equipment_page",
@@ -3270,13 +3179,7 @@
             0.529296875,
             0.8251953125
           ],
-          "fill": "slice",
-          "slice": [
-            250,
-            0,
-            250,
-            0
-          ]
+          "tint": "#FF5E5E5E"
         },
         {
           "type": "label",
@@ -3854,9 +3757,9 @@
           "type": "image",
           "rect": [
             320,
-            778,
+            798,
             288,
-            112
+            72
           ],
           "src": "module:native:ui-commonsingame_assets_all_acb23e9b0608a368aad72d2fe488a679.bundle#-2769851353036818519",
           "need_bind": "ui.pin_picker",
@@ -3866,13 +3769,7 @@
             0.529296875,
             0.8251953125
           ],
-          "fill": "slice",
-          "slice": [
-            250,
-            0,
-            250,
-            0
-          ]
+          "tint": "#FF5E5E5E"
         },
         {
           "type": "label",
@@ -3908,9 +3805,9 @@
           "type": "image",
           "rect": [
             632,
-            778,
+            798,
             288,
-            112
+            72
           ],
           "src": "module:native:ui-commonsingame_assets_all_acb23e9b0608a368aad72d2fe488a679.bundle#-2769851353036818519",
           "need_bind": "ui.pin_editing",
@@ -3920,13 +3817,7 @@
             0.529296875,
             0.8251953125
           ],
-          "fill": "slice",
-          "slice": [
-            250,
-            0,
-            250,
-            0
-          ]
+          "tint": "#FF5E5E5E"
         },
         {
           "type": "label",
@@ -4233,9 +4124,9 @@
           "type": "image",
           "rect": [
             24,
-            930,
+            950,
             288,
-            112
+            72
           ],
           "src": "module:native:ui-commonsingame_assets_all_acb23e9b0608a368aad72d2fe488a679.bundle#-2769851353036818519",
           "need_bind": "ui.eq_picker",
@@ -4245,13 +4136,7 @@
             0.529296875,
             0.8251953125
           ],
-          "fill": "slice",
-          "slice": [
-            250,
-            0,
-            250,
-            0
-          ]
+          "tint": "#FF5E5E5E"
         },
         {
           "type": "label",
