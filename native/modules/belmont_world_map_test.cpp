@@ -36,6 +36,38 @@ long Peak() {
 int main(int argc, char **argv) {
   using namespace belmont_world_map;
   {
+    auto a=std::make_shared<Frame>();
+    a->image={4,2,std::vector<std::uint8_t>(32,40)};
+    for(std::size_t n=3;n<32;n+=4)a->image.rgba[n]=255;
+    a->revealed_zones={{0,0}};
+    auto b=std::make_shared<Frame>(*a);
+    b->revealed_zones.push_back({0,1});b->updated_regions={{1,0,2,1}};
+    for(unsigned x=1;x<3;++x)for(unsigned c=0;c<3;++c)b->image.rgba[x*4+c]=100;
+    assert(IsNewReveal(*a,*b));
+    assert(BlendReveal(a,b,0)==a&&BlendReveal(a,b,1)==b);
+    auto half=BlendReveal(a,b,.5f);
+    assert(half&&half->image.rgba[4]==70&&a->image.rgba[4]==40&&b->image.rgba[4]==100);
+    auto successor=std::make_shared<Frame>(*b);
+    successor->revealed_zones.push_back({0,2});successor->updated_regions={{0,1,1,1}};
+    successor->image.rgba[16]=120;
+    auto retarget=BlendReveal(half,successor,.5f);
+    assert(retarget&&retarget->updated_regions.size()==2);
+    assert(retarget->image.rgba[4]==85&&retarget->image.rgba[16]==80);
+    for(std::size_t n=0;n<32;++n){
+      const auto lo=std::min(a->image.rgba[n],b->image.rgba[n]);
+      const auto hi=std::max(a->image.rgba[n],b->image.rgba[n]);
+      assert(half->image.rgba[n]>=lo&&half->image.rgba[n]<=hi);
+    }
+    assert(!BlendReveal(a,b,NAN)&&!BlendReveal({},b,.5f));
+    assert(!IsNewReveal(*b,*a)); // removal is never a discovery fade
+    auto bad=*b;bad.navigation_zone_id=123;assert(!IsNewReveal(*a,bad));
+    bad=*b;bad.updated_regions={{3,0,2,1}};assert(!IsNewReveal(*a,bad));
+    bad=*b;bad.revealed_zones={{0,1},{0,2}};assert(!IsNewReveal(*a,bad));
+    bad=*b;bad.revealed_zones={{0,0},{0,0}};assert(!IsNewReveal(*a,bad));
+    bad=*b;bad.world_bounds.x=1;assert(!IsNewReveal(*a,bad));
+    bad=*b;bad.image.rgba.clear();assert(!IsNewReveal(*a,bad));
+  }
+  {
     using namespace belmont_map_decoration;
     const Water p{.25f, .5f, .5f, .5f};
     assert(WaterMask(0.f, 1.f, 0.f, p) == 0.f);
@@ -197,6 +229,23 @@ int main(int argc, char **argv) {
   auto two = renderer.Render(request);
   assert(two && two->revealed_zone_count == 2 && two->updated_tiles > 0 &&
          two->updated_tiles < 24 && Hash(two->image) != one_hash);
+  assert(IsNewReveal(*one,*two));
+  const auto fade_start=std::chrono::steady_clock::now();
+  std::uint64_t changed_pixels=0;
+  double blend_ms=0;
+  for(unsigned step=1;step<5;++step){
+    const auto step_start=std::chrono::steady_clock::now();
+    const auto blended=BlendReveal(one,two,float(step)/5.f);
+    blend_ms+=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-step_start).count();
+    assert(blended&&blended->image.rgba.size()==one->image.rgba.size());
+    for(std::size_t n=0;n<one->image.rgba.size();++n){
+      const auto a=one->image.rgba[n],b=two->image.rgba[n],v=blended->image.rgba[n];
+      assert(v>=std::min(a,b)&&v<=std::max(a,b));
+      if(step==1&&n%4==0&&a!=b)++changed_pixels;
+    }
+  }
+  std::cout<<"reveal_fade_four_steps_ms="<<std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-fade_start).count()
+           <<" blend_only_ms="<<blend_ms<<" changed_red_pixels="<<changed_pixels<<" dirty_regions="<<two->updated_regions.size()<<'\n';
   const auto dirty = renderer.GetStatistics();
   dump("first-room-two-zones.rgba", two->image);
   assert(Hash(one->image) == one_hash);

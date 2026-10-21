@@ -16,11 +16,11 @@
     "libraries": {
       "linux-x86_64": {
         "path": "modules/linux-x86_64/0100BA4026E94000.so",
-        "sha256": "b3e74c71295cbc5217516d77fdd5a212223e4dd2707b23f628556948a215a4ac"
+        "sha256": "3fea96d6e4e16d26e1eb32c5f70ea399efe42fb5144c135181b49105b79abc80"
       },
       "android-arm64-v8a": {
         "path": "modules/android-arm64-v8a/0100BA4026E94000.so",
-        "sha256": "dfabfd42a9b739c82e0dbab0eddb3026f82485f5f5a65314543567833751ebfc"
+        "sha256": "e7f9340eb06526efe3350f394f2294dce53ed405aa3d281c0bef0b42811758a5"
       }
     }
   },
@@ -799,7 +799,9 @@
     "belmont.picker_slot_124_token",
     "belmont.picker_slot_125_token",
     "belmont.picker_slot_126_token",
-    "belmont.picker_slot_127_token"
+    "belmont.picker_slot_127_token",
+    "belmont.equipment_visible",
+    "belmont.pending_map_key"
   ],
   "derived": [
     {
@@ -886,7 +888,7 @@
     },
     {
       "name": "ui.enforce",
-      "expr": "@flag:ui.area_tier != @flag:ui.area_applied || (!ui.map && 'view_custom:belmont_map' != 0) || (!belmont.ui_world && @flag:ui.equipment == 1) || belmont.pin_capture_pending || belmont.equipment_input_button != 0"
+      "expr": "@flag:ui.area_tier != @flag:ui.area_applied || (!ui.map && 'view_custom:belmont_map' != 0) || (!belmont.ui_world && @flag:ui.equipment == 1) || belmont.pin_capture_pending || belmont.equipment_input_button != 0 || ui.eq_visibility_on || ui.eq_visibility_off"
     },
     {
       "name": "ui.vx0",
@@ -1107,6 +1109,14 @@
     {
       "name": "ui.eq_mana_upgrades",
       "expr": "ui.equipment_page && belmont.mana_upgrades_ready"
+    },
+    {
+      "name": "ui.eq_visibility_on",
+      "expr": "ui.equipment_page && !belmont.equipment_visible"
+    },
+    {
+      "name": "ui.eq_visibility_off",
+      "expr": "!ui.equipment_page && belmont.equipment_visible"
     }
   ],
   "enforce": [
@@ -1164,6 +1174,14 @@
     },
     {
       "action": "native_button_9",
+      "every_ms": 1
+    },
+    {
+      "action": "equipment_visibility_on",
+      "every_ms": 1
+    },
+    {
+      "action": "equipment_visibility_off",
       "every_ms": 1
     }
   ],
@@ -1392,6 +1410,18 @@
       "action": "equipment_pick",
       "argument": "$payload",
       "enabled_bind": "ui.eq_picker_control"
+    },
+    "equipment_visibility_on": {
+      "kind": "module",
+      "action": "equipment_visibility",
+      "argument": 1,
+      "enabled_bind": "ui.eq_visibility_on"
+    },
+    "equipment_visibility_off": {
+      "kind": "module",
+      "action": "equipment_visibility",
+      "argument": 0,
+      "enabled_bind": "ui.eq_visibility_off"
     }
   },
   "pages": [
@@ -1458,7 +1488,9 @@
           ],
           "bg": "#FF110A0E",
           "border": 0,
-          "need_bind": "ui.title"
+          "need_bind": "ui.title",
+          "color": "#00000000",
+          "frame": 0
         },
         {
           "type": "image",
@@ -1586,7 +1618,9 @@
           ],
           "bg": "#FF110A0E",
           "border": 0,
-          "need_bind": "ui.wait_art"
+          "need_bind": "ui.wait_art",
+          "color": "#00000000",
+          "frame": 0
         },
         {
           "type": "image",
@@ -1615,7 +1649,9 @@
           ],
           "bg": "#78110A0E",
           "border": 0,
-          "need_bind": "ui.wait_art"
+          "need_bind": "ui.wait_art",
+          "color": "#00000000",
+          "frame": 0
         },
         {
           "type": "image",
@@ -4246,6 +4282,19 @@
           "border": 0,
           "on_tap": "equipment_back",
           "need_bind": "ui.eq_picker_control"
+        },
+        {
+          "type": "image",
+          "id": "map_asset_warmup",
+          "rect": [
+            0,
+            0,
+            1,
+            1
+          ],
+          "src_bind": "belmont.pending_map_key",
+          "color": "#00FFFFFF",
+          "need_bind": "belmont.ui_world"
         },
         {
           "type": "rect",

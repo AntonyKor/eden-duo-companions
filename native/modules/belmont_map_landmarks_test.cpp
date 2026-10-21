@@ -17,6 +17,11 @@ int main(int argc, char **argv) {
   assert(!Visible(l, known, cull));
   l.unconditional_policy = false;
   assert(!Visible(l, known, {}));
+  SavePoint save;save.normal_art.navigation_zone_id=7;
+  assert(!Visible(save,-1,1,7)&&!Visible(save,0,1,7));
+  assert(!Visible(save,1,-1,7)&&!Visible(save,1,0,7));
+  assert(!Visible(save,1,1,8)&&Visible(save,1,1,7));
+  save.visible_in_unrevealed_map=true;assert(Visible(save,0,1,7));
   Reader missing(ce_unity::RangeReader{});
   assert(!missing.LoadForRoom("unknown"));
   if (argc != 2)
@@ -30,6 +35,16 @@ int main(int argc, char **argv) {
     return 1;
   }
   assert(data->landmarks.size() == 5);
+  std::cout<<"native_save_points="<<data->save_points.size()<<" map_revealed_policy="<<data->map_revealed_policy<<'\n';
+  assert(data->save_points.size()==5&&data->map_revealed_policy==1);
+  for(const auto& point:data->save_points){
+    assert(point.normal_art.sprites.size()==1&&point.last_used_art.sprites.size()==1);
+    assert(point.normal_art.sprites[0].id==6230585524095202680LL);
+    assert(point.last_used_art.sprites[0].id==9035961807606165270LL);
+    assert(!point.visible_in_unrevealed_map);
+    assert(std::abs(point.screen_percentage-.06f)<1e-7f);
+    assert(std::abs(point.screen_percentage_at_zoom_max-.09f)<1e-7f);
+  }
   bool docks = false;
   for (const auto &item : data->landmarks) {
     std::cout << item.source_name << " " << item.guid

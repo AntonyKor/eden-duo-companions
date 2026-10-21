@@ -48,6 +48,9 @@ template <class Read> class Decoder {
     std::vector<std::uint8_t> bytes;
   };
   std::vector<Span> journal;
+  // Reuse only exact spans inside this decode. Final coherence validation
+  // still reads every unique span from the guest; nothing survives Sample.
+  belmont::ReadSpanIndex span_index;
   std::size_t total_bytes{};
   bool malformed{};
   U64 main_base{};
@@ -64,11 +67,18 @@ template <class Read> class Decoder {
   bool Bytes(U64 at, void *out, std::size_t n) {
     if (!n || n > 4096 || at < 0x10000 ||
         at > std::numeric_limits<U64>::max() - n || journal.size() >= 32768 ||
-        total_bytes > 1024 * 1024 - n || !read(at, out, n)) {
+        total_bytes > 1024 * 1024 - n) {
       malformed = true;
       return false;
     }
+    if (auto found=span_index.find({at,n});found!=span_index.end()) {
+      const auto& saved=journal[found->second].bytes;
+      std::memcpy(out,saved.data(),n);
+      return true;
+    }
+    if (!read(at,out,n)) { malformed=true; return false; }
     const auto *b = static_cast<const std::uint8_t *>(out);
+    span_index.emplace(belmont::ReadSpanKey{at,n},journal.size());
     journal.push_back({at, {b, b + n}});
     total_bytes += n;
     return true;
@@ -623,9 +633,11 @@ template <class Read> class Decoder {
     return {true, std::int32_t(sum), "ready"};
   }
   bool Coherent() {
+    std::array<std::uint8_t,4096> fresh{};
     for (const auto &span : journal) {
-      std::vector<std::uint8_t> b(span.bytes.size());
-      if (!read(span.at, b.data(), b.size()) || b != span.bytes)
+      if (span.bytes.size()>fresh.size() ||
+          !read(span.at,fresh.data(),span.bytes.size()) ||
+          std::memcmp(fresh.data(),span.bytes.data(),span.bytes.size())!=0)
         return false;
     }
     return true;
@@ -636,6 +648,7 @@ public:
   Snapshot Sample(const belmont::Identity &id,
                   const belmont::Snapshot &source) {
     journal.clear();
+    span_index.clear();
     total_bytes = 0;
     malformed = false;
     stats.clear();

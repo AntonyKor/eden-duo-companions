@@ -24,7 +24,24 @@ struct Frame {
   belmont_map_sources::Id source_id{belmont_map_sources::Id::StreetsPoor};
   unsigned pixels_per_world{};
   bool decorative_approximation{true};
+  // Sorted native (room, zone) identities and changed atlas rectangles. These
+  // authorize a reveal transition without mistaking a removal or navigation
+  // switch for newly explored terrain.
+  std::vector<std::pair<std::size_t, std::size_t>> revealed_zones;
+  std::vector<std::array<unsigned, 4>> updated_regions;
+  // Full source-backed membership of this navigation group, including rooms
+  // still behind fog. Identity metadata only; never exposes their artwork.
+  std::vector<std::string> navigation_rooms;
+  bool reveal_intermediate{};
 };
+bool IsNewReveal(const Frame &previous, const Frame &target);
+// Worker-only immutable intermediate. Only changed native tiles are blended;
+// unchanged pixels are copied verbatim. The caller owns timing/key generations
+// and retains its previous published image until the next key is loaded.
+// Invalid/incompatible transitions fail closed. Endpoints retain their pointers.
+std::shared_ptr<const Frame> BlendReveal(std::shared_ptr<const Frame> previous,
+                                       std::shared_ptr<const Frame> target,
+                                       float progress);
 struct Statistics {
   std::uint64_t generations{}, unchanged_requests{}, baked_tiles{},
       composed_tiles{};

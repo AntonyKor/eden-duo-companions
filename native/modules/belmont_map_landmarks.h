@@ -38,10 +38,23 @@ struct Landmark {
   NameStyle name_style;
   std::vector<Sprite> sprites; // Native step zero, not all authored variants.
 };
+struct SavePoint {
+  Landmark normal_art, last_used_art; // Native variants, without name ribbons.
+  bool visible_in_unrevealed_map{};
+  float screen_percentage{}, screen_percentage_at_zoom_max{};
+};
 struct Data {
   std::string world_name;
   std::vector<Landmark> landmarks;
+  std::vector<SavePoint> save_points;
+  // Native ResetContext defaults true; only an absent reveal condition proves
+  // this without guest progression data. Conditional/missing data stays -1.
+  int map_revealed_policy{-1};
 };
+// Native SavePointItem visibility: used room, map revelation and navigation.
+// Unknown live booleans are represented by -1 and fail closed.
+bool Visible(const SavePoint &, int map_revealed, int used_save_point,
+             std::int64_t active_navigation);
 // Source records only; never infer discovery from fog/position. Callers must
 // join GUIDs to a coherent live ExplorerComponent.discoveredLandmarks snapshot
 // and apply native navigation culling before exposing art or names.

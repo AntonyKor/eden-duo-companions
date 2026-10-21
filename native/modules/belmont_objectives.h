@@ -32,12 +32,21 @@ template <class Read> class Decoder {
     std::vector<std::uint8_t> bytes;
   };
   std::vector<Span> journal;
+  // Reuse only exact spans inside this decode. Final coherence validation
+  // still reads every unique span from the guest; nothing survives Sample.
+  belmont::ReadSpanIndex span_index;
   bool Bytes(U64 at, void *dst, std::size_t n) {
     if (!n || n > 2048 || at < 0x10000 ||
-        at > std::numeric_limits<U64>::max() - n || journal.size() >= 4096 ||
-        !read(at, dst, n))
+        at > std::numeric_limits<U64>::max() - n || journal.size() >= 4096)
       return false;
+    if (auto found=span_index.find({at,n});found!=span_index.end()) {
+      const auto& saved=journal[found->second].bytes;
+      std::memcpy(dst,saved.data(),n);
+      return true;
+    }
+    if (!read(at,dst,n)) return false;
     auto p = static_cast<const std::uint8_t *>(dst);
+    span_index.emplace(belmont::ReadSpanKey{at,n},journal.size());
     journal.push_back({at, {p, p + n}});
     return true;
   }
@@ -156,6 +165,9 @@ template <class Read> class Decoder {
            Ptr(klass + 0xb8, fields) && Get(fields, flag) && flag == 0;
   }
   bool Current(const belmont::Identity &id, const belmont::Snapshot &state) {
+    // Explicit freshness gates start a new read phase; do not satisfy them
+    // from the earlier copied phase. Their spans remain in final replay.
+    span_index.clear();
     U64 klass{}, manager_class{}, fields{}, manager{}, entity{}, initial{},
         loading{}, stack{}, items{}, length{}, tuple{}, active{};
     std::int32_t count{}, version{};
@@ -228,9 +240,11 @@ template <class Read> class Decoder {
            s.room_loading == 0;
   }
   bool Coherent() {
-    for (const auto &s : journal) {
-      std::vector<std::uint8_t> b(s.bytes.size());
-      if (!read(s.at, b.data(), b.size()) || b != s.bytes)
+    std::array<std::uint8_t,4096> fresh{};
+    for (const auto &span : journal) {
+      if (span.bytes.size()>fresh.size() ||
+          !read(span.at,fresh.data(),span.bytes.size()) ||
+          std::memcmp(fresh.data(),span.bytes.data(),span.bytes.size())!=0)
         return false;
     }
     return true;
@@ -244,6 +258,7 @@ public:
   }
   Snapshot Sample(const belmont::Identity &id, const belmont::Snapshot &state) {
     journal.clear();
+    span_index.clear();
     Snapshot out;
     if (id.title != belmont::Title || id.build != belmont::Build ||
         !belmont::Pointer(id.base) || id.size < 0x6d46230 ||

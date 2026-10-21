@@ -820,6 +820,7 @@ std::shared_ptr<const Frame> Renderer::Render(
   frame->source_id = s.source->id;
   frame->pixels_per_world = s.pixels_per_world;
   frame->revealed_zone_count = std::uint32_t(next.size());
+  frame->revealed_zones.assign(next.begin(), next.end());
   {
     float x0 = std::numeric_limits<float>::max(), y0 = x0, x1 = -x0, y1 = -x0;
     for (auto key : next)
@@ -837,11 +838,16 @@ std::shared_ptr<const Frame> Renderer::Render(
     if (dirty[i]) {
       if (!s.Compose(i, next, *frame))
         return {};
+      const auto &tile = s.colors[i];
+      frame->updated_regions.push_back({tile.x, tile.y, tile.w, tile.h});
       ++frame->updated_tiles;
     }
   s.published_navigation = navigation;
   frame->navigation_zone_id = navigation;
   frame->is_z_map = zmap;
+  for (const auto &room : s.data->rooms)
+    if (!room.zones.empty() && room.zones.front().navigation_zone_id == navigation)
+      frame->navigation_rooms.push_back(room.id);
   s.visible = std::move(next);
   s.front = frame;
   ++s.statistics.generations;
@@ -851,5 +857,61 @@ std::shared_ptr<const Frame> Renderer::Render(
                                     std::chrono::steady_clock::now() - start)
                                     .count();
   return frame;
+}
+bool IsNewReveal(const Frame &a, const Frame &b) {
+  if (a.source_id != b.source_id || a.navigation_zone_id != b.navigation_zone_id ||
+      a.is_z_map != b.is_z_map || a.pixels_per_world != b.pixels_per_world ||
+      a.world_bounds.x != b.world_bounds.x || a.world_bounds.y != b.world_bounds.y ||
+      a.world_bounds.width != b.world_bounds.width || a.world_bounds.height != b.world_bounds.height ||
+      a.image.width != b.image.width || a.image.height != b.image.height ||
+      !a.image.width || !a.image.height ||
+      a.image.rgba.size() != std::size_t(a.image.width)*a.image.height*4 ||
+      a.image.rgba.size() != b.image.rgba.size() || a.image.rgba.size() > MaximumImageBytes ||
+      a.revealed_zones.empty() || b.revealed_zones.size() <= a.revealed_zones.size() ||
+      b.updated_regions.empty() ||
+      !std::is_sorted(a.revealed_zones.begin(),a.revealed_zones.end()) ||
+      !std::is_sorted(b.revealed_zones.begin(),b.revealed_zones.end()) ||
+      std::adjacent_find(a.revealed_zones.begin(),a.revealed_zones.end()) != a.revealed_zones.end() ||
+      std::adjacent_find(b.revealed_zones.begin(),b.revealed_zones.end()) != b.revealed_zones.end() ||
+      !std::includes(b.revealed_zones.begin(),b.revealed_zones.end(),
+                     a.revealed_zones.begin(),a.revealed_zones.end())) return false;
+  for (const auto &r : b.updated_regions)
+    if (!r[2] || !r[3] || r[0] >= b.image.width || r[1] >= b.image.height ||
+        r[2] > b.image.width-r[0] || r[3] > b.image.height-r[1]) return false;
+  if(a.reveal_intermediate)for(const auto& r:a.updated_regions)
+    if(!r[2]||!r[3]||r[0]>=b.image.width||r[1]>=b.image.height||
+       r[2]>b.image.width-r[0]||r[3]>b.image.height-r[1])return false;
+  return true;
+}
+std::shared_ptr<const Frame> BlendReveal(std::shared_ptr<const Frame> previous,
+                                       std::shared_ptr<const Frame> target,
+                                       float progress) {
+  if (!previous || !target || !std::isfinite(progress) || !IsNewReveal(*previous,*target)) return {};
+  if (progress <= 0.f) return previous;
+  if (progress >= 1.f) return target;
+  auto output = std::make_shared<Frame>(*target);
+  output->reveal_intermediate=true;
+  // A second discovery can arrive before the first reveal has finished. Keep
+  // its unfinished rectangles in the blend, even if the next new zone affects
+  // a different tile. Native final frames never inherit historical dirtiness.
+  if(previous->reveal_intermediate){
+    output->updated_regions.insert(output->updated_regions.end(),previous->updated_regions.begin(),previous->updated_regions.end());
+    std::sort(output->updated_regions.begin(),output->updated_regions.end());
+    output->updated_regions.erase(std::unique(output->updated_regions.begin(),output->updated_regions.end()),output->updated_regions.end());
+  }
+  // Smooth native-color endpoints directly in display space. Integer convex
+  // interpolation cannot overshoot to white or expose transparent canvas.
+  const unsigned weight=unsigned(std::lround(Smooth(progress)*65536.f));
+  for (const auto &r : output->updated_regions)
+    for (unsigned y=r[1]; y<r[1]+r[3]; ++y)
+      for (unsigned x=r[0]; x<r[0]+r[2]; ++x) {
+        const auto offset=(std::size_t(y)*target->image.width+x)*4;
+        for (unsigned c=0;c<3;++c) {
+          const unsigned a=previous->image.rgba[offset+c], b=target->image.rgba[offset+c];
+          output->image.rgba[offset+c]=std::uint8_t((a*(65536-weight)+b*weight+32768)>>16);
+        }
+        output->image.rgba[offset+3]=255;
+      }
+  return output;
 }
 } // namespace belmont_world_map

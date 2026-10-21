@@ -13,9 +13,21 @@
 #include <string>
 #include <type_traits>
 #include <vector>
+#include <unordered_map>
 
 namespace belmont {
 using U64 = std::uint64_t;
+struct ReadSpanKey {
+  U64 at{};
+  std::size_t size{};
+  bool operator==(const ReadSpanKey&) const = default;
+};
+struct ReadSpanHash {
+  std::size_t operator()(const ReadSpanKey& key) const {
+    return std::hash<U64>{}(key.at) ^ (std::hash<std::size_t>{}(key.size) << 1);
+  }
+};
+using ReadSpanIndex = std::unordered_map<ReadSpanKey,std::size_t,ReadSpanHash>;
 inline constexpr U64 Title = 0x0100BA4026E94000ULL;
 inline constexpr char BuildHex[] =
     "0F1169AA7D0FA4529C861F96ADEC306E00000000000000000000000000000000";
@@ -91,13 +103,22 @@ template <class Read> class Decoder {
     std::vector<std::uint8_t> bytes;
   };
   std::vector<Span> journal;
+  // Reuse only exact spans inside this decode. Final coherence validation
+  // still reads every unique span from the guest; nothing survives Sample.
+  belmont::ReadSpanIndex span_index;
   bool Bytes(U64 at, void *out, std::size_t n) {
     if (!n || n > 4096 || at < 0x10000 ||
         at > std::numeric_limits<U64>::max() - n || journal.size() >= 16384)
       return false;
+    if (auto found=span_index.find({at,n});found!=span_index.end()) {
+      const auto& saved=journal[found->second].bytes;
+      std::memcpy(out,saved.data(),n);
+      return true;
+    }
     if (!read(at, out, n))
       return false;
     const auto *p = static_cast<const std::uint8_t *>(out);
+    span_index.emplace(belmont::ReadSpanKey{at,n},journal.size());
     journal.push_back({at, {p, p + n}});
     return true;
   }
@@ -199,6 +220,7 @@ template <class Read> class Decoder {
       return false;
     // A fresh empty dictionary can legitimately have a null entries array.
     std::int32_t version{};
+    span_index.erase(belmont::ReadSpanKey{dict + 0x2c, sizeof(version)});
     if (!Get(dict + 0x2c, version) || !Get(dict + 0x18, entries))
       return false;
     if (entries == 0 && count == 0) {
@@ -412,6 +434,7 @@ template <class Read> class Decoder {
     if (found != live)
       return false;
     std::int32_t dictionary_version{};
+    span_index.erase(belmont::ReadSpanKey{dict + 0x2c, sizeof(dictionary_version)});
     if (!Get(dict + 0x2c, dictionary_version)) return false;
     const Snapshot::MotionContract current{base, dict, entries, explorer, room,
         position, layout_hash, count, live, dictionary_version};
@@ -501,9 +524,11 @@ template <class Read> class Decoder {
     return true;
   }
   bool Coherent() {
+    std::array<std::uint8_t,4096> fresh{};
     for (const auto &span : journal) {
-      std::vector<std::uint8_t> now(span.bytes.size());
-      if (!read(span.at, now.data(), now.size()) || now != span.bytes)
+      if (span.bytes.size()>fresh.size() ||
+          !read(span.at,fresh.data(),span.bytes.size()) ||
+          std::memcmp(fresh.data(),span.bytes.data(),span.bytes.size())!=0)
         return false;
     }
     return true;
@@ -512,6 +537,7 @@ template <class Read> class Decoder {
   Snapshot Decode(const Identity &id, const Snapshot *history) {
     base = id.base;
     journal.clear();
+    span_index.clear();
     Snapshot out;
     if (id.title != Title || id.build != Build || !Pointer(id.base) ||
         id.size < 0x6d46230 ||

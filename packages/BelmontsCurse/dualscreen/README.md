@@ -32,6 +32,8 @@ contain no game artwork, screenshots, font glyphs, localized label text or deriv
 Packaged native libraries decode installed assets at runtime. There is no fallback map fixture.
 Unready or unsupported data remains unavailable; unsupported modules display the host's error.
 
+Equipment and owned-inventory acquisition run only while the Equipment view is open; position sampling stays continuous. Each reader deduplicates repeated spans within one sample and rechecks source coherence before publishing.
+
 The generic host map handles local pan/zoom. Sub-area follows Rose; Area frames every revealed
 zone of the current region. Reset returns to Sub-area and recentres the local view. Title/loading
 clear stale map, marker, name and coordinates; a coherent native pause keeps the current map
@@ -48,6 +50,8 @@ glyphs. Runtime text_scale7/5 targets36/25cap. Desktop screenshots and all217
 native English area-label widths were checked using the actual font. Physical readability still
 requires the target device. English area labels are explicit; automatic language selection is
 pending.
+
+Newly explored sections within a compatible native map fade through four native-color frames. Replacement images are prefetched while the old map stays visible, and recent immutable image keys remain available to in-flight requests. Same-source navigation-room changes retain the compatible map. Actual loading and unsupported contexts still clear it.
 
 The explored-zone edge fades softly as in the native map. Native water and wall ornament material terms are included at frozen time; moving
 noise and displacement remain approximations. Landmark visibility requires coherent native
@@ -67,3 +71,5 @@ contours, palette, entered-zone shapes and selected navigation remain native. Ex
 parity, separate secret-item overlays, FastTravel map geometry and the world-overview screen are
 not claimed. Optional DLC absence alone is not an error; no DLC-dependent companion feature is
 claimed. Module libraries and their manifest hashes must match the actual build being packaged.
+
+Map marker coverage currently includes Rose, session pins and verified discovered landmarks. Native savepoint, conditional door, activable, biome-transition, elevator, mirror, character, death and secret overlays are not yet exposed; their native visibility policies need separate live-reader coverage.

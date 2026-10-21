@@ -840,7 +840,15 @@ int main() {
             "module declares only extension and read-only RomFS capabilities");
       void *instance = module->create(&host, nullptr);
       Check(instance, "create exact build");
+      const auto* visibility=eden_dsmod_get_extensions(EDEN_DSMOD_EXT_VERSION,EDEN_DSMOD_EXT_HASH);
+      Check(visibility&&visibility->on_action(instance,"equipment_visibility",1),"Equipment visibility handshake accepts entry");
+      module->sample(instance,&host);
+      Check(h.values["belmont.equipment_visible"]==1,"entry acknowledges visibility even before optional assets");
+      Check(visibility->on_action(instance,"equipment_visibility",0),"Equipment visibility handshake accepts exit");
       module->sample(instance, &host);
+      Check(h.values["belmont.equipment_visible"]==0&&!h.values.contains("belmont.picker_slot_0_ready"),
+            "hidden Equipment acknowledges exit and omits unused picker outputs");
+      Check(!visibility->on_action(instance,"equipment_visibility",2),"invalid visibility values rejected");
       Check(h.values["belmont.initial_identity"] == 1 &&
                 h.values["belmont.entity_ready"] == 1,
             "ABI sample publishes state");

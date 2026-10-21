@@ -17,6 +17,8 @@ constexpr std::string_view Common =
     "ui-commonsingame_assets_all_acb23e9b0608a368aad72d2fe488a679.bundle";
 constexpr std::string_view CommonCab = "CAB-5d3eb16e2bd4e768158db17f3956cfa9";
 constexpr std::string_view MenuCab = "CAB-27e7a4fd03161a1208808cab8fc89755";
+constexpr std::string_view LevelData="leveldata_assets_all_940f672e456a1dd57099d3d5c994fbc7.bundle";
+constexpr std::string_view LevelDataCab="CAB-18af95c67205941bc13db59d8c142572";
 bool Int(const V *v, std::int64_t &n) {
   if (!v)
     return false;
@@ -243,7 +245,95 @@ bool ExternalIs(const std::vector<std::string> &cabs, const V *v,
   return Ref(v, id, f) && id && f > 0 && std::uint64_t(f) <= cabs.size() &&
          cabs[f - 1] == cab;
 }
+bool Flag(const V *v, bool &out) {
+  if (!v) return false;
+  if (v->kind == V::Kind::Bool) { out=v->i!=0; return true; }
+  std::int64_t n{};if(!Int(v,n)||(n!=0&&n!=1))return false;
+  out=n!=0;return true;
+}
+const std::vector<V>* Calls(const V *v, std::string_view event) {
+  auto e=v?v->Get(event):nullptr;
+  return e?Array(e->Path("m_PersistentCalls.m_Calls"),4):nullptr;
+}
+std::int64_t EventTarget(const V *v,std::string_view event,std::string_view method) {
+  auto calls=Calls(v,event);if(!calls||calls->size()!=1)return 0;
+  const auto& c=calls->front();auto name=Text(c.Get("m_MethodName"));std::int64_t mode{},state{};
+  return name&&*name==method&&Int(c.Get("m_Mode"),mode)&&mode==0&&
+    Int(c.Get("m_CallState"),state)&&state==1?Local(c.Get("m_Target")):0;
+}
+// Follow the serialized BooleanUIView event graph, rather than using prefab
+// active flags or assuming the last-used variant shares the normal sprite.
+std::optional<std::pair<std::int64_t,std::int64_t>> VariantRoots(const V *v) {
+  auto yes=Calls(v,"onSetTrue"),no=Calls(v,"onSetFalse");
+  if(!yes||!no||yes->size()!=2||no->size()!=2)return {};
+  std::map<std::int64_t,bool> a,b;
+  for(unsigned side=0;side<2;++side)for(const auto& c:side?*no:*yes){
+    auto method=Text(c.Get("m_MethodName"));std::int64_t mode{},state{};bool value{};
+    const auto id=Local(c.Get("m_Target"));
+    if(!id||!method||*method!="SetActive"||!Int(c.Get("m_Mode"),mode)||mode!=6||
+      !Int(c.Get("m_CallState"),state)||state!=1||!Flag(c.Path("m_Arguments.m_BoolArgument"),value)||
+      !(side?b:a).emplace(id,value).second)return {};
+  }
+  std::int64_t normal{},last{};
+  for(const auto& [id,value]:a){auto it=b.find(id);if(it==b.end()||it->second==value)return {}; (value?last:normal)=id;}
+  return normal&&last?std::optional{std::pair{normal,last}}:std::nullopt;
+}
+std::optional<SavePoint> ParseSavePoint(Scene& scene,const V& v,
+    const belmont_map_sources::SourceRecipe& source,const std::vector<std::string>& cabs,
+    const std::shared_ptr<const ce_unity::SerializedFile>& menu,std::int64_t item_id) {
+  SavePoint result;auto& base=result.normal_art;
+  auto room=Text(v.Get("itemWorldRoomId"));const auto go=Local(v.Get("m_GameObject"));
+  auto g=scene.Get(go);auto name=g?Text(g->Get("m_Name")):std::nullopt;
+  std::int64_t script{},file{},zone{},secret{};
+  if(!room||!room->starts_with(source.world_name)||!name||*name!="LevelMap_SavePoint_Item(Clone)"||
+    Local(v.Get("context"))!=source.map_context_id||
+    !Ref(v.Get("m_Script"),script,file)||script!=3538717887839853159LL||file!=1||
+    !Int(v.Get("itemExplorationZoneId"),zone)||zone<0||zone>65535||
+    !Int(v.Get("itemLinkedSecretZoneId"),secret)||secret!=-1||
+    !Flag(v.Get("visibleInUnrevealedMap"),result.visible_in_unrevealed_map))return {};
+  base.source_id=item_id;base.source_name=*name;base.room_id=*room;base.exploration_zone_id=std::int32_t(zone);
+  base.navigation_zone_id=Local(v.Get("navigationZone"));base.unconditional_policy=true;
+  auto tr=scene.transforms.find(go);auto pos=tr!=scene.transforms.end()?scene.World(tr->second):std::nullopt;
+  if(!pos||!base.navigation_zone_id)return {};
+  base.x=pos->x;base.y=pos->y;
+  auto display=scene.Get(Local(v.Get("display")));
+  const auto used=EventTarget(display,"onSetUpUsed","SetActive");
+  auto variants=VariantRoots(scene.Get(EventTarget(display,"onSetUpIsLastUsed","SetBool")));
+  if(!used||!variants)return {};
+  auto components=g?Array(g->Get("m_Component"),32):nullptr;bool responsive=false;
+  if(components)for(const auto& c:*components){auto m=scene.Get(Local(c.Get("component")));
+    if(m&&Local(m->Get("levelMapItem"))==item_id&&m->Get("screenPercentage")){
+      if(responsive||!Num(m->Get("screenPercentage"),result.screen_percentage)||
+        !Num(m->Get("screenPercentageAtZoomMax"),result.screen_percentage_at_zoom_max)||
+        result.screen_percentage<=0||result.screen_percentage>.25f||
+        result.screen_percentage_at_zoom_max<=0||result.screen_percentage_at_zoom_max>.25f)return {};
+      responsive=true;
+    }}
+  if(!responsive)return {};
+  result.last_used_art=base;
+  for(const auto& object:scene.file->Objects())if(object.class_id==212){
+    auto sr=scene.Get(object.path_id);auto sg=sr?Local(sr->Get("m_GameObject")):0;
+    auto st=scene.transforms.find(sg);if(st==scene.transforms.end())continue;
+    bool under=false,in_used=false,normal=false,last=false;std::set<std::int64_t> seen;auto at=st->second;
+    while(at&&seen.size()<64&&seen.insert(at).second){auto t=scene.Get(at);if(!t)break;auto ag=Local(t->Get("m_GameObject"));
+      under|=ag==go;in_used|=ag==used;normal|=ag==variants->first;last|=ag==variants->second;at=Local(t->Get("m_Father"));}
+    if(!under||!in_used||normal==last)continue;
+    std::int64_t sid{};if(!ExternalIs(cabs,sr->Get("m_Sprite"),MenuCab,sid))return {};
+    auto sprite=Obj(menu,sid,213);auto p=scene.World(st->second);Sprite art;
+    if(!sprite||!p||!Metadata(*sprite,art))return {};
+    art.id=sid;art.bundle=Menu;art.cab=MenuCab;art.x=p->x;art.y=p->y;art.scale_x=p->sx;art.scale_y=p->sy;
+    const char* channels[]={"r","g","b","a"};for(unsigned n=0;n<4;++n)
+      if(!Num(sr->Path(std::string("m_Color.")+channels[n]),art.color[n]))return {};
+    (last?result.last_used_art:result.normal_art).sprites.push_back(std::move(art));
+  }
+  if(result.normal_art.sprites.size()!=1||result.last_used_art.sprites.size()!=1)return {};
+  return result;
+}
 } // namespace
+bool Visible(const SavePoint& point,int revealed,int used,std::int64_t navigation){
+  return used==1&&(revealed==1||point.visible_in_unrevealed_map)&&
+    navigation>0&&point.normal_art.navigation_zone_id==navigation;
+}
 bool Visible(const Landmark &l, std::span<const std::string> known,
              std::span<const std::int64_t> culled) {
   return l.unconditional_policy && !l.guid.empty() &&
@@ -278,7 +368,21 @@ std::optional<Data> Reader::LoadForRoom(std::string_view room) {
     if (!sf || !data || !menu || !common || !cabs)
       return {};
     Scene scene{sf, {}, {}};
-    Data out{std::string(source->world_name), {}};
+    Data out{std::string(source->world_name), {}, {}};
+    // ResetContext writes true to revealedMap; InitializeContext overwrites
+    // it only when LevelUIDisplayData.mapRevealCondition is non-null. Do not
+    // approximate conditional Hall of Mirrors revelation from explored fog.
+    if(auto levels=File(unity,LevelData,LevelDataCab)){
+      for(const auto& object:levels->Objects())if(object.class_id==114){
+        auto value=Obj(levels,object.path_id,114);
+        auto name=value?Text(value->Get("m_Name")):std::nullopt;
+        if(name&&*name==out.world_name+"_UIDisplay"){
+          std::int64_t rid{};
+          if(Int(value->Path("mapRevealCondition.rid"),rid)&&rid==-2)out.map_revealed_policy=1;
+          break;
+        }
+      }
+    }
     for (const auto &o : sf->Objects())
       if (o.class_id == 4 || o.class_id == 224) {
         auto t = scene.Get(o.path_id);
@@ -290,6 +394,11 @@ std::optional<Data> Reader::LoadForRoom(std::string_view room) {
       if (o.class_id != 114)
         continue;
       auto v = scene.Get(o.path_id);
+      if(v){
+        std::int64_t sid{},file{};
+        if(Ref(v->Get("m_Script"),sid,file)&&sid==3538717887839853159LL&&file==1)
+          if(auto save=ParseSavePoint(scene,*v,*source,*cabs,menu,o.path_id))out.save_points.push_back(std::move(*save));
+      }
       if (!v || !v->Get("landmarkData"))
         continue;
       Landmark l;

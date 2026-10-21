@@ -28,6 +28,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <deque>
 #include <set>
 #include <sstream>
 #include <thread>
@@ -129,9 +130,14 @@ struct Fingerprint {
             exploration.size() == b.exploration.size() &&
             std::equal(exploration.begin(), exploration.end(), b.exploration.begin(), SameRoom);
     }
-    bool DisplayCompatible(const belmont::Snapshot& s) const {
-        if(manager!=s.manager||entity!=s.entity||room!=s.room_id||!belmont_presentation::ExplorationGrows(exploration,s.exploration))return false;
-        return true;
+    bool DisplayCompatible(const belmont::Snapshot& s,const belmont_world_map::Frame* frame=nullptr) const {
+        if(manager!=s.manager||entity!=s.entity||!belmont_presentation::ExplorationGrows(exploration,s.exploration))return false;
+        if(room==s.room_id)return true;
+        // A coherent successor room can retain this atlas only when native
+        // source membership proves the same world and navigation group.
+        const auto* source=belmont_map_sources::FindSourceForRoom(s.room_id);
+        return World(s)&&frame&&source&&source->id==frame->source_id&&
+            std::find(frame->navigation_rooms.begin(),frame->navigation_rooms.end(),s.room_id)!=frame->navigation_rooms.end();
     }
     bool MapMatches(const belmont::Snapshot& s) const {
         if(manager!=s.manager||entity!=s.entity||room!=s.room_id||landmarks_ready!=s.landmarks_ready||discovered!=s.discovered_landmarks||exploration.size()!=s.exploration.size())return false;
@@ -195,6 +201,48 @@ struct Module {
     std::optional<Fingerprint> requested;
     std::optional<Work> pending;
     std::shared_ptr<const Rendered> completed;
+    struct MapImage {std::string key;std::shared_ptr<const belmont_world_map::Frame> frame;};
+    std::deque<MapImage> recent_maps;
+    struct FadeWork {
+        std::uint64_t generation{};
+        std::shared_ptr<const Rendered> target;
+        std::shared_ptr<const belmont_world_map::Frame> previous;
+        unsigned step{};
+    };
+    std::optional<FadeWork> fade_work,staged_fade;
+    std::chrono::steady_clock::time_point fade_due{};
+    std::shared_ptr<const Rendered> staged_map,active_reveal_target,finish_reveal;
+    std::string staged_map_key;
+    std::uint64_t sample_epoch{},map_image_epoch{},staged_served_epoch{};
+    bool staged_served{};
+    void StageMapLocked(std::shared_ptr<const Rendered> value,std::optional<FadeWork> fade={}){
+        staged_map=std::move(value);staged_fade=std::move(fade);
+        if(!staged_fade)active_reveal_target.reset();
+        staged_map_key=std::string(MapPrefix)+std::to_string(generation)+":"+std::to_string(++map_image_epoch);
+        staged_served=false;staged_served_epoch=0;
+    }
+    void AdvanceMapLocked(std::chrono::steady_clock::time_point now){
+        ++sample_epoch;
+        // Host drains its completed image queue before Sample. Sink completion
+        // is not an explicit GPU-cache-ready API, so wait two further samples
+        // and preserve recent immutable keys for in-flight callback requests.
+        if(!staged_map||!staged_served||sample_epoch-staged_served_epoch<2)return;
+        if(staged_map->generation!=generation){staged_map.reset();staged_map_key.clear();staged_fade.reset();return;}
+        if(completed)RememberMapLocked(current_key,completed->frame);
+        completed=std::move(staged_map);current_key=std::move(staged_map_key);staged_map_key.clear();
+        RememberMapLocked(current_key,completed->frame);
+        if(staged_fade&&staged_fade->step<4){
+            fade_work=*staged_fade;++fade_work->step;fade_due=now+std::chrono::milliseconds(40);wake.notify_one();
+        }
+        if(staged_fade&&staged_fade->step>=4)active_reveal_target.reset();
+        staged_fade.reset();staged_served=false;
+    }
+    void RememberMapLocked(std::string key,std::shared_ptr<const belmont_world_map::Frame> frame){
+        if(key.empty()||!frame)return;
+        for(const auto& old:recent_maps)if(old.key==key)return;
+        recent_maps.push_back({std::move(key),std::move(frame)});
+        while(recent_maps.size()>3)recent_maps.pop_front();
+    }
     std::map<belmont_map_sources::Id, belmont_map_fog::Rect> tile_bounds;
     bool areas_initialized{};
     std::map<belmont_map_sources::Id,std::vector<LandmarkMeta>> landmark_meta;
@@ -206,10 +254,10 @@ struct Module {
     std::chrono::steady_clock::time_point full_sample_at{}, details_at{};
     belmont_pins::Store pins;
     std::int64_t map_tap_sequence{-1};
-    bool presentation_dim{},control_ready{},picker_exposed{};
+    bool presentation_dim{},control_ready{},picker_exposed{},equipment_visible{};
     belmont_inventory::Snapshot inventory;
     belmont_equipment_control::Controller equipment_controller;
-    std::chrono::steady_clock::time_point inventory_at{};
+    std::chrono::steady_clock::time_point inventory_at{},inventory_control_at{};
     // Separate worker-safe readers: image callbacks decode only demanded visible
     // cells, without blocking the map worker or motion sampling mutex.
     std::shared_ptr<belmont_equipment_assets::Reader> lazy_equipment_assets;
@@ -231,7 +279,7 @@ struct Module {
     }
     void InvalidateLocked() {
         if (requested || pending || completed || !current_key.empty()) ++generation;
-        requested.reset(); pending.reset(); completed.reset(); current_key.clear(); exposed = false; equipment_exposed = false;map_retry_required=false;
+        requested.reset(); pending.reset(); completed.reset(); recent_maps.clear(); staged_map.reset();staged_map_key.clear();staged_fade.reset();fade_work.reset();active_reveal_target.reset();finish_reveal.reset(); current_key.clear(); exposed = false; equipment_exposed = false;map_retry_required=false;
     }
     std::optional<belmont_map_fog::Rect> Bounds(const belmont_map_sources::SourceRecipe& recipe) {
         // areas_src is fetched once. Prepare geometric metadata for every native
@@ -305,12 +353,16 @@ struct Module {
         std::lock_guard lock{map_mutex};
         if (!eligible || !allowed.load()) { InvalidateLocked(); return; }
         if (!requested || !requested->Matches(s,ob,eq)) {
-            const bool keep=completed&&completed->frame&&completed->fingerprint&&completed->fingerprint->DisplayCompatible(s);
-            ++generation;requested.emplace(s,ob,eq);
-            if(!keep){completed.reset();current_key=std::string(MapPrefix)+std::to_string(generation);}
+            const bool keep=completed&&completed->frame&&completed->fingerprint&&completed->fingerprint->DisplayCompatible(s,completed->frame.get());
+            if(keep&&completed&&active_reveal_target&&completed->frame!=active_reveal_target->frame)
+                finish_reveal=active_reveal_target;
+            else if(!keep)finish_reveal.reset();
+            active_reveal_target.reset();
+            ++generation;requested.emplace(s,ob,eq);staged_map.reset();staged_map_key.clear();staged_fade.reset();fade_work.reset();
+            if(!keep){completed.reset();recent_maps.clear();current_key.clear();}
             exposed=false;equipment_exposed=false;
             pending.emplace(generation, s,ob,eq); retry_after = {}; wake.notify_one();
-        } else if ((!completed||map_retry_required) && !pending && !in_flight &&
+        } else if ((!completed||map_retry_required) && !pending && !in_flight && !staged_map && !fade_work &&
                    std::chrono::steady_clock::now() >= retry_after) {
             pending.emplace(generation, s,ob,eq); wake.notify_one();
         }
@@ -325,12 +377,31 @@ struct Module {
         belmont_equipment_assets::Reader equipment_assets(&io_host,astc);
         while (!stopping.load()) {
             std::optional<Work> job;
+            std::optional<FadeWork> fade_job;
             {
                 std::unique_lock lock{map_mutex};
-                wake.wait(lock, [&] { return stopping.load() || pending.has_value(); });
-                if (stopping.load()) return;
-                if(pending){job=std::move(pending);pending.reset();}
+                for(;;){
+                    if(stopping.load())return;
+                    if(pending){job=std::move(pending);pending.reset();break;}
+                    if(fade_work&&!staged_map){
+                        if(std::chrono::steady_clock::now()>=fade_due){fade_job=std::move(fade_work);fade_work.reset();break;}
+                        wake.wait_until(lock,fade_due);
+                    }else wake.wait(lock);
+                }
                 in_flight=true;
+            }
+            if(fade_job){
+                std::shared_ptr<Rendered> step;
+                try{
+                    auto frame=belmont_world_map::BlendReveal(fade_job->previous,fade_job->target->frame,float(fade_job->step)/4.f);
+                    if(frame){step=std::make_shared<Rendered>(*fade_job->target);step->frame=std::move(frame);}
+                }catch(...){}
+                std::lock_guard lock{map_mutex};in_flight=false;
+                if(fade_job->generation==generation&&allowed.load()&&!stopping.load()){
+                    if(step)StageMapLocked(std::move(step),*fade_job);
+                    else StageMapLocked(fade_job->target);
+                }
+                continue;
             }
             std::shared_ptr<Rendered> result;
             try {
@@ -441,10 +512,34 @@ struct Module {
                 if (job->generation == generation && requested &&
                     *requested == job->fingerprint && allowed.load() && !stopping.load()) {
                     map_retry_required=!result||!result->frame;
-                    if(result&&result->frame&&(!completed||completed->frame!=result->frame))current_key=std::string(MapPrefix)+std::to_string(result->generation);
-                    // A compatible known map remains visible while a replacement
-                    // fails or only optional equipment assets have prepared.
-                    if(!map_retry_required||!completed||!completed->frame)completed=std::move(result);
+                    if(result&&result->frame){
+                        if(completed&&completed->frame==result->frame){
+                            // Metadata/equipment-only update keeps the already
+                            // loaded map key and immutable pixels.
+                            completed=std::move(result);
+                        }else if(completed&&completed->frame&&completed->frame->reveal_intermediate&&
+                                 belmont_world_map::IsNewReveal(*completed->frame,*result->frame)){
+                            // Retarget from the pixels currently on screen. The
+                            // renderer carries unfinished dirty regions forward,
+                            // so walking into another zone cannot snap the old
+                            // reveal to its endpoint before the next fade.
+                            active_reveal_target=result;finish_reveal.reset();
+                            fade_work=FadeWork{generation,result,completed->frame,1};fade_due=std::chrono::steady_clock::now();wake.notify_one();
+                        }else if(finish_reveal&&finish_reveal->frame&&
+                                 belmont_world_map::IsNewReveal(*finish_reveal->frame,*result->frame)){
+                            // A new discovery interrupted the previous fade.
+                            // Finish its exact native endpoint first; never
+                            // blend disjoint dirty tiles from an unfinished
+                            // arbitrary intermediate into another reveal.
+                            auto finish=std::make_shared<Rendered>(*finish_reveal);
+                            finish->generation=generation;
+                            StageMapLocked(std::move(finish),FadeWork{generation,result,finish_reveal->frame,0});
+                            active_reveal_target=result;finish_reveal.reset();
+                        }else if(completed&&completed->frame&&belmont_world_map::IsNewReveal(*completed->frame,*result->frame)){
+                            active_reveal_target=result;finish_reveal.reset();
+                            fade_work=FadeWork{generation,result,completed->frame,1};fade_due=std::chrono::steady_clock::now();wake.notify_one();
+                        }else {finish_reveal.reset();StageMapLocked(std::move(result));}
+                    }else if(!completed||!completed->frame)completed=std::move(result);
                     retry_after=std::chrono::steady_clock::now()+std::chrono::seconds(1);
                 }
             }
@@ -462,10 +557,11 @@ void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = 
     const auto t = [&](const char* key, const char* v) { h.publish_text(h.userdata, key, v); };
     const auto f = [&](const char* key, double v) { if (h.publish_f64) h.publish_f64(h.userdata, key, v); };
     i("belmont.equipment_input_button",0);i("belmont.equipment_control_ready",0);
+    i("belmont.equipment_visible",m&&m->equipment_visible);
     i("belmont.picker_ready",0);i("belmont.pin_picker",0);i("belmont.pin_capture_pending",0);i("belmont.pin_armed",0);
     if(!m){
         i("belmont.pin_editing",0);i("belmont.picker_count",0);i("belmont.picker_can_prev",0);i("belmont.picker_can_next",0);
-        for(unsigned n=0;n<128;++n){const auto prefix="belmont.picker_slot_"+std::to_string(n);i((prefix+"_ready").c_str(),0);i((prefix+"_selected").c_str(),0);t((prefix+"_name").c_str(),"");t((prefix+"_image").c_str(),"");}
+
     }
     i("belmont.presentation_dim",dim);
     i("belmont.live_world",live?World(*live):World(s));
@@ -496,19 +592,20 @@ void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = 
         s.application_loading == 0;
     bool ready{};
     std::shared_ptr<const Rendered> rendered;
-    std::string key;
+    std::string key,prefetch_key;
     if (m) {
         std::lock_guard lock{m->map_mutex};
-        rendered = m->completed;
+        rendered = m->completed;prefetch_key=m->staged_map_key;
         ready = native && world && h.publish_f64 && m->requested &&
-            rendered && rendered->frame && rendered->fingerprint && rendered->fingerprint->DisplayCompatible(s) &&
+            rendered && rendered->frame && rendered->fingerprint && rendered->fingerprint->DisplayCompatible(s,rendered->frame.get()) &&
             rendered->navigation_proven && !rendered->area_name.empty() && !rendered->area_key.empty() && m->areas_served.load() && m->marker_native_ready.load() &&
-            Contains(rendered->navigation_bounds, s.target_position[0], s.target_position[1]) &&
+            (rendered->fingerprint->room!=s.room_id||Contains(rendered->navigation_bounds, s.target_position[0], s.target_position[1])) &&
             Contains(rendered->frame->world_bounds, s.target_position[0], s.target_position[1]);
         m->exposed = ready;
         m->equipment_exposed=world&&equipment.ready&&rendered&&rendered->fingerprint&&rendered->fingerprint->entity==s.entity&&SameEquipment(rendered->fingerprint->equipment,equipment)&&rendered->equipment_prepared;
         if (ready) key = m->current_key;
     }
+    t("belmont.pending_map_key",prefetch_key.c_str());
     if(m) {
         m->presentation_dim=dim;
         if(title)m->pins.Clear();
@@ -564,7 +661,7 @@ void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = 
         const char* picker_title=control.holding_charm?"Choose relic slot":control.category==1?"Armoury":control.category==2?"Arcanas":"Relics";
         t("belmont.picker_title",picker?picker_title:"");t("belmont.picker_page_text","");
         i("belmont.picker_selected_ready",0);t("belmont.picker_selected_name","");t("belmont.picker_selected_image","");
-        for(std::size_t n=0;n<128;++n){
+        for(std::size_t n=0;n<slots.size();++n){
             const EquipmentImage* image=nullptr;for(const auto& entry:m->picker_images)if(entry.slot==std::to_string(n)){image=&entry;break;}
             const auto prefix="belmont.picker_slot_"+std::to_string(n);
             const bool entry=picker&&n<slots.size();const bool selected=entry&&slots[n].selected;
@@ -702,6 +799,7 @@ void Sample(void* p, const EdenDsmodHostApi* h) {
                    h->read_memory(h->userdata, at, dst, n);
         };
         const auto now=std::chrono::steady_clock::now();
+        {std::lock_guard lock{m.map_mutex};m.AdvanceMapLocked(now);}
         belmont::Decoder decoder(read);
         bool full=!m.full_source||now-m.full_sample_at>=std::chrono::milliseconds(100);
         auto s=full?decoder.Sample(Identity(*h)):decoder.SampleMotion(Identity(*h),*m.full_source);
@@ -713,26 +811,32 @@ void Sample(void* p, const EdenDsmodHostApi* h) {
                 now-m.details_at>=std::chrono::milliseconds(120)||!World(m.details.base);
             if(refresh){
                 belmont_objectives::Decoder objective_reader(read);next.objective=objective_reader.Sample(Identity(*h),s);
-                belmont_equipment::Decoder equipment_reader(read);next.equipment=equipment_reader.Sample(Identity(*h),s);
-                belmont_equipment_stats::Decoder stats_reader(read);next.stats=stats_reader.Sample(Identity(*h),s);
+                if(m.equipment_visible){
+                    belmont_equipment::Decoder equipment_reader(read);next.equipment=equipment_reader.Sample(Identity(*h),s);
+                    belmont_equipment_stats::Decoder stats_reader(read);next.stats=stats_reader.Sample(Identity(*h),s);
+                }
                 m.details=next;m.details_at=now;
             } else {next.objective=m.details.objective;next.equipment=m.details.equipment;next.stats=m.details.stats;}
         } else {m.details={};m.full_source.reset();}
         auto display=m.presentation.Select(std::move(next),World(s),now);
         belmont_equipment_control::Button input=belmont_equipment_control::Button::None;
-        if(World(s)){
-            belmont_inventory::Decoder inventory_reader(read);
-            bool refresh=!m.inventory.ready||m.inventory.entity!=s.entity||now-m.inventory_at>=std::chrono::milliseconds(500);
-            auto inventory=refresh?inventory_reader.Sample(Identity(*h),s):inventory_reader.SampleControl(Identity(*h),s,m.inventory);
-            if(!refresh&&inventory.reason=="inventory_changed"){inventory=inventory_reader.Sample(Identity(*h),s);refresh=true;}
-            if(refresh)m.inventory_at=now;
-            m.inventory=std::move(inventory);
+        if(World(s)&&m.equipment_visible){
+            const bool control_due=m.equipment_controller.busy()||!m.inventory.ready||
+                m.inventory.entity!=s.entity||now-m.inventory_control_at>=std::chrono::milliseconds(100);
+            if(control_due){
+                belmont_inventory::Decoder inventory_reader(read);
+                bool refresh=!m.inventory.ready||m.inventory.entity!=s.entity||now-m.inventory_at>=std::chrono::milliseconds(500);
+                auto inventory=refresh?inventory_reader.Sample(Identity(*h),s):inventory_reader.SampleControl(Identity(*h),s,m.inventory);
+                if(!refresh&&inventory.reason=="inventory_changed"){inventory=inventory_reader.Sample(Identity(*h),s);refresh=true;}
+                if(refresh)m.inventory_at=now;
+                m.inventory_control_at=now;m.inventory=std::move(inventory);
+            }
             input=m.equipment_controller.Update(m.inventory,true,std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count());
         }else if(display.dim){
             // Compatible presentation interruption: emit no inputs and require
             // a full fresh inventory before resuming the observed native step.
             m.inventory_at={};
-        }else {m.inventory={};m.equipment_controller.Cancel("world_transition");}
+        }else {m.inventory={};m.equipment_controller.Cancel("equipment_hidden_or_world_transition");}
         m.allowed.store(s.supported);m.Queue(display.value.base,display.value.objective,display.value.equipment);
         Publish(*h,display.value.base,&m,display.value.objective,display.value.equipment,display.value.stats,display.dim,&s);
         h->publish_i64(h->userdata,"belmont.equipment_input_button",static_cast<std::int32_t>(input));
@@ -823,6 +927,29 @@ EdenDsmodBool LoadImage(void* p, const EdenDsmodHostApi* h, const char* key,
             sink(receiver,image->width,image->height,image->rgba.data(),image->rgba.size());return EDEN_DSMOD_TRUE;
         }catch(...){return EDEN_DSMOD_FALSE;}
     }
+    if(k->starts_with(MapPrefix)){
+        try{
+            std::shared_ptr<const belmont_world_map::Frame> frame;
+            {
+                std::lock_guard lock{m.map_mutex};
+                if(m.stopping.load())return EDEN_DSMOD_FALSE;
+                if(m.staged_map&&*k==m.staged_map_key)frame=m.staged_map->frame;
+                else if(m.exposed){
+                    if(m.completed&&*k==m.current_key)frame=m.completed->frame;
+                    else for(const auto& prior:m.recent_maps)if(prior.key==*k){frame=prior.frame;break;}
+                }
+            }
+            if(!frame)return EDEN_DSMOD_FALSE;
+            sink(receiver,frame->image.width,frame->image.height,frame->image.rgba.data(),frame->image.rgba.size());
+            {
+                std::lock_guard lock{m.map_mutex};
+                if(m.staged_map&&*k==m.staged_map_key&&m.staged_map->frame==frame&&!m.staged_served){
+                    m.staged_served=true;m.staged_served_epoch=m.sample_epoch;
+                }
+            }
+            return EDEN_DSMOD_TRUE;
+        }catch(...){return EDEN_DSMOD_FALSE;}
+    }
     if(k->starts_with(PickerPrefix)||k->starts_with(UpgradePrefix)){
         try {
             const bool upgrade=k->starts_with(UpgradePrefix);
@@ -892,7 +1019,10 @@ EdenDsmodBool LoadImage(void* p, const EdenDsmodHostApi* h, const char* key,
                         if(*k==frame->objective_key)output=frame->objective_image;
                     }else if(k->starts_with(LandmarkPrefix)){
                         for(const auto& item:frame->overlays)if(item.key==*k){output=item.image;break;}
-                    }else if(*k==m.current_key)output=std::shared_ptr<const ce_unity::Image>(frame->frame,&frame->frame->image);
+                    }else {
+                        if(*k==m.current_key)output=std::shared_ptr<const ce_unity::Image>(frame->frame,&frame->frame->image);
+                        else for(const auto& prior:m.recent_maps)if(prior.key==*k){output=std::shared_ptr<const ce_unity::Image>(prior.frame,&prior.frame->image);break;}
+                    }
                 }
             }
         }
@@ -925,6 +1055,15 @@ EdenDsmodBool Action(void* p,const char* action,std::int64_t argument){
     try {
         auto& m=*static_cast<Module*>(p);const std::string_view name(action);
         if(!m.allowed.load())return EDEN_DSMOD_FALSE;
+        if(name=="equipment_visibility"){
+            if(argument!=0&&argument!=1)return EDEN_DSMOD_FALSE;
+            const bool visible=argument==1;
+            if(m.equipment_visible!=visible){
+                m.equipment_visible=visible;m.details_at={};m.inventory_at={};m.inventory_control_at={};
+                if(!visible){m.inventory={};m.control_ready=false;m.equipment_controller.Cancel("equipment_hidden");}
+            }
+            return EDEN_DSMOD_TRUE;
+        }
         if(name=="pin_cancel"){m.pins.Cancel();return EDEN_DSMOD_TRUE;}
         if(m.presentation_dim)return EDEN_DSMOD_FALSE;
         if(name=="equipment_category"){
