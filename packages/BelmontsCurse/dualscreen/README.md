@@ -38,7 +38,8 @@ The generic host map handles local pan/zoom. Sub-area follows Rose; Area frames 
 zone of the current region. Reset returns to Sub-area and recentres the local view. Title/loading
 clear stale map, marker, name and coordinates; a coherent native pause keeps the current map
 available. Compatible cinematic/dialogue interruptions retain a dimmed, noninteractive bottom
-view; a brief incoherent sample may retain the last compatible view for at most180ms. Explicit
+view; a brief incoherent sample holds the previous brightness and compatible view for at most180ms.
+Retained views block equipment and pin actions until a fresh coherent sample succeeds. Explicit
 loading, changed identity or unsupported state still clears it. Map motion uses a validated
 lightweight refresh between full snapshots. Separate scaled presentation bindings work around
 runtime22’s coarse float redraw thresholds; marker_scale converts back to the exact native

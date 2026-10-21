@@ -908,6 +908,35 @@ int main() {
 #endif
 #ifndef BELMONT_READER_ONLY_TEST
     {
+      Host h;h.memory.exploration();auto host=h.api();
+      const auto* module=eden_dsmod_get_module(EDEN_DSMOD_MODULE_ABI_VERSION,EDEN_DSMOD_MODULE_ABI_HASH);
+      const auto* actions=eden_dsmod_get_extensions(EDEN_DSMOD_EXT_VERSION,EDEN_DSMOD_EXT_HASH);
+      void* instance=module->create(&host,nullptr);
+      module->sample(instance,&host);
+      Check(h.values["belmont.ui_world"]==1&&h.values["belmont.presentation_blocked"]==0,
+            "coherent world is interactive");
+      unsigned count{};
+      h.memory.observe=[&](auto at){
+        if(at==H+0x11040&&++count==2)h.memory.put<std::uint32_t>(at,0x40200000);
+      };
+      module->sample(instance,&host);h.memory.observe={};
+      Check(h.texts["belmont.live_state_reason"]=="incoherent"&&
+            h.values["belmont.live_world"]==0&&h.values["belmont.ui_world"]==1&&
+            h.values["belmont.presentation_dim"]==0&&h.values["belmont.presentation_blocked"]==1&&
+            h.values["belmont.diag.incoherent_samples"]==1&&
+            h.values["belmont.equipment_input_button"]==0&&
+            !actions->on_action(instance,"equipment_category",1)&&
+            !actions->on_action(instance,"pin_begin",0),
+            "movement race preserves appearance while fresh-read guards block actions");
+      module->sample(instance,&host);
+      Check(h.values["belmont.live_world"]==1&&h.values["belmont.presentation_blocked"]==0,
+            "coherent recovery restores interaction");
+      h.memory.put<std::uint8_t>(H+0x1400,1);module->sample(instance,&host);
+      Check(h.values["belmont.ui_world"]==0&&h.values["belmont.ui_loading"]==1&&
+            h.texts["belmont.map_image"].empty(),"explicit loading still clears retained gameplay");
+      module->destroy(instance);
+    }
+    {
       Host h;
       h.memory.exploration();
       auto host = h.api();

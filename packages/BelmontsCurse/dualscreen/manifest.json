@@ -16,11 +16,11 @@
     "libraries": {
       "linux-x86_64": {
         "path": "modules/linux-x86_64/0100BA4026E94000.so",
-        "sha256": "5a7b266dc2841fe0905d71455a63116e17e3ff3116cb5718b1c5c2ec0aa64e8a"
+        "sha256": "e2995744494b9f03a152c40a0946440eb47d5936bd18320f3a93661134e292d5"
       },
       "android-arm64-v8a": {
         "path": "modules/android-arm64-v8a/0100BA4026E94000.so",
-        "sha256": "114abbee958440ef1fd6b74ff4af98f6ac8e9902872d47df44d75e626202e48d"
+        "sha256": "3bfb2a8dcad1521fc6f914dc056a7fb47cce4220bbaae64b525ab30089ce825a"
       }
     }
   },
@@ -117,6 +117,7 @@
     "belmont.equipment_weapon_card_ready",
     "belmont.equipment_weapon_card_image",
     "belmont.presentation_dim",
+    "belmont.presentation_blocked",
     "belmont.pin_capture_pending",
     "belmont.pin_picker",
     "belmont.pin_kind_0_image",
@@ -996,31 +997,31 @@
     },
     {
       "name": "ui.map_input",
-      "expr": "ui.map && !ui.equipment_page && !belmont.presentation_dim && !belmont.pin_picker"
+      "expr": "ui.map && !ui.equipment_page && !belmont.presentation_blocked && !belmont.pin_picker"
     },
     {
       "name": "ui.pin_picker",
-      "expr": "ui.map && !ui.equipment_page && belmont.pin_picker && !belmont.presentation_dim"
+      "expr": "ui.map && !ui.equipment_page && belmont.pin_picker && !belmont.presentation_blocked"
     },
     {
       "name": "ui.action_tier_area",
-      "expr": "ui.map && !belmont.presentation_dim && !belmont.pin_picker"
+      "expr": "ui.map && !belmont.presentation_blocked && !belmont.pin_picker"
     },
     {
       "name": "ui.action_tier_sub",
-      "expr": "ui.map && !belmont.presentation_dim && !belmont.pin_picker"
+      "expr": "ui.map && !belmont.presentation_blocked && !belmont.pin_picker"
     },
     {
       "name": "ui.action_equipment_open",
-      "expr": "ui.equipment_available && !belmont.presentation_dim && !belmont.pin_picker"
+      "expr": "ui.equipment_available && !belmont.presentation_blocked && !belmont.pin_picker"
     },
     {
       "name": "ui.action_equipment_close",
-      "expr": "!belmont.presentation_dim && !belmont.pin_picker && !belmont.equipment_control_busy"
+      "expr": "!belmont.presentation_blocked && !belmont.pin_picker && !belmont.equipment_control_busy"
     },
     {
       "name": "ui.action_return_to_rose",
-      "expr": "ui.sub && !belmont.presentation_dim && !belmont.pin_picker"
+      "expr": "ui.sub && !belmont.presentation_blocked && !belmont.pin_picker"
     },
     {
       "name": "ui.pin_editing",
@@ -1036,11 +1037,11 @@
     },
     {
       "name": "ui.eq_control",
-      "expr": "ui.equipment_page && belmont.equipment_control_ready && !belmont.presentation_dim && !belmont.pin_picker && !belmont.equipment_control_busy"
+      "expr": "ui.equipment_page && belmont.equipment_control_ready && !belmont.presentation_blocked && !belmont.pin_picker && !belmont.equipment_control_busy"
     },
     {
       "name": "ui.eq_picker_control",
-      "expr": "ui.eq_picker && belmont.equipment_control_ready && !belmont.presentation_dim && !belmont.equipment_control_busy"
+      "expr": "ui.eq_picker && belmont.equipment_control_ready && !belmont.presentation_blocked && !belmont.equipment_control_busy"
     },
     {
       "name": "ui.eq_picker_grid",
@@ -1052,39 +1053,39 @@
     },
     {
       "name": "ui.eq_input_1",
-      "expr": "belmont.equipment_input_button == 1 && belmont.equipment_control_ready && !belmont.presentation_dim"
+      "expr": "belmont.equipment_input_button == 1 && belmont.equipment_control_ready && !belmont.presentation_blocked"
     },
     {
       "name": "ui.eq_input_2",
-      "expr": "belmont.equipment_input_button == 2 && belmont.equipment_control_ready && !belmont.presentation_dim"
+      "expr": "belmont.equipment_input_button == 2 && belmont.equipment_control_ready && !belmont.presentation_blocked"
     },
     {
       "name": "ui.eq_input_3",
-      "expr": "belmont.equipment_input_button == 3 && belmont.equipment_control_ready && !belmont.presentation_dim"
+      "expr": "belmont.equipment_input_button == 3 && belmont.equipment_control_ready && !belmont.presentation_blocked"
     },
     {
       "name": "ui.eq_input_4",
-      "expr": "belmont.equipment_input_button == 4 && belmont.equipment_control_ready && !belmont.presentation_dim"
+      "expr": "belmont.equipment_input_button == 4 && belmont.equipment_control_ready && !belmont.presentation_blocked"
     },
     {
       "name": "ui.eq_input_5",
-      "expr": "belmont.equipment_input_button == 5 && belmont.equipment_control_ready && !belmont.presentation_dim"
+      "expr": "belmont.equipment_input_button == 5 && belmont.equipment_control_ready && !belmont.presentation_blocked"
     },
     {
       "name": "ui.eq_input_6",
-      "expr": "belmont.equipment_input_button == 6 && belmont.equipment_control_ready && !belmont.presentation_dim"
+      "expr": "belmont.equipment_input_button == 6 && belmont.equipment_control_ready && !belmont.presentation_blocked"
     },
     {
       "name": "ui.eq_input_7",
-      "expr": "belmont.equipment_input_button == 7 && belmont.equipment_control_ready && !belmont.presentation_dim"
+      "expr": "belmont.equipment_input_button == 7 && belmont.equipment_control_ready && !belmont.presentation_blocked"
     },
     {
       "name": "ui.eq_input_8",
-      "expr": "belmont.equipment_input_button == 8 && belmont.equipment_control_ready && !belmont.presentation_dim"
+      "expr": "belmont.equipment_input_button == 8 && belmont.equipment_control_ready && !belmont.presentation_blocked"
     },
     {
       "name": "ui.eq_input_9",
-      "expr": "belmont.equipment_input_button == 9 && belmont.equipment_control_ready && !belmont.presentation_dim"
+      "expr": "belmont.equipment_input_button == 9 && belmont.equipment_control_ready && !belmont.presentation_blocked"
     },
     {
       "name": "ui.pin_idle",
@@ -1096,7 +1097,7 @@
     },
     {
       "name": "ui.pin_cancel_allowed",
-      "expr": "(ui.pin_picker || belmont.pin_armed) && !belmont.presentation_dim"
+      "expr": "(ui.pin_picker || belmont.pin_armed) && !belmont.presentation_blocked"
     },
     {
       "name": "ui.pin_open_allowed",

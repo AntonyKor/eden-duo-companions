@@ -255,7 +255,8 @@ struct Module {
     std::chrono::steady_clock::time_point full_sample_at{}, details_at{};
     belmont_pins::Store pins;
     std::int64_t map_tap_sequence{-1};
-    bool presentation_dim{},control_ready{},picker_exposed{},equipment_visible{};
+    std::uint64_t sample_count{},incoherent_samples{},retained_samples{};
+    bool presentation_blocked{true},control_ready{},picker_exposed{},equipment_visible{};
     belmont_inventory::Snapshot inventory;
     belmont_equipment_control::Controller equipment_controller;
     std::chrono::steady_clock::time_point inventory_at{},inventory_control_at{};
@@ -591,7 +592,7 @@ void* Create(const EdenDsmodHostApi* h, const char*) {
     catch (...) { return nullptr; }
 }
 void Destroy(void* p) { try { delete static_cast<Module*>(p); } catch (...) {} }
-void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = nullptr, const belmont_objectives::Snapshot& ob = {}, const belmont_equipment::Snapshot& equipment = {},const belmont_equipment_stats::Snapshot& stats = {},bool dim=false,const belmont::Snapshot* live=nullptr) {
+void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = nullptr, const belmont_objectives::Snapshot& ob = {}, const belmont_equipment::Snapshot& equipment = {},const belmont_equipment_stats::Snapshot& stats = {},bool dim=false,const belmont::Snapshot* live=nullptr,bool blocked=true) {
     const auto i = [&](const char* key, std::int64_t v) { h.publish_i64(h.userdata, key, v); };
     const auto t = [&](const char* key, const char* v) { h.publish_text(h.userdata, key, v); };
     const auto f = [&](const char* key, double v) { if (h.publish_f64) h.publish_f64(h.userdata, key, v); };
@@ -603,6 +604,10 @@ void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = 
 
     }
     i("belmont.presentation_dim",dim);
+    i("belmont.presentation_blocked",blocked);
+    i("belmont.diag.sample_count",m?m->sample_count:0);
+    i("belmont.diag.incoherent_samples",m?m->incoherent_samples:0);
+    i("belmont.diag.retained_samples",m?m->retained_samples:0);
     i("belmont.live_world",live?World(*live):World(s));
     t("belmont.live_state_reason",live?live->reason.c_str():s.reason.c_str());
     i("belmont.build_supported", s.supported); i("belmont.state_coherent", s.coherent);
@@ -646,10 +651,10 @@ void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = 
     }
     t("belmont.pending_map_key",prefetch_key.c_str());
     if(m) {
-        m->presentation_dim=dim;
+        m->presentation_blocked=blocked;
         if(title)m->pins.Clear();
         const auto bounds=ready?rendered->frame->world_bounds:belmont_map_fog::Rect{};
-        m->pins.Context(ready?rendered->area_key:"",{bounds.x,bounds.y,bounds.x+bounds.width,bounds.y+bounds.height},ready&&!dim);
+        m->pins.Context(ready?rendered->area_key:"",{bounds.x,bounds.y,bounds.x+bounds.width,bounds.y+bounds.height},ready&&!blocked);
         const auto sequence=h.get_i64?h.get_i64(h.userdata,"@map_tap_seq",-1):-1;
         if(m->pins.Waiting()&&h.get_f64)m->pins.Capture(sequence,h.get_f64(h.userdata,"@map_tap_x",NAN),h.get_f64(h.userdata,"@map_tap_y",NAN));
         m->map_tap_sequence=sequence;
@@ -665,7 +670,7 @@ void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = 
     }
     if(m){
         const auto& inv=m->inventory;const auto& control=inv.control;
-        const bool fresh=world&&!dim&&inv.ready&&inv.coherent&&inv.entity==s.entity;
+        const bool fresh=world&&!blocked&&inv.ready&&inv.coherent&&inv.entity==s.entity;
         m->control_ready=fresh&&control.ready;
         i("belmont.equipment_control_ready",m->control_ready);
         t("belmont.equipment_control_reason",control.reason.c_str());
@@ -685,7 +690,7 @@ void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = 
         std::string signature=std::to_string(inv.entity)+":"+std::to_string(control.category)+":"+std::to_string(control.holding_charm);
         for(const auto& slot:slots)signature+=":"+std::to_string(slot.index)+":"+std::to_string(slot.item.object)+":"+std::to_string(slot.item.type)+":"+slot.item.id;
         std::lock_guard lock{m->map_mutex};
-        const bool lost=!world||dim||!inv.ready||!inv.coherent||inv.entity!=s.entity||(control.ready&&!control.picker);
+        const bool lost=!world||blocked||!inv.ready||!inv.coherent||inv.entity!=s.entity||(control.ready&&!control.picker);
         if(!picker&&lost){
             if(!m->picker_signature.empty())++m->picker_generation;
             m->picker_signature.clear();m->picker_slots.clear();m->picker_images.clear();
@@ -904,6 +909,9 @@ void Sample(void* p, const EdenDsmodHostApi* h) {
             } else {next.objective=m.details.objective;next.equipment=m.details.equipment;next.stats=m.details.stats;}
         } else {m.details={};m.full_source.reset();}
         auto display=m.presentation.Select(std::move(next),World(s),now);
+        ++m.sample_count;
+        if(s.reason=="incoherent")++m.incoherent_samples;
+        if(display.blocked&&World(display.value.base))++m.retained_samples;
         belmont_equipment_control::Button input=belmont_equipment_control::Button::None;
         if(World(s)&&m.equipment_visible){
             const bool control_due=m.equipment_controller.busy()||!m.inventory.ready||
@@ -917,17 +925,18 @@ void Sample(void* p, const EdenDsmodHostApi* h) {
                 m.inventory_control_at=now;m.inventory=std::move(inventory);
             }
             input=m.equipment_controller.Update(m.inventory,true,std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count());
-        }else if(display.dim){
+        }else if(display.blocked&&World(display.value.base)){
             // Compatible presentation interruption: emit no inputs and require
             // a full fresh inventory before resuming the observed native step.
             m.inventory_at={};
         }else {m.inventory={};m.equipment_controller.Cancel("equipment_hidden_or_world_transition");}
         m.allowed.store(s.supported);m.Queue(display.value.base,display.value.objective,display.value.equipment);
-        Publish(*h,display.value.base,&m,display.value.objective,display.value.equipment,display.value.stats,display.dim,&s);
+        Publish(*h,display.value.base,&m,display.value.objective,display.value.equipment,display.value.stats,display.dim,&s,display.blocked);
         h->publish_i64(h->userdata,"belmont.equipment_input_button",static_cast<std::int32_t>(input));
     } catch (...) {
         try {
             std::lock_guard lock{m.map_mutex}; m.InvalidateLocked();
+            m.presentation_blocked=true;m.control_ready=false;
         } catch (...) {}
         try { Publish(*h, belmont::Snapshot{}); } catch (...) {}
     }
@@ -938,7 +947,7 @@ void Configure(void* p, const EdenDsmodHostExtensions* ext) {
     try {
         auto& m = *static_cast<Module*>(p); m.Stop();
         { std::lock_guard lock{m.map_mutex}; m.InvalidateLocked(); }
-        m.marker_native_ready.store(false); m.assets.Configure(ext);m.presentation.Clear();m.full_source.reset();m.details={};m.pins.Clear();
+        m.marker_native_ready.store(false); m.assets.Configure(ext);m.presentation_blocked=true;m.control_ready=false;m.presentation.Clear();m.full_source.reset();m.details={};m.pins.Clear();
         ce_unity::AstcDecoder astc;
         if (ext && ext->version == EDEN_DSMOD_EXT_VERSION && ext->struct_size == sizeof(*ext) &&
             ext->abi_hash == EDEN_DSMOD_EXT_HASH && ext->decode_astc)
@@ -985,6 +994,7 @@ void Configure(void* p, const EdenDsmodHostExtensions* ext) {
         try {
             auto& m = *static_cast<Module*>(p); m.Stop();
             std::lock_guard lock{m.map_mutex}; m.InvalidateLocked();
+            m.presentation_blocked=true;m.control_ready=false;
         } catch (...) {}
     }
 }
@@ -1187,7 +1197,7 @@ EdenDsmodBool Action(void* p,const char* action,std::int64_t argument){
             return EDEN_DSMOD_TRUE;
         }
         if(name=="pin_cancel"){m.pins.Cancel();return EDEN_DSMOD_TRUE;}
-        if(m.presentation_dim)return EDEN_DSMOD_FALSE;
+        if(m.presentation_blocked)return EDEN_DSMOD_FALSE;
         if(name=="equipment_category"){
             if(!m.control_ready||m.equipment_controller.busy()||argument<1||argument>3)return EDEN_DSMOD_FALSE;
             m.equipment_controller.RequestCategory(static_cast<std::int32_t>(argument));return EDEN_DSMOD_TRUE;

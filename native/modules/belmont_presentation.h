@@ -6,7 +6,8 @@
 namespace belmont_presentation {
 // Presentation-only retention. Retained data never authorizes gameplay actions.
 // Explicit loading/title/entity changes invalidate immediately; a short incoherent
-// read may dim the last view instead of flashing the loading illustration.
+// read holds the previous appearance without a dim/bright pulse. Input freshness
+// is separate from appearance: every retained view blocks gameplay actions.
 inline bool ExplorationGrows(const std::vector<belmont::ExplorationRoom>& old,const std::vector<belmont::ExplorationRoom>& current){
  for(const auto& room:old){
   const auto found=std::find_if(current.begin(),current.end(),[&](const auto& value){return value.room_id==room.room_id;});
@@ -18,10 +19,11 @@ inline bool ExplorationGrows(const std::vector<belmont::ExplorationRoom>& old,co
 template<class Bundle> class Retainer {
     std::optional<Bundle> last;
     std::chrono::steady_clock::time_point observed{};
+    bool last_dim{};
 public:
-    struct Result { Bundle value; bool dim{}; };
+    struct Result { Bundle value; bool dim{}, blocked{true}; };
     Result Select(Bundle value,bool world,std::chrono::steady_clock::time_point now) {
-        if(world) {last=value;observed=now;return {std::move(value),false};}
+        if(world) {last=value;observed=now;last_dim=false;return {std::move(value),false,false};}
         const auto& s=value.base;
         if(last&&s.supported) {
             const auto& old=last->base;
@@ -30,11 +32,11 @@ public:
                 s.room_loading==0&&s.loading_identity==0&&s.initial_identity==0&&s.paused==0;
             const bool race=!s.coherent&&s.reason=="incoherent"&&
                 now-observed<=std::chrono::milliseconds(180);
-            if(interruption){observed=now;return {*last,true};}
-            if(race)return {*last,true};
+            if(interruption){observed=now;last_dim=true;return {*last,true,true};}
+            if(race)return {*last,last_dim,true};
         }
-        last.reset();return {std::move(value),false};
+        last.reset();last_dim=false;return {std::move(value),false,true};
     }
-    void Clear(){last.reset();}
+    void Clear(){last.reset();last_dim=false;}
 };
 }

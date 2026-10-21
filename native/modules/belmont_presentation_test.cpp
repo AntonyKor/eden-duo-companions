@@ -16,7 +16,15 @@ int main(){
  auto race=cinematic;race.base.coherent=false;race.base.reason="incoherent";Check(r.Select(race,false,now+std::chrono::seconds(10)+std::chrono::milliseconds(100)).dim);
  Check(!r.Select(b,true,now+std::chrono::seconds(11)).dim);
  auto bad=b;bad.base.coherent=false;bad.base.reason="incoherent";
- Check(r.Select(bad,false,now+std::chrono::seconds(11)+std::chrono::milliseconds(100)).dim);
+ auto held_race=r.Select(bad,false,now+std::chrono::seconds(11)+std::chrono::milliseconds(100));
+ Check(!held_race.dim&&held_race.blocked&&held_race.value.content==42);
+ // Repeated short reader races must never alternate bright/dim appearance.
+ for(unsigned frame=1;frame<=60;++frame){
+  auto t=now+std::chrono::seconds(11)+std::chrono::milliseconds(frame*16);
+  if(frame%2){auto live=r.Select(b,true,t);Check(!live.dim&&!live.blocked);}
+  else {auto torn=r.Select(bad,false,t);Check(!torn.dim&&torn.blocked&&torn.value.content==42);}
+ }
+ r.Select(b,true,now+std::chrono::seconds(11));
  Check(!r.Select(bad,false,now+std::chrono::seconds(11)+std::chrono::milliseconds(181)).dim);
  Check(!r.Select(cinematic,false,now+std::chrono::seconds(12)).dim);
  r.Select(b,true,now);auto loading=cinematic;loading.base.room_loading=1;
