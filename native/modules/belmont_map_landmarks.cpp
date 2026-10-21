@@ -263,15 +263,16 @@ std::int64_t EventTarget(const V *v,std::string_view event,std::string_view meth
 }
 // Follow the serialized BooleanUIView event graph, rather than using prefab
 // active flags or assuming the last-used variant shares the normal sprite.
-std::optional<std::pair<std::int64_t,std::int64_t>> VariantRoots(const V *v) {
-  auto yes=Calls(v,"onSetTrue"),no=Calls(v,"onSetFalse");
+std::optional<std::pair<std::int64_t,std::int64_t>> VariantRoots(const V *v,
+    std::string_view true_event="onSetTrue",std::string_view false_event="onSetFalse",int call_state=1) {
+  auto yes=Calls(v,true_event),no=Calls(v,false_event);
   if(!yes||!no||yes->size()!=2||no->size()!=2)return {};
   std::map<std::int64_t,bool> a,b;
   for(unsigned side=0;side<2;++side)for(const auto& c:side?*no:*yes){
     auto method=Text(c.Get("m_MethodName"));std::int64_t mode{},state{};bool value{};
     const auto id=Local(c.Get("m_Target"));
     if(!id||!method||*method!="SetActive"||!Int(c.Get("m_Mode"),mode)||mode!=6||
-      !Int(c.Get("m_CallState"),state)||state!=1||!Flag(c.Path("m_Arguments.m_BoolArgument"),value)||
+      !Int(c.Get("m_CallState"),state)||state!=call_state||!Flag(c.Path("m_Arguments.m_BoolArgument"),value)||
       !(side?b:a).emplace(id,value).second)return {};
   }
   std::int64_t normal{},last{};
@@ -301,6 +302,7 @@ std::optional<SavePoint> ParseSavePoint(Scene& scene,const V& v,
   auto variants=VariantRoots(scene.Get(EventTarget(display,"onSetUpIsLastUsed","SetBool")));
   if(!used||!variants)return {};
   auto components=g?Array(g->Get("m_Component"),32):nullptr;bool responsive=false;
+  std::optional<Transform> sizable;
   if(components)for(const auto& c:*components){auto m=scene.Get(Local(c.Get("component")));
     if(m&&Local(m->Get("levelMapItem"))==item_id&&m->Get("screenPercentage")){
       if(responsive||!Num(m->Get("screenPercentage"),result.screen_percentage)||
@@ -308,8 +310,9 @@ std::optional<SavePoint> ParseSavePoint(Scene& scene,const V& v,
         result.screen_percentage<=0||result.screen_percentage>.25f||
         result.screen_percentage_at_zoom_max<=0||result.screen_percentage_at_zoom_max>.25f)return {};
       responsive=true;
+      sizable=scene.World(Local(m->Get("sizableObject")));
     }}
-  if(!responsive)return {};
+  if(!responsive||!sizable||sizable->x!=base.x||sizable->y!=base.y)return {};
   result.last_used_art=base;
   for(const auto& object:scene.file->Objects())if(object.class_id==212){
     auto sr=scene.Get(object.path_id);auto sg=sr?Local(sr->Get("m_GameObject")):0;
@@ -327,12 +330,99 @@ std::optional<SavePoint> ParseSavePoint(Scene& scene,const V& v,
     (last?result.last_used_art:result.normal_art).sprites.push_back(std::move(art));
   }
   if(result.normal_art.sprites.size()!=1||result.last_used_art.sprites.size()!=1)return {};
+  const auto& normal=result.normal_art.sprites[0];
+  const auto& alternate=result.last_used_art.sprites[0];
+  const float w=normal.width/normal.pixels_per_unit*normal.scale_x/sizable->sx;
+  const float h=normal.height/normal.pixels_per_unit*normal.scale_y/sizable->sy;
+  if(w<=0||w>4||std::abs(w-h)>1e-6f||normal.x!=alternate.x||normal.y!=alternate.y||
+     normal.width!=alternate.width||normal.height!=alternate.height||
+     normal.pixels_per_unit!=alternate.pixels_per_unit||normal.scale_x!=alternate.scale_x||
+     normal.scale_y!=alternate.scale_y||normal.pivot_x!=alternate.pivot_x||normal.pivot_y!=alternate.pivot_y)return {};
+  const float cx=(normal.x-sizable->x)/sizable->sx+(.5f-normal.pivot_x)*w;
+  const float cy=(normal.y-sizable->y)/sizable->sy+(.5f-normal.pivot_y)*h;
+  result.icon_size_factor=w;
+  result.icon_anchor_x=.5f-cx/w;result.icon_anchor_y=.5f+cy/h;
+  if(!std::isfinite(result.icon_anchor_x)||!std::isfinite(result.icon_anchor_y)||
+    std::abs(result.icon_anchor_x)>4||std::abs(result.icon_anchor_y)>4)return {};
+  return result;
+}
+std::optional<Elevator> ParseElevator(Scene& scene,const V& v,
+    const belmont_map_sources::SourceRecipe& source,const std::vector<std::string>& cabs,
+    const std::shared_ptr<const ce_unity::SerializedFile>& menu,std::int64_t item_id) {
+  Elevator result;auto& art=result.art;
+  auto room=Text(v.Get("itemWorldRoomId"));const auto go=Local(v.Get("m_GameObject"));
+  auto g=scene.Get(go);auto name=g?Text(g->Get("m_Name")):std::nullopt;
+  std::int64_t script{},file{},zone{},secret{};bool before_reveal{};
+  if(!room||!room->starts_with(source.world_name)||!name||*name!="LevelMap_Elevator_Item(Clone)"||
+    Local(v.Get("context"))!=source.map_context_id||
+    !Ref(v.Get("m_Script"),script,file)||script!=-6054241008690704164LL||file!=1||
+    !Int(v.Get("itemExplorationZoneId"),zone)||zone<0||zone>65535||
+    !Int(v.Get("itemLinkedSecretZoneId"),secret)||secret < -1||secret>65535||
+    !Flag(v.Get("visibleInUnrevealedMap"),before_reveal)||before_reveal)return {};
+  art.source_id=item_id;art.source_name=*name;art.room_id=*room;
+  art.exploration_zone_id=std::int32_t(zone);art.navigation_zone_id=Local(v.Get("navigationZone"));
+  art.unconditional_policy=true;result.secret_zone_id=int(secret);
+  auto tr=scene.transforms.find(go);auto pos=tr!=scene.transforms.end()?scene.World(tr->second):std::nullopt;
+  if(!pos||!art.navigation_zone_id)return {};
+  art.x=pos->x;art.y=pos->y;
+  auto display=scene.Get(Local(v.Get("display")));
+  auto roots=VariantRoots(display,"onHover","onUnHover",2);
+  const auto visibility=display?Local(display->Get("visibilityParent")):0;
+  if(!roots||!visibility)return {};
+  std::optional<Transform> sizable;bool responsive=false;
+  auto components=Array(g->Get("m_Component"),32);
+  if(components)for(const auto& c:*components){auto m=scene.Get(Local(c.Get("component")));
+    if(m&&Local(m->Get("levelMapItem"))==item_id&&m->Get("screenPercentage")){
+      if(responsive||!Num(m->Get("screenPercentage"),result.screen_percentage)||
+        !Num(m->Get("screenPercentageAtZoomMax"),result.screen_percentage_at_zoom_max)||
+        result.screen_percentage<=0||result.screen_percentage>.25f||
+        result.screen_percentage_at_zoom_max<=0||result.screen_percentage_at_zoom_max>.25f)return {};
+      responsive=true;sizable=scene.World(Local(m->Get("sizableObject")));
+    }}
+  if(!responsive||!sizable||sizable->x!=art.x||sizable->y!=art.y)return {};
+  bool normal_active{},hover_active{};
+  const auto normal_go=scene.Get(roots->first),hover_go=scene.Get(roots->second);
+  if(!normal_go||!hover_go||!Flag(normal_go->Get("m_IsActive"),normal_active)||
+     !Flag(hover_go->Get("m_IsActive"),hover_active)||!normal_active||hover_active)return {};
+  for(const auto& object:scene.file->Objects())if(object.class_id==212){
+    auto sr=scene.Get(object.path_id);const auto sg=sr?Local(sr->Get("m_GameObject")):0;
+    auto st=scene.transforms.find(sg);if(st==scene.transforms.end())continue;
+    bool under=false,in_visible=false,normal=false,hover=false;std::set<std::int64_t> seen;auto at=st->second;
+    while(at&&seen.size()<64&&seen.insert(at).second){auto t=scene.Get(at);if(!t)break;
+      auto ag=Local(t->Get("m_GameObject"));under|=ag==go;in_visible|=ag==visibility;
+      normal|=ag==roots->first;hover|=ag==roots->second;at=Local(t->Get("m_Father"));}
+    if(!under||!in_visible||!normal||hover)continue;
+    bool enabled{},flip_x{},flip_y{};std::int64_t draw{};
+    if(!Flag(sr->Get("m_Enabled"),enabled)||!enabled||!Flag(sr->Get("m_FlipX"),flip_x)||flip_x||
+      !Flag(sr->Get("m_FlipY"),flip_y)||flip_y||!Int(sr->Get("m_DrawMode"),draw)||draw!=0)return {};
+    std::int64_t sid{};if(!ExternalIs(cabs,sr->Get("m_Sprite"),MenuCab,sid))return {};
+    auto sprite=Obj(menu,sid,213);auto p=scene.World(st->second);Sprite glyph;
+    if(!sprite||!p||!Metadata(*sprite,glyph))return {};
+    glyph.id=sid;glyph.bundle=Menu;glyph.cab=MenuCab;glyph.x=p->x;glyph.y=p->y;
+    glyph.scale_x=p->sx;glyph.scale_y=p->sy;
+    const char* channels[]={"r","g","b","a"};for(unsigned n=0;n<4;++n)
+      if(!Num(sr->Path(std::string("m_Color.")+channels[n]),glyph.color[n])||glyph.color[n]!=1)return {};
+    art.sprites.push_back(std::move(glyph));
+  }
+  if(art.sprites.size()!=1)return {};
+  const auto& glyph=art.sprites[0];
+  const float w=glyph.width/glyph.pixels_per_unit*glyph.scale_x/sizable->sx;
+  const float h=glyph.height/glyph.pixels_per_unit*glyph.scale_y/sizable->sy;
+  if(w<=0||w>4||std::abs(w-h)>1e-6f)return {};
+  const float cx=(glyph.x-sizable->x)/sizable->sx+(.5f-glyph.pivot_x)*w;
+  const float cy=(glyph.y-sizable->y)/sizable->sy+(.5f-glyph.pivot_y)*h;
+  result.icon_size_factor=w;result.icon_anchor_x=.5f-cx/w;result.icon_anchor_y=.5f+cy/h;
+  if(!std::isfinite(result.icon_anchor_x)||!std::isfinite(result.icon_anchor_y)||
+    std::abs(result.icon_anchor_x)>4||std::abs(result.icon_anchor_y)>4)return {};
   return result;
 }
 } // namespace
 bool Visible(const SavePoint& point,int revealed,int used,std::int64_t navigation){
   return used==1&&(revealed==1||point.visible_in_unrevealed_map)&&
     navigation>0&&point.normal_art.navigation_zone_id==navigation;
+}
+bool Visible(const Elevator& point,int revealed,int entered,std::int64_t navigation){
+  return revealed==1&&entered==1&&point.secret_zone_id==-1&&navigation>0&&point.art.navigation_zone_id==navigation;
 }
 bool Visible(const Landmark &l, std::span<const std::string> known,
              std::span<const std::int64_t> culled) {
@@ -347,28 +437,39 @@ Reader::Reader(const EdenDsmodHostApi *h)
 void Reader::ClearCache() {
   std::lock_guard lock(mutex);
   cache.reset();
+  save_cache.reset();
   unity.ClearCache();
 }
 std::optional<Data> Reader::LoadForRoom(std::string_view room) {
+  return Load(room,false);
+}
+std::optional<Data> Reader::LoadSavePointsForRoom(std::string_view room) {
+  return LoadMapItemsForRoom(room);
+}
+std::optional<Data> Reader::LoadMapItemsForRoom(std::string_view room) {
+  return Load(room,true);
+}
+std::optional<Data> Reader::Load(std::string_view room,bool save_points_only) {
   std::lock_guard lock(mutex);
   try {
     auto source = belmont_map_sources::FindSourceForRoom(room);
     if (!source)
       return {};
-    if (cache && cache->world_name == source->world_name)
-      return cache;
+    auto& selected_cache=save_points_only?save_cache:cache;
+    if (selected_cache && selected_cache->world_name == source->world_name)
+      return selected_cache;
     auto sf = File(unity, source->map_bundle, source->map_cab);
-    auto data = File(unity, Savable, SavableCab);
+    auto data = save_points_only ? nullptr : File(unity, Savable, SavableCab);
     auto menu = File(unity, Menu, MenuCab);
-    auto common = File(unity, Common, CommonCab);
+    auto common = save_points_only ? nullptr : File(unity, Common, CommonCab);
     auto b = unity.OpenBundle(source->map_bundle);
     auto node = b ? b->FindNode(source->map_cab) : nullptr;
     auto cabs = node ? belmont_map_refs::ExternalCabs(b->NodeSource(*node))
                      : std::nullopt;
-    if (!sf || !data || !menu || !common || !cabs)
+    if (!sf || !menu || !cabs || (!save_points_only&&(!data||!common)))
       return {};
     Scene scene{sf, {}, {}};
-    Data out{std::string(source->world_name), {}, {}};
+    Data out{std::string(source->world_name), {}, {}, -1, {}};
     // ResetContext writes true to revealedMap; InitializeContext overwrites
     // it only when LevelUIDisplayData.mapRevealCondition is non-null. Do not
     // approximate conditional Hall of Mirrors revelation from explored fog.
@@ -398,7 +499,10 @@ std::optional<Data> Reader::LoadForRoom(std::string_view room) {
         std::int64_t sid{},file{};
         if(Ref(v->Get("m_Script"),sid,file)&&sid==3538717887839853159LL&&file==1)
           if(auto save=ParseSavePoint(scene,*v,*source,*cabs,menu,o.path_id))out.save_points.push_back(std::move(*save));
+        if(sid==-6054241008690704164LL&&file==1)
+          if(auto lift=ParseElevator(scene,*v,*source,*cabs,menu,o.path_id))out.elevators.push_back(std::move(*lift));
       }
+      if(save_points_only)continue;
       if (!v || !v->Get("landmarkData"))
         continue;
       Landmark l;
@@ -616,7 +720,7 @@ std::optional<Data> Reader::LoadForRoom(std::string_view room) {
       if (out.landmarks.size() > 128)
         return {};
     }
-    cache = out;
+    selected_cache = out;
     unity.ClearCache();
     return out;
   } catch (...) {

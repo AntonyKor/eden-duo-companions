@@ -1058,6 +1058,63 @@ int main() {
       Check(!motion_decoder.SampleMotion(m.id(), full).coherent,
             "mid-sample component mutation rejected by journal");
     }
+    {
+      const auto save_fields=[](M& m){
+        m.exploration();
+        m.bytes(M::Base+0x1c28f7c,{0x88,0x02,0x01,0x39});
+        m.bytes(M::Base+0x1c2b574,{0x08,0x05,0x41,0x39});
+        m.bytes(M::Base+0x1dedc10,{0x00,0x45,0x40,0xf9});
+        m.bytes(H+0x21040,{1,1});
+        m.put(H+0xe088,H+0x24000);
+        m.put<std::uint8_t>(H+0xe0a8,0);
+      };
+      M m;save_fields(m);
+      auto full=m.sample();
+      Check(full.coherent&&full.exploration_ready&&full.exploration[0].is_save_room==1&&
+            full.exploration[0].used_save_point==1&&full.last_used_save_room_ready&&full.last_used_save_room=="room",
+            "pinned native savepoint flags and last-used room are optional coherent data");
+      belmont::Decoder motion(m);
+      auto fast=motion.SampleMotion(m.id(),full);
+      Check(fast.coherent&&fast.motion_only&&fast.exploration[0].used_save_point==1&&fast.last_used_save_room=="room",
+            "motion retains optional metadata only from validated full provenance");
+      m.put<belmont::U64>(H+0xe088,0);
+      auto empty=m.sample();
+      Check(empty.exploration_ready&&empty.last_used_save_room_ready&&empty.last_used_save_room.empty(),
+            "native null last-used string is known empty rather than a fabricated active savepoint");
+      m.put<belmont::U64>(H+0xe088,3);
+      auto invalid=m.sample();
+      Check(invalid.coherent&&invalid.exploration_ready&&!invalid.last_used_save_room_ready&&invalid.last_used_save_room.empty()&&invalid.exploration[0].used_save_point==1,
+            "invalid optional last-used pointer hides its marker without discarding the map");
+      // Use a separate managed String so malformed optional data does not
+      // also corrupt the core fixture's room dictionary key.
+      m.put(H+0xe088,H+0x31000);m.put(H+0x31000,H+0x25000);
+      m.put<std::int32_t>(H+0x31010,1);m.put<std::uint16_t>(H+0x31014,0xd800);
+      auto malformed=m.sample();
+      Check(malformed.coherent&&malformed.exploration_ready&&!malformed.last_used_save_room_ready,
+            "malformed optional UTF16 clears last-used value and preserves core room keys");
+      save_fields(m);m.bytes(H+0x21040,{1,2});
+      auto bad_bool=m.sample();
+      Check(bad_bool.coherent&&bad_bool.exploration_ready&&bad_bool.exploration[0].is_save_room==-1&&bad_bool.exploration[0].used_save_point==-1,
+            "invalid native optional bool pair remains unknown without affecting map availability");
+      save_fields(m);m.data.erase(H+0x21041);
+      auto unavailable=m.sample();
+      Check(unavailable.coherent&&unavailable.exploration_ready&&unavailable.exploration[0].used_save_point==-1,
+            "unmapped optional savepoint bools do not break the map");
+      save_fields(m);m.data[M::Base+0x1c2b574]^=1;
+      auto unpinned=m.sample();
+      Check(unpinned.coherent&&unpinned.exploration_ready&&unpinned.exploration[0].used_save_point==-1&&!unpinned.last_used_save_room_ready,
+            "optional accessor mismatch disables only savepoint metadata");
+      save_fields(m);unsigned observed=0;
+      m.observe=[&](auto at){if(at==H+0x21040&&++observed==2)m.put<std::uint8_t>(H+0x21041,0);};
+      auto race=m.sample();m.observe={};
+      Check(race.coherent&&race.exploration_ready&&race.exploration[0].used_save_point==-1&&!race.last_used_save_room_ready,
+            "optional savepoint race clears all optional marker data without invalidating core map snapshot");
+      save_fields(m);observed=0;
+      m.observe=[&](auto at){if(at==H+0xe088&&++observed==2)m.put<belmont::U64>(at,0);};
+      race=m.sample();m.observe={};
+      Check(race.coherent&&race.exploration_ready&&!race.last_used_save_room_ready&&race.exploration[0].used_save_point==-1,
+            "last-used room pointer race cannot produce a mixed native save marker snapshot");
+    }
     std::cout << "Belmont synthetic state tests passed\n";
   } catch (const std::exception &e) {
     std::cerr << e.what() << '\n';

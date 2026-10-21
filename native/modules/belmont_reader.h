@@ -54,6 +54,8 @@ struct ExplorationRoom {
   std::string room_id;
   std::int32_t width{}, height{};
   bool pending_validation{};
+  // Optional native savepoint metadata: -1 unknown, 0 false, 1 true.
+  int is_save_room{-1}, used_save_point{-1};
   // Exact native enum values: 0 NoChunk, 1 Unexplored, 2 Temporary, 3
   // Validated. An absent/unavailable room has no record, never a fabricated
   // zero mask.
@@ -74,6 +76,8 @@ struct Snapshot {
   std::string reason{"unavailable"};
   bool exploration_ready{}, exploration_zones_ready{};
   bool landmarks_ready{};
+  bool last_used_save_room_ready{};
+  std::string last_used_save_room;
   std::vector<std::string> discovered_landmarks;
   std::vector<ExplorationRoom> exploration;
   // Bounded fast-path provenance. Populated only by this decoder; the caller
@@ -106,6 +110,49 @@ template <class Read> class Decoder {
   // Reuse only exact spans inside this decode. Final coherence validation
   // still reads every unique span from the guest; nothing survives Sample.
   belmont::ReadSpanIndex span_index;
+  std::vector<Span> optional_journal;
+  bool savepoint_fields_available{};
+  bool OptionalBytes(U64 at,void* dst,std::size_t n){
+    if(!n||n>4096||at<0x10000||at>std::numeric_limits<U64>::max()-n||
+       optional_journal.size()>=8192||!read(at,dst,n))return false;
+    const auto* bytes=static_cast<const std::uint8_t*>(dst);
+    optional_journal.push_back({at,{bytes,bytes+n}});return true;
+  }
+  template<class T> bool OptionalGet(U64 at,T& value){
+    std::array<std::uint8_t,sizeof(T)> bytes{};
+    if(!OptionalBytes(at,bytes.data(),bytes.size()))return false;
+    U64 bits{};for(unsigned n=0;n<sizeof(T);++n)bits|=U64(bytes[n])<<(8*n);
+    std::memcpy(&value,&bits,sizeof(T));return true;
+  }
+  bool OptionalPins(){
+    const auto pin=[&](U64 rva,std::array<std::uint8_t,4> expected){
+      std::array<std::uint8_t,4> actual{};
+      return OptionalBytes(base+rva,actual.data(),actual.size())&&actual==expected;
+    };
+    return pin(0x1c28f7c,{0x88,0x02,0x01,0x39})&&
+           pin(0x1c2b574,{0x08,0x05,0x41,0x39})&&
+           pin(0x1dedc10,{0x00,0x45,0x40,0xf9});
+  }
+  bool OptionalCoherent(){
+    std::array<std::uint8_t,4096> bytes{};
+    for(const auto& span:optional_journal)
+      if(!read(span.at,bytes.data(),span.bytes.size())||
+         std::memcmp(bytes.data(),span.bytes.data(),span.bytes.size())!=0)return false;
+    return true;
+  }
+  bool OptionalString(U64 address,std::string& value){
+    U64 object{},klass{},name{},space{};
+    if(!OptionalGet(address,object))return false;
+    if(!object){value.clear();return true;}
+    if(!Pointer(object)||!OptionalGet(object,klass)||!Pointer(klass)||
+       !OptionalGet(klass+0x10,name)||name<0x10000||name>=0x8000000000ULL||
+       !OptionalGet(klass+0x18,space)||space<0x10000||space>=0x8000000000ULL)return false;
+    std::array<char,7> type{},ns{};
+    if(!OptionalBytes(name,type.data(),type.size())||
+       !OptionalBytes(space,ns.data(),ns.size())||
+       std::memcmp(type.data(),"String",7)||std::memcmp(ns.data(),"System",7))return false;
+    return Utf16(object,value,true);
+  }
   bool Bytes(U64 at, void *out, std::size_t n) {
     if (!n || n > 4096 || at < 0x10000 ||
         at > std::numeric_limits<U64>::max() - n || journal.size() >= 16384)
@@ -174,12 +221,12 @@ template <class Read> class Decoder {
                ? value
                : -1;
   }
-  bool Utf16(U64 at, std::string &text) {
+  bool Utf16(U64 at, std::string &text, bool optional=false) {
     std::int32_t n{};
-    if (!Pointer(at) || !Get(at + 0x10, n) || n < 0 || n > 128)
+    if (!Pointer(at) || !(optional?OptionalGet(at+0x10,n):Get(at+0x10,n)) || n < 0 || n > 128)
       return false;
     std::vector<std::uint8_t> bytes(std::size_t(n) * 2);
-    if (n && !Bytes(at + 0x14, bytes.data(), bytes.size()))
+    if (n && !(optional?OptionalBytes(at+0x14,bytes.data(),bytes.size()):Bytes(at+0x14,bytes.data(),bytes.size())))
       return false;
     text.clear();
     for (int i = 0; i < n; ++i) {
@@ -358,6 +405,12 @@ template <class Read> class Decoder {
           total_cells > 65536 - static_cast<std::size_t>(length))
         return false;
       room.pending_validation = pending != 0;
+      if(savepoint_fields_available){
+        std::array<std::uint8_t,2> flags{};
+        if(OptionalBytes(state+0x40,flags.data(),flags.size())&&flags[0]<=1&&flags[1]<=1){
+          room.is_save_room=flags[0];room.used_save_point=flags[1];
+        }
+      }
       room.cells.resize(static_cast<std::size_t>(length));
       // Copy bounded spans once and journal the same spans. Per-cell host
       // calls would magnify sampling cost and the moving-game race window.
@@ -452,6 +505,8 @@ template <class Read> class Decoder {
           self == entity && Ptr(explorer + 0x30, exploration) &&
           Dictionary(exploration, e, allocated, n, 4096)) {
         out.explorer_candidate = true;
+        if(!history&&savepoint_fields_available)
+          out.last_used_save_room_ready=OptionalString(explorer+0x88,out.last_used_save_room);
         if (!history)
           out.landmarks_ready =
               DiscoveredLandmarks(explorer, out.discovered_landmarks);
@@ -506,6 +561,8 @@ template <class Read> class Decoder {
       out.exploration = history->exploration;
       out.landmarks_ready = history->landmarks_ready;
       out.discovered_landmarks = history->discovered_landmarks;
+      out.last_used_save_room_ready=history->last_used_save_room_ready;
+      out.last_used_save_room=history->last_used_save_room;
       out.motion_only = true;
       return true;
     }
@@ -538,6 +595,7 @@ template <class Read> class Decoder {
     base = id.base;
     journal.clear();
     span_index.clear();
+    optional_journal.clear();savepoint_fields_available=false;
     Snapshot out;
     if (id.title != Title || id.build != Build || !Pointer(id.base) ||
         id.size < 0x6d46230 ||
@@ -720,13 +778,21 @@ template <class Read> class Decoder {
     if (out.entity_ready && (out.initial_identity == 1 || out.paused == 1) &&
         out.loading_identity == 0 && out.application_loading == 0 &&
         out.room_loading == 0)
-      out.components_ready = Components(out.entity, out, history);
+      {
+        if(!history)savepoint_fields_available=OptionalPins();
+        out.components_ready = Components(out.entity,out,history);
+      }
     if (!Coherent()) {
       Snapshot rejected;
       rejected.supported = true;
       rejected.reason = "incoherent";
       return rejected;
     }
+    if(!OptionalCoherent()){
+      out.last_used_save_room_ready=false;out.last_used_save_room.clear();
+      for(auto& room:out.exploration){room.is_save_room=-1;room.used_save_point=-1;}
+    }
+    if(!out.last_used_save_room_ready)out.last_used_save_room.clear();
     out.coherent = true;
     if (history && !out.components_ready) {
       out.explorer_candidate = out.room_candidate = out.position_candidate = false;

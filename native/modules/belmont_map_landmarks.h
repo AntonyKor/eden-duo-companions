@@ -42,6 +42,15 @@ struct SavePoint {
   Landmark normal_art, last_used_art; // Native variants, without name ribbons.
   bool visible_in_unrevealed_map{};
   float screen_percentage{}, screen_percentage_at_zoom_max{};
+  // Sprite extents/offset below the responsive sizableObject, not its authored
+  // prefab scale (native MapResponsiveness overwrites that scale each frame).
+  float icon_anchor_x{}, icon_anchor_y{}, icon_size_factor{};
+};
+struct Elevator {
+  Landmark art; // Default unhovered native glyph; no ribbon or interactions.
+  int secret_zone_id{-1};
+  float icon_anchor_x{}, icon_anchor_y{}, icon_size_factor{};
+  float screen_percentage{}, screen_percentage_at_zoom_max{};
 };
 struct Data {
   std::string world_name;
@@ -50,10 +59,15 @@ struct Data {
   // Native ResetContext defaults true; only an absent reveal condition proves
   // this without guest progression data. Conditional/missing data stays -1.
   int map_revealed_policy{-1};
+  std::vector<Elevator> elevators;
 };
 // Native SavePointItem visibility: used room, map revelation and navigation.
 // Unknown live booleans are represented by -1 and fail closed.
 bool Visible(const SavePoint &, int map_revealed, int used_save_point,
+             std::int64_t active_navigation);
+// Conservative source-proven subset. A native used-only or secret-linked
+// elevator requires additional live state and remains hidden here.
+bool Visible(const Elevator &, int map_revealed, int entered_zone,
              std::int64_t active_navigation);
 // Source records only; never infer discovery from fog/position. Callers must
 // join GUIDs to a coherent live ExplorerComponent.discoveredLandmarks snapshot
@@ -65,11 +79,17 @@ public:
   explicit Reader(ce_unity::RangeReader romfs);
   explicit Reader(const EdenDsmodHostApi *host);
   std::optional<Data> LoadForRoom(std::string_view room_id);
+  // Optional icons do not depend on unsupported landmark condition/name
+  // schemas elsewhere in the same scene. Returns no landmark art or names.
+  std::optional<Data> LoadSavePointsForRoom(std::string_view room_id);
+  std::optional<Data> LoadMapItemsForRoom(std::string_view room_id);
   void ClearCache();
 
 private:
   std::mutex mutex;
   ce_unity::Reader unity;
   std::optional<Data> cache;
+  std::optional<Data> save_cache;
+  std::optional<Data> Load(std::string_view room_id, bool save_points_only);
 };
 } // namespace belmont_map_landmarks
