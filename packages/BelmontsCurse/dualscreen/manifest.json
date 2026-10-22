@@ -5,7 +5,7 @@
   "min_runtime": 22,
   "canvas_w": 1240,
   "canvas_h": 1080,
-  "background": "#FF101722",
+  "background": "#FF1D1916",
   "nav": false,
   "requires_module": true,
   "module": {
@@ -16,11 +16,11 @@
     "libraries": {
       "linux-x86_64": {
         "path": "modules/linux-x86_64/0100BA4026E94000.so",
-        "sha256": "e2995744494b9f03a152c40a0946440eb47d5936bd18320f3a93661134e292d5"
+        "sha256": "8532fb954328b15a109079f30c0ea800e17a575fd33c345f3ed6babcb38572ac"
       },
       "android-arm64-v8a": {
         "path": "modules/android-arm64-v8a/0100BA4026E94000.so",
-        "sha256": "3bfb2a8dcad1521fc6f914dc056a7fb47cce4220bbaae64b525ab30089ce825a"
+        "sha256": "9293c030050966f63a85b648c03b41930d6eed4c35f7080f77aa8987ca3816fa"
       }
     }
   },
@@ -802,7 +802,10 @@
     "belmont.picker_slot_126_token",
     "belmont.picker_slot_127_token",
     "belmont.equipment_visible",
-    "belmont.pending_map_key"
+    "belmont.pending_map_key",
+    "belmont.fast_travel_overlay_count",
+    "belmont.fast_travel_unlocked_ready",
+    "belmont.fast_travel_unlocked_count"
   ],
   "derived": [
     {
@@ -881,7 +884,7 @@
     },
     {
       "name": "ui.focus_on",
-      "expr": "ui.map && (@flag:ui.area_tier == 1 || 'view_custom:belmont_map' != 0)"
+      "expr": "ui.map && 'view_custom:belmont_map' != 0"
     },
     {
       "name": "ui.focus_sub",
@@ -889,7 +892,7 @@
     },
     {
       "name": "ui.enforce",
-      "expr": "@flag:ui.area_tier != @flag:ui.area_applied || (!ui.map && 'view_custom:belmont_map' != 0) || (!belmont.ui_world && @flag:ui.equipment == 1) || belmont.pin_capture_pending || belmont.equipment_input_button != 0 || ui.eq_visibility_on || ui.eq_visibility_off"
+      "expr": "@flag:ui.area_tier != @flag:ui.area_applied || (!belmont.ui_world && @flag:ui.equipment == 1) || belmont.pin_capture_pending || belmont.equipment_input_button != 0 || ui.eq_visibility_on || ui.eq_visibility_off"
     },
     {
       "name": "ui.vx0",
@@ -1021,7 +1024,7 @@
     },
     {
       "name": "ui.action_return_to_rose",
-      "expr": "ui.sub && !belmont.presentation_blocked && !belmont.pin_picker"
+      "expr": "ui.focus_on && !belmont.presentation_blocked && !belmont.pin_picker"
     },
     {
       "name": "ui.pin_editing",
@@ -1118,6 +1121,18 @@
     {
       "name": "ui.eq_visibility_off",
       "expr": "!ui.equipment_page && belmont.equipment_visible"
+    },
+    {
+      "name": "ui.focus_area",
+      "expr": "ui.map && @flag:ui.area_tier == 1 && 'view_custom:belmont_map' != 0"
+    },
+    {
+      "name": "ui.tier_changed",
+      "expr": "@flag:ui.area_tier != @flag:ui.area_applied"
+    },
+    {
+      "name": "ui.tier_changed_custom",
+      "expr": "@flag:ui.area_tier != @flag:ui.area_applied && 'view_custom:belmont_map' != 0"
     }
   ],
   "enforce": [
@@ -1198,7 +1213,8 @@
     },
     "clear_view": {
       "kind": "view_reset",
-      "view": "belmont_map"
+      "view": "belmont_map",
+      "enabled_bind": "ui.tier_changed_custom"
     },
     "tier_sub": {
       "kind": "flag",
@@ -1684,7 +1700,7 @@
             0,
             0,
             1240,
-            1080
+            930
           ],
           "image_bind": "belmont.map_image",
           "area_label": false,
@@ -2146,27 +2162,6 @@
         },
         {
           "type": "image",
-          "id": "reset_leather_idle",
-          "rect": [
-            880,
-            944,
-            336,
-            84
-          ],
-          "src": "module:native:ui-commonsingame_assets_all_acb23e9b0608a368aad72d2fe488a679.bundle#-2769851353036818519",
-          "src_rect": [
-            0.029296875,
-            0.7001953125,
-            0.529296875,
-            0.8251953125
-          ],
-          "tint": "#FF383838",
-          "need_bind": "ui.map",
-          "hide_bind": "ui.equipment_page",
-          "hide_eq": 1
-        },
-        {
-          "type": "image",
           "id": "reset_leather_active",
           "rect": [
             880,
@@ -2183,24 +2178,6 @@
           ],
           "tint": "#FFA6A6A6",
           "need_bind": "ui.focus_on",
-          "hide_bind": "ui.equipment_page",
-          "hide_eq": 1
-        },
-        {
-          "type": "label",
-          "rect": [
-            1048,
-            966,
-            0,
-            40
-          ],
-          "text": "Reset",
-          "text_scale": 6,
-          "color": "#FFB79D75",
-          "align": "center",
-          "wrap_width": 1120,
-          "max_lines": 1,
-          "need_bind": "ui.map",
           "hide_bind": "ui.equipment_page",
           "hide_eq": 1
         },
@@ -2234,7 +2211,7 @@
           "text": "",
           "bg": "#00000000",
           "border": 0,
-          "need_bind": "ui.area",
+          "need_bind": "ui.focus_area",
           "on_tap": "tier_sub",
           "hide_bind": "ui.equipment_page",
           "hide_eq": 1
@@ -2251,7 +2228,7 @@
           "text": "",
           "bg": "#00000000",
           "border": 0,
-          "need_bind": "ui.sub",
+          "need_bind": "ui.focus_sub",
           "on_tap": "return_to_rose",
           "hide_bind": "ui.equipment_page",
           "hide_eq": 1

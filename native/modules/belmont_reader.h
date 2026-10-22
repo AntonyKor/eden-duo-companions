@@ -4,6 +4,7 @@
 // Build-pinned read-only diagnostic prototype. State identity is provisional;
 // map/marker output stays unavailable until native liveness and projection are
 // verified.
+#include "belmont_fast_travel.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -76,6 +77,8 @@ struct Snapshot {
   std::string reason{"unavailable"};
   bool exploration_ready{}, exploration_zones_ready{};
   bool landmarks_ready{};
+  bool unlocked_fast_travel_ready{};
+  std::vector<std::string> unlocked_fast_travel_levels;
   bool last_used_save_room_ready{};
   std::string last_used_save_room;
   std::vector<std::string> discovered_landmarks;
@@ -101,6 +104,7 @@ inline bool Pointer(U64 p) {
 // flags. Policy caps are reader limits, not alleged game maxima.
 template <class Read> class Decoder {
   Read &read;
+  belmont_fast_travel::OptionalReader<Read> fast_travel_reader;
   U64 base{};
   struct Span {
     U64 at;
@@ -507,6 +511,7 @@ template <class Read> class Decoder {
         out.explorer_candidate = true;
         if(!history&&savepoint_fields_available)
           out.last_used_save_room_ready=OptionalString(explorer+0x88,out.last_used_save_room);
+        if(!history)out.unlocked_fast_travel_ready=fast_travel_reader.Sample(base,explorer,entity,out.unlocked_fast_travel_levels);
         if (!history)
           out.landmarks_ready =
               DiscoveredLandmarks(explorer, out.discovered_landmarks);
@@ -561,6 +566,8 @@ template <class Read> class Decoder {
       out.exploration = history->exploration;
       out.landmarks_ready = history->landmarks_ready;
       out.discovered_landmarks = history->discovered_landmarks;
+      out.unlocked_fast_travel_ready=history->unlocked_fast_travel_ready;
+      out.unlocked_fast_travel_levels=history->unlocked_fast_travel_levels;
       out.last_used_save_room_ready=history->last_used_save_room_ready;
       out.last_used_save_room=history->last_used_save_room;
       out.motion_only = true;
@@ -595,6 +602,7 @@ template <class Read> class Decoder {
     base = id.base;
     journal.clear();
     span_index.clear();
+    fast_travel_reader.Clear();
     optional_journal.clear();savepoint_fields_available=false;
     Snapshot out;
     if (id.title != Title || id.build != Build || !Pointer(id.base) ||
@@ -792,6 +800,8 @@ template <class Read> class Decoder {
       out.last_used_save_room_ready=false;out.last_used_save_room.clear();
       for(auto& room:out.exploration){room.is_save_room=-1;room.used_save_point=-1;}
     }
+    if(!fast_travel_reader.Coherent())out.unlocked_fast_travel_ready=false;
+    if(!out.unlocked_fast_travel_ready)out.unlocked_fast_travel_levels.clear();
     if(!out.last_used_save_room_ready)out.last_used_save_room.clear();
     out.coherent = true;
     if (history && !out.components_ready) {
@@ -815,7 +825,7 @@ template <class Read> class Decoder {
     return out;
   }
 public:
-  explicit Decoder(Read &r) : read(r) {}
+  explicit Decoder(Read &r) : read(r),fast_travel_reader(r) {}
   Snapshot Sample(const Identity &id) { return Decode(id, nullptr); }
   // Reuses only exploration and landmark values from a recent *full* snapshot.
   // Every root, state flag, component membership/type/native liveness, room and

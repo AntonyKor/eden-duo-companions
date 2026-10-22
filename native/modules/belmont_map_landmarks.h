@@ -52,6 +52,13 @@ struct Elevator {
   float icon_anchor_x{}, icon_anchor_y{}, icon_size_factor{};
   float screen_percentage{}, screen_percentage_at_zoom_max{};
 };
+struct FastTravelPoint {
+  Landmark unlocked_art;
+  std::string level_guid;
+  bool visible_in_unrevealed_map{};
+  float icon_anchor_x{}, icon_anchor_y{}, icon_size_factor{};
+  float screen_percentage{}, screen_percentage_at_zoom_max{};
+};
 struct Data {
   std::string world_name;
   std::vector<Landmark> landmarks;
@@ -60,6 +67,7 @@ struct Data {
   // this without guest progression data. Conditional/missing data stays -1.
   int map_revealed_policy{-1};
   std::vector<Elevator> elevators;
+  std::vector<FastTravelPoint> fast_travel_points;
 };
 // Native SavePointItem visibility: used room, map revelation and navigation.
 // Unknown live booleans are represented by -1 and fail closed.
@@ -67,6 +75,8 @@ bool Visible(const SavePoint &, int map_revealed, int used_save_point,
              std::int64_t active_navigation);
 // Conservative source-proven subset. A native used-only or secret-linked
 // elevator requires additional live state and remains hidden here.
+bool Visible(const FastTravelPoint &, int map_revealed, int level_unlocked,
+             std::int64_t active_navigation);
 bool Visible(const Elevator &, int map_revealed, int entered_zone,
              std::int64_t active_navigation);
 // Source records only; never infer discovery from fog/position. Callers must

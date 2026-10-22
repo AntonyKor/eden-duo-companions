@@ -27,6 +27,10 @@ int main(int argc, char **argv) {
   assert(!Visible(elevator,-1,1,7)&&!Visible(elevator,0,1,7));
   assert(!Visible(elevator,1,-1,7)&&!Visible(elevator,1,0,7)&&!Visible(elevator,1,1,8));
   elevator.secret_zone_id=0;assert(!Visible(elevator,1,1,7));
+  FastTravelPoint fast;fast.unlocked_art.navigation_zone_id=7;
+  assert(Visible(fast,1,1,7));
+  assert(!Visible(fast,1,0,7)&&!Visible(fast,1,-1,7)&&!Visible(fast,-1,1,7)&&!Visible(fast,0,1,7)&&!Visible(fast,1,1,8));
+  fast.visible_in_unrevealed_map=true;assert(Visible(fast,0,1,7));
   Reader missing(ce_unity::RangeReader{});
   assert(!missing.LoadForRoom("unknown"));
   if (argc != 2)
@@ -51,7 +55,7 @@ int main(int argc, char **argv) {
     assert(std::abs(point.screen_percentage_at_zoom_max-.09f)<1e-7f);
     assert(point.icon_anchor_x==.5f&&point.icon_anchor_y==1.f&&point.icon_size_factor==1.f);
   }
-  unsigned all_save_points=0,all_elevators=0,nonsecret_elevators=0;
+  unsigned all_save_points=0,all_elevators=0,nonsecret_elevators=0,all_fast_travel=0;
   const unsigned expected_counts[]={5,4,2,4,9,2,3,5,1,0};
   const unsigned expected_elevators[]={2,0,4,0,2,2,10,0,0,0};
   for(std::size_t index=0;index<belmont_map_sources::Recipes.size();++index){
@@ -64,6 +68,19 @@ int main(int argc, char **argv) {
     assert(items&&items->elevators.size()==expected_elevators[index]);
     assert(items->elevators.size()==saves->elevators.size());
     assert(saves->map_revealed_policy==((index==7||index==9)?-1:1));
+    assert(items->fast_travel_points.size()==(index<9?1:0));
+    for(const auto& point:items->fast_travel_points){
+      assert(point.level_guid.size()==32&&point.unlocked_art.sprites.size()==1&&point.unlocked_art.navigation_zone_id>0);
+      const auto& icon=point.unlocked_art.sprites[0];
+      assert(icon.id==8973591197645313780LL&&icon.name=="T_UI_FastTravel_CurrentLocationIcon");
+      assert(icon.width==128&&icon.height==128&&icon.pixels_per_unit==128);
+      assert(icon.bundle=="ui-commonsingame_assets_all_acb23e9b0608a368aad72d2fe488a679.bundle");
+      assert(!point.visible_in_unrevealed_map);
+      assert(Visible(point,1,1,point.unlocked_art.navigation_zone_id)&&!Visible(point,1,0,point.unlocked_art.navigation_zone_id));
+      if(index==0)assert(point.level_guid=="946565bcb5d5f244e991e1790575a67c");
+      std::cout<<"fast_travel_source "<<index<<" guid="<<point.level_guid<<" point="<<point.unlocked_art.x<<","<<point.unlocked_art.y<<" anchor="<<point.icon_anchor_x<<","<<point.icon_anchor_y<<" factor="<<point.icon_size_factor<<" percentage="<<point.screen_percentage<<","<<point.screen_percentage_at_zoom_max<<'\n';
+      ++all_fast_travel;
+    }
     for(const auto& point:saves->save_points){
       assert(point.normal_art.navigation_zone_id>0);
       assert(point.normal_art.sprites.size()==1&&point.last_used_art.sprites.size()==1);
@@ -91,6 +108,7 @@ int main(int argc, char **argv) {
       ++all_elevators;
     }
   }
+  assert(all_fast_travel==9);
   assert(all_save_points==35);
   assert(all_elevators==20&&nonsecret_elevators==19);
   std::cout<<"all_native_save_points="<<all_save_points<<"\n";

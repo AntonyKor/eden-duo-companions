@@ -377,6 +377,22 @@ struct Module {
                         out<<",\"size\":"<<size<<",\"anchor\":["<<point.icon_anchor_x<<','<<point.icon_anchor_y<<"]}";
                     }
                 }
+                if(auto items=found_map_items.find(candidate.id);items!=found_map_items.end()) {
+                    for(const auto& point:items->second.fast_travel_points) {
+                        const auto& art=point.unlocked_art;
+                        if(art.sprites.size()!=1)continue;
+                        const auto prefix="belmont.fast_travel."+std::to_string(art.source_id);
+                        const float size=1080.f*point.screen_percentage*point.icon_size_factor;
+                        if(!std::isfinite(size)||size<=0||size>1080)continue;
+                        if(!first_marker)out<<',';
+                        first_marker=false;
+                        out<<"{\"group\":\"native_fast_travel\",\"count\":1,\"x\":";JsonText(out,prefix+".x");
+                        out<<",\"y\":";JsonText(out,prefix+".y");
+                        out<<",\"show_bind\":";JsonText(out,prefix+".ready");
+                        out<<",\"icon_src_bind\":";JsonText(out,prefix+".image");
+                        out<<",\"size\":"<<size<<",\"anchor\":["<<point.icon_anchor_x<<','<<point.icon_anchor_y<<"]}";
+                    }
+                }
                 if(!first_marker)out<<',';
                 out<<"{\"group\":\"companion_pins\",\"count\":32,\"x\":\"belmont.pin.{i}.x\",\"y\":\"belmont.pin.{i}.y\",\"kind\":\"belmont.pin.{i}.ready\",\"hide_when_kind\":0,\"icon_src_bind\":\"belmont.pin.{i}.image\",\"size\":56,\"anchor\":[0.5,0.5]}";
                 out<<"]}";
@@ -733,8 +749,9 @@ void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = 
     t("belmont.biome_name", ready ? rendered->biome_name.c_str() : "");
     // Home width is a layout scale, not authored geometry. Source world bounds
     // and visibility remain native; host pan/zoom owns the independent view.
-    // Sub-area home: a fixed world window at the full 1240x1080 map widget.
-    constexpr double aspect = 1080.0 / 1240.0, width = 96.0, height = width * aspect;
+    // Sub-area home: a fixed world window in the 1240x930 map viewport,
+    // ending above the footer controls. Keep its aspect in sync with manifest.
+    constexpr double aspect = 930.0 / 1240.0, width = 96.0, height = width * aspect;
     const double x = ready ? s.target_position[0] : 0, y = ready ? s.target_position[1] : 0;
     f("belmont.player_x", x); f("belmont.player_y", y);
     // rt22 hashes visible floats in coarse world-unit buckets. Scale only
@@ -816,6 +833,25 @@ void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = 
         }
     }
     i("belmont.elevator_overlay_count",elevator_count);
+    unsigned fast_travel_count=0;
+    if(m&&ready&&world&&s.unlocked_fast_travel_ready) {
+        std::lock_guard lock{m->layout_mutex};
+        const auto metadata=m->map_item_meta.find(rendered->frame->source_id);
+        if(metadata!=m->map_item_meta.end())for(const auto& point:metadata->second.fast_travel_points) {
+            const auto& art=point.unlocked_art;
+            const int unlocked=std::find(s.unlocked_fast_travel_levels.begin(),s.unlocked_fast_travel_levels.end(),point.level_guid)!=s.unlocked_fast_travel_levels.end()?1:0;
+            if(!belmont_map_landmarks::Visible(point,metadata->second.map_revealed_policy,unlocked,rendered->frame->navigation_zone_id)||art.sprites.size()!=1)continue;
+            const auto prefix="belmont.fast_travel."+std::to_string(art.source_id);
+            const auto& sprite=art.sprites.front();
+            const auto image="module:belmont:map-icon:"+sprite.bundle+"#"+std::to_string(sprite.id);
+            i((prefix+".ready").c_str(),1);t((prefix+".image").c_str(),image.c_str());
+            f((prefix+".x").c_str(),art.x);f((prefix+".y").c_str(),art.y);
+            m->published_overlays.emplace_back(prefix,image);++fast_travel_count;
+        }
+    }
+    i("belmont.fast_travel_overlay_count",fast_travel_count);
+    i("belmont.fast_travel_unlocked_ready",s.unlocked_fast_travel_ready);
+    i("belmont.fast_travel_unlocked_count",s.unlocked_fast_travel_ready?s.unlocked_fast_travel_levels.size():0);
     const bool objective_ready=ready&&ob.ready&&rendered->fingerprint&&SameObjective(rendered->fingerprint->objective,ob)&&!rendered->objective_name.empty()&&rendered->objective_image;
     i("belmont.objective_ready",objective_ready);t("belmont.objective",objective_ready?rendered->objective_name.c_str():"");
     t("belmont.objective_image",objective_ready?rendered->objective_key.c_str():"");
@@ -1017,6 +1053,7 @@ EdenDsmodBool LoadImage(void* p, const EdenDsmodHostApi* h, const char* key,
                 for(const auto& [id,items]:m.map_item_meta){
                     for(const auto& point:items.save_points){find(point.normal_art);find(point.last_used_art);}
                     for(const auto& point:items.elevators)find(point.art);
+                    for(const auto& point:items.fast_travel_points)find(point.unlocked_art);
                 }
             }
             if(!metadata)return EDEN_DSMOD_FALSE;

@@ -1144,6 +1144,35 @@ int main() {
       Check(race.coherent&&race.exploration_ready&&!race.last_used_save_room_ready&&race.exploration[0].used_save_point==-1,
             "last-used room pointer race cannot produce a mixed native save marker snapshot");
     }
+    {
+      const auto setup=[](M& m){
+        m.exploration();
+        m.bytes(M::Base+0x1c28f7c,{0x88,0x02,0x01,0x39});m.bytes(M::Base+0x1c2b574,{0x08,0x05,0x41,0x39});m.bytes(M::Base+0x1dedc10,{0x00,0x45,0x40,0xf9});
+        m.bytes(H+0x21040,{1,1});m.put(H+0xe088,H+0x24000);
+        m.bytes(M::Base+0x1c281f0,{0x00,0x28,0x40,0xf9,0xc0,0x03,0x5f,0xd6});
+        m.bytes(M::Base+0x1c29fc8,{0x88,0xa2,0x42,0x39,0xc8,0x00,0x00,0x34});
+        m.bytes(M::Base+0x1c29fe4,{0x80,0x2a,0x40,0xf9,0x60,0xff,0xff,0xb4});
+        m.bytes(M::Base+0x1e0fff0,{0x00,0x0c,0x40,0xf9,0xc0,0x03,0x5f,0xd6});
+        m.put<std::uint8_t>(H+0xe0a8,0);m.put(H+0xe050,H+0x35000);m.put(H+0x35000,H+0x36000);m.klass(H+0x36000,"List`1","System.Collections.Generic");
+        m.put(H+0x35010,H+0x37000);m.put<int>(H+0x35018,1);m.put<int>(H+0x3501c,7);m.put<belmont::U64>(H+0x37018,4);m.put(H+0x37020,H+0x39000);
+        m.put(H+0x39000,H+0x3a000);m.klass(H+0x3a000,"LevelID","");m.native(H+0x39000);m.put(H+0x39018,H+0x3c000);m.put(H+0x3c000,H+0x25000);m.put<int>(H+0x3c010,32);
+        const char* guid="946565bcb5d5f244e991e1790575a67c";for(unsigned i=0;i<32;++i)m.put<std::uint16_t>(H+0x3c014+2*i,guid[i]);
+      };
+      M m;setup(m);auto full=m.sample();
+      Check(full.coherent&&full.exploration_ready&&full.unlocked_fast_travel_ready&&full.unlocked_fast_travel_levels==std::vector<std::string>{"946565bcb5d5f244e991e1790575a67c"},"native unlocked LevelID GUIDs are optional validated data");
+      belmont::Decoder decoder(m);auto motion=decoder.SampleMotion(m.id(),full);
+      Check(motion.motion_only&&motion.unlocked_fast_travel_ready&&motion.unlocked_fast_travel_levels==full.unlocked_fast_travel_levels,"motion copies unlocks only from validated full provenance");
+      m.put<int>(H+0x35018,0);m.put<belmont::U64>(H+0x35010,0);auto empty=m.sample();
+      Check(empty.exploration_ready&&empty.unlocked_fast_travel_ready&&empty.unlocked_fast_travel_levels.empty(),"empty native unlock list means no known unlocked points");
+      setup(m);m.put<int>(H+0x35018,129);auto cap=m.sample();Check(cap.exploration_ready&&!cap.unlocked_fast_travel_ready&&cap.unlocked_fast_travel_levels.empty()&&cap.last_used_save_room_ready,"oversize optional list preserves core map and savepoints");
+      setup(m);m.put<int>(H+0x35018,2);m.put(H+0x37028,H+0x39000);auto duplicate=m.sample();Check(duplicate.exploration_ready&&!duplicate.unlocked_fast_travel_ready,"duplicate unlock identity fails closed");
+      setup(m);m.put<std::uint16_t>(H+0x3c014,'G');auto guid=m.sample();Check(guid.exploration_ready&&!guid.unlocked_fast_travel_ready,"malformed GUID is not an unlocked point");
+      setup(m);m.put<std::uint8_t>(H+0xe0a8,1);auto debug=m.sample();Check(debug.exploration_ready&&!debug.unlocked_fast_travel_ready,"debug reveal-all cannot disclose fast travel points");
+      setup(m);m.data[M::Base+0x1c281f0]^=1;auto pin=m.sample();Check(pin.exploration_ready&&!pin.unlocked_fast_travel_ready&&pin.last_used_save_room_ready,"unlock accessor mismatch is independent of map/savepoint readiness");
+      setup(m);unsigned seen{};m.observe=[&](auto at){if(at==H+0x3501c&&++seen==2)m.put<int>(at,8);};auto race=m.sample();m.observe={};Check(race.coherent&&race.exploration_ready&&!race.unlocked_fast_travel_ready&&race.last_used_save_room_ready&&race.exploration[0].used_save_point==1,"optional unlock race hides blue points without hiding core/savepoints");
+      setup(m);seen=0;m.observe=[&](auto at){if(at==H+0x21040&&++seen==2)m.put<std::uint8_t>(H+0x21041,0);};race=m.sample();m.observe={};Check(race.coherent&&race.exploration_ready&&race.unlocked_fast_travel_ready&&!race.last_used_save_room_ready,"savepoint race does not erase independently coherent fast travel");
+      setup(m);m.put(H+0xe020,H+0xa008);auto owner=m.sample();Check(!owner.unlocked_fast_travel_ready,"stale Explorer ownership cannot expose unlocks");
+    }
     std::cout << "Belmont synthetic state tests passed\n";
   } catch (const std::exception &e) {
     std::cerr << e.what() << '\n';

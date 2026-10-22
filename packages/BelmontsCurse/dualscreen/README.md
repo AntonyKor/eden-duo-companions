@@ -2,7 +2,7 @@
 
 Map and equipped-loadout companion for Castlevania: Belmont's Curse, the exact supported1.1.0 executable and
 Eden Duo runtime22. The second screen is laid out as the game's pause-menu Map tab, always open:
-full-screen map, area ribbon (biome and sub-area), gilt corners, an Area/Sub-area zoom rail
+map above the footer controls, area ribbon (biome and sub-area), gilt corners, an Area/Sub-area zoom rail
 and Reset. Discovered landmarks add native engravings and black/gold name ribbons; the
 current main objective uses its installed English text. A touch tab opens the native Equipment
 composition: equipped Arcana card, weapon illustration, relic icons/names and final stats.
@@ -35,7 +35,9 @@ Unready or unsupported data remains unavailable; unsupported modules display the
 Equipment and owned-inventory acquisition run only while the Equipment view is open; position sampling stays continuous. Each reader deduplicates repeated spans within one sample and rechecks source coherence before publishing.
 
 The generic host map handles local pan/zoom. Sub-area follows Rose; Area frames every revealed
-zone of the current region. Reset returns to Sub-area and recentres the local view. Title/loading
+zone of the current region. Reset appears only after pan or pinch; it returns to Sub-area and recentres the local view.
+Manual inspection persists through room/loading interruptions and newly revealed map images;
+the tier controls explicitly apply their selected view. Title/loading
 clear stale map, marker, name and coordinates; a coherent native pause keeps the current map
 available. Compatible cinematic/dialogue interruptions retain a dimmed, noninteractive bottom
 view; a brief incoherent sample holds the previous brightness and compatible view for at most180ms.
@@ -73,6 +75,6 @@ parity, separate secret-item overlays, FastTravel map geometry and the world-ove
 not claimed. Optional DLC absence alone is not an error; no DLC-dependent companion feature is
 claimed. Module libraries and their manifest hashes must match the actual build being packaged.
 
-Map marker coverage includes Rose, session pins, verified discovered landmarks, used native save points, and discovered non-secret elevator endpoints. Save points use the native normal or last-used glyph only when coherent room usage, last-save identity, map-revelation policy and navigation agree. Unknown conditions stay hidden. Elevator endpoints require an exact coherent entered-zone match; secret-linked and used-only reveals remain hidden. Their native base responsive sizes are retained; native maximum-zoom growth is not mapped to companion pinch zoom. Conditional door, activable, biome-transition, full elevator/link, mirror, character, death and secret overlays still need separate live-reader coverage.
+Map marker coverage includes Rose, session pins, verified discovered landmarks, used native save points, discovered non-secret elevator endpoints, and unlocked native blue fast-travel points. Save points use the native normal or last-used glyph only when coherent room usage, last-save identity, map-revelation policy and navigation agree. Unknown conditions stay hidden. Elevator endpoints require an exact coherent entered-zone match; secret-linked and used-only reveals remain hidden. Their native base responsive sizes are retained; native maximum-zoom growth is not mapped to companion pinch zoom. Fast-travel points require a coherent unlocked LevelID plus the native map-revelation and navigation gates. Unknown or locked destinations stay hidden. This is a read-only overlay, separate from the game’s FastTravel map geometry. General door, activable, biome-transition, full elevator/link, mirror, character, death and secret overlays still need separate live-reader coverage.
 
 Navigation and action buttons use the native dark leather tab material, with a brighter armed/active state. Their existing touch bounds and actions are retained.

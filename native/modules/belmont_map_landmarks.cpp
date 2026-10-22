@@ -17,6 +17,8 @@ constexpr std::string_view Common =
     "ui-commonsingame_assets_all_acb23e9b0608a368aad72d2fe488a679.bundle";
 constexpr std::string_view CommonCab = "CAB-5d3eb16e2bd4e768158db17f3956cfa9";
 constexpr std::string_view MenuCab = "CAB-27e7a4fd03161a1208808cab8fc89755";
+constexpr std::string_view LevelIds="leveldata-savablescriptableobject_assets_all_ff1d7d702377adb724f6d92b5520502b.bundle";
+constexpr std::string_view LevelIdsCab="CAB-5bdba696448e19fcf5755cc457f22fcf";
 constexpr std::string_view LevelData="leveldata_assets_all_940f672e456a1dd57099d3d5c994fbc7.bundle";
 constexpr std::string_view LevelDataCab="CAB-18af95c67205941bc13db59d8c142572";
 bool Int(const V *v, std::int64_t &n) {
@@ -416,7 +418,185 @@ std::optional<Elevator> ParseElevator(Scene& scene,const V& v,
     std::abs(result.icon_anchor_x)>4||std::abs(result.icon_anchor_y)>4)return {};
   return result;
 }
+std::optional<FastTravelPoint> ParseFastTravel(
+    Scene &scene, const V &v, const belmont_map_sources::SourceRecipe &source,
+    const std::vector<std::string> &cabs,
+    const std::shared_ptr<const ce_unity::SerializedFile> &common,
+    const std::shared_ptr<const ce_unity::SerializedFile> &level_ids,
+    std::int64_t item_id) {
+  // Unlocked native discovery/entered paths bypass secret-door discovery too;
+  // this does not permit any locked secret-linked point to be shown.
+  FastTravelPoint result;
+  auto &art = result.unlocked_art;
+  auto room = Text(v.Get("itemWorldRoomId"));
+  const auto go = Local(v.Get("m_GameObject"));
+  auto g = scene.Get(go);
+  auto name = g ? Text(g->Get("m_Name")) : std::nullopt;
+  std::int64_t script{}, file{}, zone{}, secret{}, condition{}, level_id{},
+      level_script{}, level_file{}, door{};
+  bool fast{};
+  if (!common || !level_ids || !room || !room->starts_with(source.world_name) ||
+      !name || *name != "LevelMap_ZDoor_FastTravel_Item(Clone)" ||
+      Local(v.Get("context")) != source.map_context_id ||
+      !Ref(v.Get("m_Script"), script, file) ||
+      script != -6779324738952612746LL || file != 1 ||
+      !Flag(v.Get("isFastTravelDoor"), fast) || !fast ||
+      !Int(v.Get("zDoorID"), door) || door < 0 || door > 65535 ||
+      !Int(v.Get("itemExplorationZoneId"), zone) || zone < 0 || zone > 65535 ||
+      !Int(v.Get("itemLinkedSecretZoneId"), secret) || secret < -1 ||
+      secret > 65535 ||
+      !Int(v.Path("additionalDiscoveredCondition.rid"), condition) ||
+      condition != -2 ||
+      !Flag(v.Get("visibleInUnrevealedMap"), result.visible_in_unrevealed_map))
+    return {};
+  auto context = scene.Get(source.map_context_id);
+  if (!context ||
+      !ExternalIs(cabs, context->Get("level"), LevelIdsCab, level_id))
+    return {};
+  auto level = Obj(level_ids, level_id, 114);
+  auto guid = level ? Text(level->Get("_guid")) : std::nullopt;
+  if (!level || !guid || guid->size() != 32 ||
+      !std::all_of(guid->begin(), guid->end(),
+                   [](char c) {
+                     return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+                   }) ||
+      !Ref(level->Get("m_Script"), level_script, level_file) ||
+      level_script != 1341962149057043309LL || level_file != 1)
+    return {};
+  result.level_guid = *guid;
+  art.source_id = item_id;
+  art.source_name = *name;
+  art.room_id = *room;
+  art.exploration_zone_id = int(zone);
+  art.navigation_zone_id = Local(v.Get("navigationZone"));
+  art.unconditional_policy = true;
+  auto tr = scene.transforms.find(go);
+  auto position =
+      tr != scene.transforms.end() ? scene.World(tr->second) : std::nullopt;
+  if (!position || !art.navigation_zone_id)
+    return {};
+  art.x = position->x;
+  art.y = position->y;
+  auto display = scene.Get(Local(v.Get("display")));
+  auto view = display ? scene.Get(Local(display->Get("fastTravelUnlockedView")))
+                      : nullptr;
+  auto roots = VariantRoots(view, "onSetTrue", "onSetFalse", 2);
+  const auto visible = display ? Local(display->Get("visibilityParent")) : 0;
+  const auto fast_parent =
+      display ? Local(display->Get("fastTravelDoorParent")) : 0;
+  const auto group = view ? Local(view->Get("m_GameObject")) : 0;
+  if (!roots || !visible || !fast_parent || !group)
+    return {};
+  // Unlocked native fast travel implies entered. This shared group appears in
+  // both native entered states, so no completion/progression guess is needed.
+  for (const auto *field :
+       {"enteredUncompletedObjects", "enteredCompletedObjects"}) {
+    const auto parents = Array(display->Get(field), 16);
+    if (!parents ||
+        std::count_if(parents->begin(), parents->end(),
+                      [&](const V &p) { return Local(&p) == group; }) != 1)
+      return {};
+  }
+  auto responsive = scene.Get(Local(v.Get("responsivenessComponent")));
+  std::optional<Transform> sizable;
+  float multiplier{};
+  bool max_diff{};
+  if (!responsive || Local(responsive->Get("levelMapItem")) != item_id ||
+      !Num(responsive->Get("screenPercentage"), result.screen_percentage) ||
+      !Flag(responsive->Get("differentScreenPercentageAtZoomMax"), max_diff) ||
+      !Num(responsive->Get("screenPercentageAtZoomMax"),
+           result.screen_percentage_at_zoom_max) ||
+      !Num(v.Get("isZDoorScaleMultiplier"), multiplier) || multiplier <= 0 ||
+      multiplier > 4 || result.screen_percentage <= 0 ||
+      result.screen_percentage > .25f ||
+      result.screen_percentage_at_zoom_max <= 0 ||
+      result.screen_percentage_at_zoom_max > .25f)
+    return {};
+  if (!max_diff)
+    result.screen_percentage_at_zoom_max = result.screen_percentage;
+  sizable = scene.World(Local(responsive->Get("sizableObject")));
+  if (!sizable || sizable->x != art.x || sizable->y != art.y)
+    return {};
+  for (const auto &object : scene.file->Objects())
+    if (object.class_id == 212) {
+      auto sr = scene.Get(object.path_id);
+      const auto sg = sr ? Local(sr->Get("m_GameObject")) : 0;
+      auto st = scene.transforms.find(sg);
+      if (st == scene.transforms.end())
+        continue;
+      bool under = false, in_visible = false, in_fast = false, in_group = false,
+           unlocked = false, locked = false;
+      std::set<std::int64_t> seen;
+      auto at = st->second;
+      while (at && seen.size() < 64 && seen.insert(at).second) {
+        auto t = scene.Get(at);
+        if (!t)
+          break;
+        auto ag = Local(t->Get("m_GameObject"));
+        under |= ag == go;
+        in_visible |= ag == visible;
+        in_fast |= ag == fast_parent;
+        in_group |= ag == group;
+        unlocked |= ag == roots->second;
+        locked |= ag == roots->first;
+        at = Local(t->Get("m_Father"));
+      }
+      if (!under || !in_visible || !in_fast || !in_group || !unlocked || locked)
+        continue;
+      bool enabled{}, flip_x{}, flip_y{};
+      std::int64_t draw{}, sid{};
+      if (!Flag(sr->Get("m_Enabled"), enabled) || !enabled ||
+          !Flag(sr->Get("m_FlipX"), flip_x) || flip_x ||
+          !Flag(sr->Get("m_FlipY"), flip_y) || flip_y ||
+          !Int(sr->Get("m_DrawMode"), draw) || draw != 0 ||
+          !ExternalIs(cabs, sr->Get("m_Sprite"), CommonCab, sid))
+        return {};
+      auto sprite = Obj(common, sid, 213);
+      auto p = scene.World(st->second);
+      Sprite glyph;
+      if (!sprite || !p || !Metadata(*sprite, glyph))
+        return {};
+      glyph.id = sid;
+      glyph.bundle = Common;
+      glyph.cab = CommonCab;
+      glyph.x = p->x;
+      glyph.y = p->y;
+      glyph.scale_x = p->sx;
+      glyph.scale_y = p->sy;
+      const char *channels[] = {"r", "g", "b", "a"};
+      for (unsigned n = 0; n < 4; ++n)
+        if (!Num(sr->Path(std::string("m_Color.") + channels[n]),
+                 glyph.color[n]) ||
+            glyph.color[n] != 1)
+          return {};
+      art.sprites.push_back(std::move(glyph));
+    }
+  if (art.sprites.size() != 1)
+    return {};
+  const auto &glyph = art.sprites[0];
+  const float w =
+      glyph.width / glyph.pixels_per_unit * glyph.scale_x / sizable->sx;
+  const float h =
+      glyph.height / glyph.pixels_per_unit * glyph.scale_y / sizable->sy;
+  if (w <= 0 || w > 4 || std::abs(w - h) > 1e-6f)
+    return {};
+  const float cx =
+      (glyph.x - sizable->x) / sizable->sx + (.5f - glyph.pivot_x) * w;
+  const float cy =
+      (glyph.y - sizable->y) / sizable->sy + (.5f - glyph.pivot_y) * h;
+  result.icon_size_factor = w * multiplier;
+  result.icon_anchor_x = .5f - cx / w;
+  result.icon_anchor_y = .5f + cy / h;
+  if (!std::isfinite(result.icon_anchor_x) ||
+      !std::isfinite(result.icon_anchor_y) ||
+      std::abs(result.icon_anchor_x) > 4 || std::abs(result.icon_anchor_y) > 4)
+    return {};
+  return result;
+}
 } // namespace
+bool Visible(const FastTravelPoint& point,int revealed,int unlocked,std::int64_t navigation){
+  return unlocked==1&&(revealed==1||point.visible_in_unrevealed_map)&&navigation>0&&point.unlocked_art.navigation_zone_id==navigation;
+}
 bool Visible(const SavePoint& point,int revealed,int used,std::int64_t navigation){
   return used==1&&(revealed==1||point.visible_in_unrevealed_map)&&
     navigation>0&&point.normal_art.navigation_zone_id==navigation;
@@ -461,7 +641,8 @@ std::optional<Data> Reader::Load(std::string_view room,bool save_points_only) {
     auto sf = File(unity, source->map_bundle, source->map_cab);
     auto data = save_points_only ? nullptr : File(unity, Savable, SavableCab);
     auto menu = File(unity, Menu, MenuCab);
-    auto common = save_points_only ? nullptr : File(unity, Common, CommonCab);
+    auto common = File(unity, Common, CommonCab);
+    auto level_ids=File(unity,LevelIds,LevelIdsCab);
     auto b = unity.OpenBundle(source->map_bundle);
     auto node = b ? b->FindNode(source->map_cab) : nullptr;
     auto cabs = node ? belmont_map_refs::ExternalCabs(b->NodeSource(*node))
@@ -469,7 +650,7 @@ std::optional<Data> Reader::Load(std::string_view room,bool save_points_only) {
     if (!sf || !menu || !cabs || (!save_points_only&&(!data||!common)))
       return {};
     Scene scene{sf, {}, {}};
-    Data out{std::string(source->world_name), {}, {}, -1, {}};
+    Data out{std::string(source->world_name), {}, {}, -1, {}, {}};
     // ResetContext writes true to revealedMap; InitializeContext overwrites
     // it only when LevelUIDisplayData.mapRevealCondition is non-null. Do not
     // approximate conditional Hall of Mirrors revelation from explored fog.
@@ -501,6 +682,8 @@ std::optional<Data> Reader::Load(std::string_view room,bool save_points_only) {
           if(auto save=ParseSavePoint(scene,*v,*source,*cabs,menu,o.path_id))out.save_points.push_back(std::move(*save));
         if(sid==-6054241008690704164LL&&file==1)
           if(auto lift=ParseElevator(scene,*v,*source,*cabs,menu,o.path_id))out.elevators.push_back(std::move(*lift));
+        if(sid==-6779324738952612746LL&&file==1)
+          if(auto point=ParseFastTravel(scene,*v,*source,*cabs,common,level_ids,o.path_id))out.fast_travel_points.push_back(std::move(*point));
       }
       if(save_points_only)continue;
       if (!v || !v->Get("landmarkData"))
