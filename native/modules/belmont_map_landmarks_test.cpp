@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright 2026 Eden DSMod fork
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "belmont_map_landmarks.h"
+#include "belmont_pins.h"
+#include <set>
 #include <cassert>
 #include <cmath>
 #include <iostream>
@@ -55,6 +57,43 @@ int main(int argc, char **argv) {
     assert(std::abs(point.screen_percentage_at_zoom_max-.09f)<1e-7f);
     assert(point.icon_anchor_x==.5f&&point.icon_anchor_y==1.f&&point.icon_size_factor==1.f);
   }
+  assert(data->level_guid == "946565bcb5d5f244e991e1790575a67c");
+  assert(data->navigation_zone_ids.size() == 7 &&
+         data->navigation_zone_ids[0] == 5763);
+  assert(data->pin_types.size() == belmont_pins::KindCount);
+  std::set<std::string> type_guids;
+  for (const auto &type : data->pin_types) {
+    assert(type.kind < belmont_pins::KindCount && type.guid.size() == 32 &&
+           type_guids.insert(type.guid).second);
+    assert(type.sprite_id == belmont_pins::Sprites[type.kind] && type.type_id &&
+           type.display_id);
+    std::cout << "native_pin_type " << type.kind << " " << type.guid << " "
+              << type.sprite_id << " " << type.type_id << " " << type.display_id
+              << "\n";
+  }
+  // Optional metadata may arrive late; cached map icons stay usable, then the
+  // native GUID/type join retries instead of becoming permanently unavailable.
+  bool managers_available = false;
+  auto delayed_source = ce_unity::MakeDirectoryRangeReader(argv[1]);
+  auto original_size = delayed_source.size;
+  delayed_source.size =
+      [&](std::string_view path) -> std::optional<std::uint64_t> {
+    if (!managers_available &&
+        path.find("afm_scenes_scenes_managers_") != std::string_view::npos)
+      return {};
+    return original_size(path);
+  };
+  Reader delayed(delayed_source);
+  auto before = delayed.LoadMapItemsForRoom(room);
+  assert(before && before->pin_types.empty() &&
+         before->level_guid == data->level_guid &&
+         before->save_points.size() == 5);
+  managers_available = true;
+  auto after = delayed.LoadMapItemsForRoom(room);
+  assert(after && after->pin_types.size() == 9 &&
+         after->navigation_zone_ids == data->navigation_zone_ids);
+  delayed.ClearCache();
+  assert(delayed.LoadMapItemsForRoom(room)->pin_types.size() == 9);
   unsigned all_save_points=0,all_elevators=0,nonsecret_elevators=0,all_fast_travel=0;
   const unsigned expected_counts[]={5,4,2,4,9,2,3,5,1,0};
   const unsigned expected_elevators[]={2,0,4,0,2,2,10,0,0,0};
@@ -66,6 +105,17 @@ int main(int argc, char **argv) {
     assert(saves&&saves->landmarks.empty()&&saves->save_points.size()==expected_counts[index]);
     const auto items=reader.LoadMapItemsForRoom(std::string(recipe.world_name)+"_metadata_probe");
     assert(items&&items->elevators.size()==expected_elevators[index]);
+    assert(items->level_guid.size() == 32 &&
+           !items->navigation_zone_ids.empty() && items->pin_types.size() == 9);
+    std::set<std::int64_t> source_zones(items->navigation_zone_ids.begin(),
+                                        items->navigation_zone_ids.end());
+    assert(source_zones.size() == items->navigation_zone_ids.size());
+    std::cout << "native_pin_source " << index << " " << items->level_guid;
+    for (auto id : items->navigation_zone_ids)
+      std::cout << " " << id;
+    std::cout << "\n";
+
+
     assert(items->elevators.size()==saves->elevators.size());
     assert(saves->map_revealed_policy==((index==7||index==9)?-1:1));
     assert(items->fast_travel_points.size()==(index<9?1:0));

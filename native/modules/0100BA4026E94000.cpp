@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Unreleased companion; guest reads only, native menu actions via host buttons.
+// Unreleased companion; native menu actions via host buttons. Pin placement
+// changes only a validated transient UI coordinate before native confirmation.
 // Worker input is a coherent copied
 // snapshot; workers never read guest memory or publish host values.
 #include "belmont_reader.h"
 #include "belmont_presentation.h"
 #include "belmont_pins.h"
+#include "belmont_native_pins.h"
+#include "belmont_pin_transaction.h"
 #include "belmont_inventory.h"
 #include "belmont_equipment_control.h"
 #include "belmont_asset_callbacks.h"
@@ -254,6 +257,17 @@ struct Module {
     belmont_presentation::Retainer<LiveBundle> presentation;
     std::chrono::steady_clock::time_point full_sample_at{}, details_at{};
     belmont_pins::Store pins;
+    belmont_native_pins::Snapshot native_pins;
+    belmont_map_control::Controller pin_controller;
+    std::optional<belmont_map_control::Request> pin_request;
+    std::set<std::int32_t> pin_ids_before;
+    std::string pin_action_reason{"idle"};
+    std::chrono::steady_clock::time_point native_pins_at{};
+    bool pin_context_ready{};
+    std::string pin_level_guid;
+    std::int32_t pin_navigation{-1};
+    std::array<float,4> pin_bounds{};
+    std::array<std::string,belmont_pins::KindCount> pin_type_guids;
     std::int64_t map_tap_sequence{-1};
     std::uint64_t sample_count{},incoherent_samples{},retained_samples{};
     bool presentation_blocked{true},control_ready{},picker_exposed{},equipment_visible{};
@@ -394,7 +408,7 @@ struct Module {
                     }
                 }
                 if(!first_marker)out<<',';
-                out<<"{\"group\":\"companion_pins\",\"count\":32,\"x\":\"belmont.pin.{i}.x\",\"y\":\"belmont.pin.{i}.y\",\"kind\":\"belmont.pin.{i}.ready\",\"hide_when_kind\":0,\"icon_src_bind\":\"belmont.pin.{i}.image\",\"size\":56,\"anchor\":[0.5,0.5]}";
+                out<<"{\"group\":\"companion_pins\",\"count\":64,\"x\":\"belmont.pin.{i}.x\",\"y\":\"belmont.pin.{i}.y\",\"kind\":\"belmont.pin.{i}.ready\",\"hide_when_kind\":0,\"icon_src_bind\":\"belmont.pin.{i}.image\",\"size\":56,\"anchor\":[0.5,0.5]}";
                 out<<"]}";
             }
             out << '}';
@@ -612,6 +626,7 @@ void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = 
     const auto i = [&](const char* key, std::int64_t v) { h.publish_i64(h.userdata, key, v); };
     const auto t = [&](const char* key, const char* v) { h.publish_text(h.userdata, key, v); };
     const auto f = [&](const char* key, double v) { if (h.publish_f64) h.publish_f64(h.userdata, key, v); };
+    i("belmont.map_input_button",0);i("belmont.map_cursor_pulse",0);
     i("belmont.equipment_input_button",0);i("belmont.equipment_control_ready",0);
     i("belmont.equipment_visible",m&&m->equipment_visible);
     i("belmont.picker_ready",0);i("belmont.pin_picker",0);i("belmont.pin_capture_pending",0);i("belmont.pin_armed",0);
@@ -670,10 +685,40 @@ void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = 
         m->presentation_blocked=blocked;
         if(title)m->pins.Clear();
         const auto bounds=ready?rendered->frame->world_bounds:belmont_map_fog::Rect{};
-        m->pins.Context(ready?rendered->area_key:"",{bounds.x,bounds.y,bounds.x+bounds.width,bounds.y+bounds.height},ready&&!blocked);
+        m->pin_bounds={bounds.x,bounds.y,bounds.x+bounds.width,bounds.y+bounds.height};
+        std::vector<belmont_pins::Pin> native_markers;
+        m->pin_context_ready=false;m->pin_level_guid.clear();m->pin_navigation=-1;
+        m->pin_type_guids={};
+        if(ready&&m->native_pins.ready&&m->native_pins.coherent&&m->native_pins.entity==s.entity){
+            std::lock_guard lock{m->layout_mutex};
+            const auto found=m->map_item_meta.find(rendered->frame->source_id);
+            if(found!=m->map_item_meta.end()){
+                const auto& meta=found->second;
+                const auto nav=std::find(meta.navigation_zone_ids.begin(),meta.navigation_zone_ids.end(),rendered->frame->navigation_zone_id);
+                if(meta.level_guid.size()==32&&meta.pin_types.size()==belmont_pins::KindCount&&nav!=meta.navigation_zone_ids.end()){
+                    m->pin_level_guid=meta.level_guid;m->pin_navigation=std::int32_t(nav-meta.navigation_zone_ids.begin());
+                    for(const auto& type:meta.pin_types)if(type.kind<belmont_pins::KindCount)m->pin_type_guids[type.kind]=type.guid;
+                    m->pin_context_ready=std::all_of(m->pin_type_guids.begin(),m->pin_type_guids.end(),[](const auto& id){return id.size()==32;});
+                    if(m->pin_context_ready)for(const auto& pin:m->native_pins.pins){
+                        if(pin.level_guid!=m->pin_level_guid||pin.nav_index!=m->pin_navigation||!Contains(bounds,pin.x,pin.y))continue;
+                        const auto kind=std::find(m->pin_type_guids.begin(),m->pin_type_guids.end(),pin.type_guid);
+                        if(kind==m->pin_type_guids.end())continue;
+                        native_markers.push_back({rendered->area_key,pin.x,pin.y,std::size_t(kind-m->pin_type_guids.begin()),pin.id,pin.nav_index});
+                    }
+                }
+            }
+        }
+        if(!m->pins.SetPins(native_markers))m->pin_context_ready=false;
+        m->pins.Context(ready?rendered->area_key:"",{bounds.x,bounds.y,bounds.x+bounds.width,bounds.y+bounds.height},ready&&!blocked&&m->pin_context_ready);
+        i("belmont.pin_context_ready",m->pin_context_ready);i("belmont.pin_busy",m->pins.Busy());
+        i("belmont.pin_visible_count",native_markers.size());
+        t("belmont.pin_action_reason",m->pin_action_reason.c_str());
         const auto sequence=h.get_i64?h.get_i64(h.userdata,"@map_tap_seq",-1):-1;
         if(m->pins.Waiting()&&h.get_f64)m->pins.Capture(sequence,h.get_f64(h.userdata,"@map_tap_x",NAN),h.get_f64(h.userdata,"@map_tap_y",NAN));
         m->map_tap_sequence=sequence;
+        i("belmont.native_pins_ready",m->native_pins.ready&&m->native_pins.entity==s.entity);
+        i("belmont.native_pins_count",m->native_pins.ready?m->native_pins.pins.size():0);
+        t("belmont.native_pins_reason",m->native_pins.reason.c_str());
         i("belmont.pin_capture_pending",m->pins.Waiting());i("belmont.pin_armed",m->pins.Armed());
         i("belmont.pin_picker",m->pins.Picker());i("belmont.pin_editing",m->pins.Editing());
         for(std::size_t n=0;n<belmont_pins::KindCount;++n){const auto name="belmont.pin_kind_"+std::to_string(n)+"_image";const auto image=belmont_pins::Image(n);t(name.c_str(),image.c_str());}
@@ -931,6 +976,12 @@ void Sample(void* p, const EdenDsmodHostApi* h) {
         auto s=full?decoder.Sample(Identity(*h)):decoder.SampleMotion(Identity(*h),*m.full_source);
         if(!full&&s.reason=="motion_refresh_required"){s=decoder.Sample(Identity(*h));full=true;}
         if(full){m.full_sample_at=now;if(World(s))m.full_source=s;else m.full_source.reset();}
+        if(World(s)) {
+            if(m.native_pins.entity!=s.entity||now-m.native_pins_at>=std::chrono::milliseconds(m.pins.Busy()?50:200)){
+                belmont_native_pins::Decoder pin_reader(read);
+                m.native_pins=pin_reader.Sample(Identity(*h),s);m.native_pins_at=now;
+            }
+        }else m.native_pins={};
         LiveBundle next;next.base=s;
         if(World(s)) {
             const bool refresh=m.details.base.entity!=s.entity||m.details.base.room_id!=s.room_id||
@@ -948,8 +999,39 @@ void Sample(void* p, const EdenDsmodHostApi* h) {
         ++m.sample_count;
         if(s.reason=="incoherent")++m.incoherent_samples;
         if(display.blocked&&World(display.value.base))++m.retained_samples;
+        std::int32_t pin_button=0,pin_cursor=0;
+        if(m.pin_controller.Busy()&&World(s)){
+            bool observed=false;
+            if(m.pin_request&&m.native_pins.ready&&m.native_pins.coherent&&m.native_pins.entity==s.entity){
+                const auto& request=*m.pin_request;
+                const auto found=std::find_if(m.native_pins.pins.begin(),m.native_pins.pins.end(),[&](const auto& pin){return pin.level_guid==request.level_guid&&pin.id==request.native_id;});
+                if(request.operation==belmont_map_control::Operation::Remove)observed=found==m.native_pins.pins.end();
+                else if(request.operation==belmont_map_control::Operation::Change)observed=found!=m.native_pins.pins.end()&&found->type_guid==request.type_guid&&found->nav_index==request.navigation_index&&found->x==request.x&&found->y==request.y;
+                else for(const auto& pin:m.native_pins.pins)if(pin.level_guid==request.level_guid&&!m.pin_ids_before.contains(pin.id)&&pin.type_guid==request.type_guid&&pin.nav_index==request.navigation_index&&pin.x==request.x&&pin.y==request.y)observed=true;
+            }
+            belmont_map_control::Decoder control_reader(read);
+            const auto control=control_reader.Sample(Identity(*h),s);
+            const auto step=m.pin_controller.Update(control,std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count(),observed);
+            if(std::string_view(step.reason)!="idle")m.pin_action_reason=step.reason;
+            if(step.write_position&&m.pin_request){
+                auto write=[&](std::uint64_t at,const void* data,std::size_t size){return size==8&&h->write_memory&&h->write_memory(h->userdata,at,data,size);};
+                const bool success=belmont_pin_transaction::Apply(read,write,Identity(*h),s,*m.pin_request,step);
+                m.pin_controller.PositionWriteResult(success);
+                if(!success)m.pin_action_reason="native_position_write_refused";
+            }
+            pin_button=static_cast<std::int32_t>(step.button);
+            if(step.move_cursor){
+                const bool horizontal=std::abs(step.stick_x)>=std::abs(step.stick_y);
+                const bool positive=horizontal?step.stick_x>0:step.stick_y>0;
+                const bool coarse=std::hypot(step.stick_x,step.stick_y)>.5f;
+                pin_cursor=(coarse?4:0)+(horizontal?(positive?1:2):(positive?3:4));
+            }
+            if(!m.pin_controller.Busy()){m.pins.FinishRequest();m.pin_request.reset();}
+        }else if(m.pin_controller.Busy()&&!(display.blocked&&World(display.value.base))){
+            m.pin_controller.Cancel();m.pins.FinishRequest();m.pin_request.reset();m.pin_action_reason="world_transition";
+        }
         belmont_equipment_control::Button input=belmont_equipment_control::Button::None;
-        if(World(s)&&m.equipment_visible){
+        if(World(s)&&m.equipment_visible&&!m.pin_controller.Busy()){
             const bool control_due=m.equipment_controller.busy()||!m.inventory.ready||
                 m.inventory.entity!=s.entity||now-m.inventory_control_at>=std::chrono::milliseconds(100);
             if(control_due){
@@ -969,6 +1051,21 @@ void Sample(void* p, const EdenDsmodHostApi* h) {
         m.allowed.store(s.supported);m.Queue(display.value.base,display.value.objective,display.value.equipment);
         Publish(*h,display.value.base,&m,display.value.objective,display.value.equipment,display.value.stats,display.dim,&s,display.blocked);
         h->publish_i64(h->userdata,"belmont.equipment_input_button",static_cast<std::int32_t>(input));
+        h->publish_i64(h->userdata,"belmont.map_input_button",pin_button);
+        h->publish_i64(h->userdata,"belmont.map_cursor_pulse",pin_cursor);
+        if(auto intent=m.pins.TakeRequest()){
+            belmont_map_control::Request request;
+            request.operation=intent->operation==belmont_pins::Operation::Add?belmont_map_control::Operation::Add:intent->operation==belmont_pins::Operation::Change?belmont_map_control::Operation::Change:belmont_map_control::Operation::Remove;
+            request.level_guid=m.pin_level_guid;request.navigation_index=m.pin_navigation;request.native_id=intent->pin.native_id;
+            request.type_guid=intent->pin.kind<belmont_pins::KindCount?m.pin_type_guids[intent->pin.kind]:"";
+            request.x=float(intent->pin.x);request.y=float(intent->pin.y);request.bounds=m.pin_bounds;
+            request.source_proven=m.pin_context_ready&&!m.presentation_blocked&&!m.equipment_controller.busy()&&World(s)&&h->write_memory;
+            if(m.pin_controller.Start(request,std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count())){
+                m.pin_request=request;m.pin_ids_before.clear();
+                for(const auto& pin:m.native_pins.pins)if(pin.level_guid==request.level_guid)m.pin_ids_before.insert(pin.id);
+                m.pin_action_reason="requested";
+            }else {m.pins.FinishRequest();m.pin_action_reason="native_pin_request_refused";}
+        }
     } catch (...) {
         try {
             std::lock_guard lock{m.map_mutex}; m.InvalidateLocked();
@@ -983,7 +1080,7 @@ void Configure(void* p, const EdenDsmodHostExtensions* ext) {
     try {
         auto& m = *static_cast<Module*>(p); m.Stop();
         { std::lock_guard lock{m.map_mutex}; m.InvalidateLocked(); }
-        m.marker_native_ready.store(false); m.assets.Configure(ext);m.presentation_blocked=true;m.control_ready=false;m.presentation.Clear();m.full_source.reset();m.details={};m.pins.Clear();
+        m.marker_native_ready.store(false); m.assets.Configure(ext);m.presentation_blocked=true;m.control_ready=false;m.presentation.Clear();m.full_source.reset();m.details={};m.pins.Clear();m.native_pins={};m.pin_controller.Cancel();m.pin_request.reset();
         ce_unity::AstcDecoder astc;
         if (ext && ext->version == EDEN_DSMOD_EXT_VERSION && ext->struct_size == sizeof(*ext) &&
             ext->abi_hash == EDEN_DSMOD_EXT_HASH && ext->decode_astc)
@@ -1233,7 +1330,7 @@ EdenDsmodBool Action(void* p,const char* action,std::int64_t argument){
             }
             return EDEN_DSMOD_TRUE;
         }
-        if(name=="pin_cancel"){m.pins.Cancel();return EDEN_DSMOD_TRUE;}
+        if(name=="pin_cancel"){m.pins.Cancel();m.pin_controller.Cancel();m.pins.FinishRequest();m.pin_request.reset();return EDEN_DSMOD_TRUE;}
         if(m.presentation_blocked)return EDEN_DSMOD_FALSE;
         if(name=="equipment_category"){
             if(!m.control_ready||m.equipment_controller.busy()||argument<1||argument>3)return EDEN_DSMOD_FALSE;
@@ -1267,7 +1364,7 @@ EdenDsmodBool Action(void* p,const char* action,std::int64_t argument){
 }
 const EdenDsmodModuleApi Api{EDEN_DSMOD_MODULE_ABI_VERSION, sizeof(EdenDsmodModuleApi), 0,
     EDEN_DSMOD_MODULE_ABI_HASH, belmont::Title, "Belmont companion prototype",
-    EDEN_DSMOD_CAP_EXTENSIONS | EDEN_DSMOD_CAP_ROMFS_READ,
+    EDEN_DSMOD_CAP_EXTENSIONS | EDEN_DSMOD_CAP_ROMFS_READ | EDEN_DSMOD_CAP_WRITE_MEMORY,
     &Supports, &Create, &Destroy, &Sample, &Tick};
 const EdenDsmodModuleExtensions Extensions{EDEN_DSMOD_EXT_VERSION, sizeof(EdenDsmodModuleExtensions),
     EDEN_DSMOD_EXT_HASH, &Configure, &Action, &LoadImage};

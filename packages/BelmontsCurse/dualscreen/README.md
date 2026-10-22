@@ -10,7 +10,7 @@ Switching pages preserves the map view. Native geometry, explored-zone fog, font
 the Rose marker are read from the player's recognized installation. Local touch pan/zoom, the
 centered zoom rail and Reset adjust the companion view. Use Pin at the top right to choose one of nine native marker symbols, then tap the map
 to place it. Ordinary map taps do not open the chooser. Tap an existing pin to edit or remove
-it; Cancel abandons a pending placement. Pins last for the current session only. Equipment category taps open
+it; Cancel abandons a pending placement. Pins use the game’s native saved marker list, shared with the top-screen map. The companion opens the native Map menu to apply a requested pin change and waits for the saved marker data to confirm it. Equipment category taps open
 a scrolling grid of owned native items. Selecting an item navigates the game’s own equipment
 menu using ordinary controller inputs, checked against fresh native selection and menu state.
 Relics use the native two-step item and destination-slot selection; choices from another native
@@ -18,7 +18,7 @@ Relics page first navigate to that page and verify its selection. The compact Eq
 sits at the top, with tightly spaced native health/mana upgrade fragments inside the same
 plate, supporting stat text, and the equipment categories and artwork below. Map stays at the bottom right in every Equipment view. On the
 map, Equipment is at the bottom left. The module reads game
-memory and RomFS without guest writes or calls. Equipment changes are real gameplay changes.
+memory and RomFS. Pin placement can write only the validated native placement transaction’s two coordinates before a normal controller confirmation; the game allocates, limits and saves the marker. No managed pin-list edits or guest function calls are used. Equipment and pin changes are real gameplay changes.
 
 Desktop live checks cover the opening area, walking/reveal changes, transition into the Sewers,
 loading/title, native Equipment pause, touch inspection/reset and unsupported-build refusal.
@@ -37,7 +37,7 @@ Equipment and owned-inventory acquisition run only while the Equipment view is o
 The generic host map handles local pan/zoom. Sub-area follows Rose; Area frames every revealed
 zone of the current region. Reset appears only after pan or pinch; it returns to Sub-area and recentres the local view.
 Manual inspection persists through room/loading interruptions and newly revealed map images;
-the tier controls explicitly apply their selected view. Title/loading
+the tier controls explicitly apply their selected view and redraw while Rose is stationary. Title/loading
 clear stale map, marker, name and coordinates; a coherent native pause keeps the current map
 available. Compatible cinematic/dialogue interruptions retain a dimmed, noninteractive bottom
 view; a brief incoherent sample holds the previous brightness and compatible view for at most180ms.
@@ -75,6 +75,6 @@ parity, separate secret-item overlays, FastTravel map geometry and the world-ove
 not claimed. Optional DLC absence alone is not an error; no DLC-dependent companion feature is
 claimed. Module libraries and their manifest hashes must match the actual build being packaged.
 
-Map marker coverage includes Rose, session pins, verified discovered landmarks, used native save points, discovered non-secret elevator endpoints, and unlocked native blue fast-travel points. Save points use the native normal or last-used glyph only when coherent room usage, last-save identity, map-revelation policy and navigation agree. Unknown conditions stay hidden. Elevator endpoints require an exact coherent entered-zone match; secret-linked and used-only reveals remain hidden. Their native base responsive sizes are retained; native maximum-zoom growth is not mapped to companion pinch zoom. Fast-travel points require a coherent unlocked LevelID plus the native map-revelation and navigation gates. Unknown or locked destinations stay hidden. This is a read-only overlay, separate from the game’s FastTravel map geometry. General door, activable, biome-transition, full elevator/link, mirror, character, death and secret overlays still need separate live-reader coverage.
+Map marker coverage includes Rose, native saved user pins, verified discovered landmarks, used native save points, discovered non-secret elevator endpoints, and unlocked native blue fast-travel points. Save points use the native normal or last-used glyph only when coherent room usage, last-save identity, map-revelation policy and navigation agree. Unknown conditions stay hidden. Elevator endpoints require an exact coherent entered-zone match; secret-linked and used-only reveals remain hidden. Their native base responsive sizes are retained; native maximum-zoom growth is not mapped to companion pinch zoom. Fast-travel points require a coherent unlocked LevelID plus the native map-revelation and navigation gates. Unknown or locked destinations stay hidden. This is a read-only overlay, separate from the game’s FastTravel map geometry. General door, activable, biome-transition, full elevator/link, mirror, character, death and secret overlays still need separate live-reader coverage.
 
 Navigation and action buttons use the native dark leather tab material, with a brighter armed/active state. Their existing touch bounds and actions are retained.

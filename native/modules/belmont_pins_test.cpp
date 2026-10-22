@@ -2,146 +2,174 @@
 #include "belmont_pins.h"
 #include <iostream>
 #include <stdexcept>
-using belmont_pins::Store;
+#include <vector>
+using namespace belmont_pins;
 void Check(bool value, const char *why) {
   if (!value)
     throw std::runtime_error(why);
 }
 std::size_t Count(const Store &s) {
   std::size_t n = 0;
-  for (const auto &pin : s.All())
-    if (pin)
+  for (const auto &p : s.All())
+    if (p)
       ++n;
   return n;
 }
 void Arm(Store &s, int kind) {
-  Check(s.Open(), "open chooser");
-  Check(s.Picker() && !s.Armed(), "chooser precedes placement");
-  Check(s.Choose(kind), "choose native icon");
-  Check(s.Armed() && !s.Picker(), "choice arms without chooser");
+  Check(s.Open() && s.Picker() && !s.Armed(), "chooser first");
+  Check(s.Choose(kind) && s.Armed() && !s.Picker(),
+        "choose arms coordinate capture");
 }
 int main() {
   try {
     Store s;
-    Check(!s.Open() && !s.Begin(0) && !s.Capture(1, 10, 20),
-          "inactive store cannot choose or place");
+    Check(!s.Open() && !s.Begin(0) && !s.Capture(1, 1, 2),
+          "inactive cannot enqueue");
     s.Context("A", {0, 0, 100, 100}, true);
-    Check(!s.Begin(1) && !s.Capture(2, 10, 20) && !s.Picker() && !s.Armed() &&
+    Check(!s.Begin(0) && !s.Capture(1, 1, 2) && !s.TakeRequest(),
+          "unarmed tap ignored");
+    Check(s.Open() && !s.Begin(0) && !s.Choose(-1) && !s.Choose(9) &&
+              s.Picker(),
+          "valid icon required");
+    Check(s.Choose(3) && !s.Capture(2, 1, 2), "unsolicited coordinate ignored");
+    Check(s.Begin(5) && !s.Begin(5) && !s.Capture(5, 1, 2) &&
+              !s.Capture(4, 1, 2) && s.Waiting(),
+          "fresh sequence required");
+    Check(s.Capture(6, 10, 20) && s.Busy() && !s.Armed() && !s.Picker() &&
               Count(s) == 0,
-          "unarmed map tap neither opens chooser nor creates pin");
-    Check(s.Open() && s.Picker() && !s.Armed() && Count(s) == 0,
-          "pin button opens chooser first");
-    Check(!s.Begin(2) && !s.Choose(9) && !s.Choose(-1) && s.Picker(),
-          "chooser requires valid icon before map placement");
-    Check(s.Choose(3) && s.Armed() && !s.Picker() && Count(s) == 0,
-          "icon choice defers pin creation");
-    Check(!s.Capture(9, 10, 20) && s.Armed(),
-          "unsolicited coordinate cannot place chosen icon");
-    Check(s.Begin(10) && s.Waiting() && s.Armed(),
-          "armed map tap begins fresh coordinate capture");
-    Check(!s.Begin(10) && !s.Capture(10, 10, 20) && !s.Capture(9, 10, 20) &&
-              s.Waiting(),
-          "pending capture rejects repeated begin and stale SDK sequence");
-    Check(s.Capture(11, 10, 20) && !s.Armed() && !s.Waiting() && !s.Picker(),
-          "next fresh coordinate places and disarms");
-    Check(Count(s) == 1 && s.All()[0]->area == "A" && s.All()[0]->x == 10 &&
-              s.All()[0]->y == 20 && s.All()[0]->kind == 3,
-          "placed coordinate and chosen native icon retained");
-    Check(!s.Begin(11) && !s.Capture(12, 30, 40) && Count(s) == 1,
-          "placement is single use");
-    Check(s.Open(), "new chooser");
+          "add intent without optimistic pin");
+    Check(!s.Open() && !s.Begin(7) && !s.Select(0) && !s.Choose(2) &&
+              !s.Remove(),
+          "pending blocks competing input");
+    auto q = s.TakeRequest();
+    Check(q && q->operation == Operation::Add && q->pin.area == "A" &&
+              q->pin.x == 10 && q->pin.y == 20 && q->pin.kind == 3 &&
+              q->pin.native_id == -1,
+          "exact add request");
+    Check(s.Busy() && !s.TakeRequest() && !s.Open(),
+          "dispatch one shot remains busy");
     s.Cancel();
-    Check(Count(s) == 1 && !s.Picker(),
-          "cancel chooser does not mutate existing pins");
-    Arm(s, 5);
-    Check(s.Begin(12), "capture before cancel");
-    s.Cancel();
-    Check(!s.Capture(13, 30, 40) && !s.Armed() && !s.Waiting() && Count(s) == 1,
-          "cancel clears armed and pending capture");
-    Check(s.Select(0) && s.Picker() && s.Editing() && !s.Armed(),
-          "existing pin opens edit chooser");
-    Check(!s.Begin(13) && s.Choose(8) && s.All()[0]->kind == 8 &&
-              s.All()[0]->x == 10 && s.All()[0]->y == 20 && !s.Armed() &&
-              !s.Picker(),
-          "edit choice applies immediately without new placement");
-    Check(s.Select(0), "select edit for cancel");
-    s.Cancel();
-    Check(s.All()[0]->kind == 8, "edit cancel preserves pin");
-    Check(!s.Select(-1) && !s.Select(32), "invalid pin selection rejected");
-    Check(s.Select(0) && s.Remove() && Count(s) == 0 && !s.Armed() &&
-              !s.Picker() && !s.Remove(),
-          "remove applies only to existing edit target");
-    Arm(s, 0);
-    Check(s.Begin(20) && !s.Capture(21, NAN, 2) && !s.Waiting() && s.Armed(),
-          "invalid fresh coordinate leaves chosen icon armed for retry");
-    Check(s.Begin(21) && !s.Capture(22, 101, 2) && s.Armed(),
-          "out of bounds does not place");
-    Check(s.Begin(22) && !s.Capture(23, INFINITY, 2),
-          "infinite coordinate rejected");
-    Check(s.Begin(23) && s.Capture(24, 100, 0) && Count(s) == 1,
-          "valid boundary coordinate places on retry");
-    Check(s.Open(), "chooser before area change");
-    s.Context("B", {0, 0, 100, 100}, true);
-    Check(!s.Picker() && !s.Armed() && !s.Select(0) && Count(s) == 1,
-          "area change cancels chooser and scopes existing pins");
-    s.Context("A", {0, 0, 100, 100}, true);
-    Arm(s, 4);
-    s.Context("A", {0, 0, 100, 100}, true);
-    Check(s.Armed() && s.Begin(30), "unchanged context preserves armed state");
-    s.Context("A", {0, 0, 100, 100}, true);
-    Check(s.Waiting() && s.Capture(31, 40, 50) && Count(s) == 2,
-          "unchanged context preserves pending SDK capture");
+    Check(s.Busy(), "cancel cannot imply dispatched native action undone");
+    s.FinishRequest();
+    Check(!s.Busy() && Count(s) == 0, "finish does not invent native result");
+    std::vector<Pin> native{{"A", 10, 20, 3, 42, 1}};
+    Check(s.SetPins(native) && Count(s) == 1 && s.All()[0]->native_id == 42,
+          "native top add becomes visible");
+    native.push_back({"A", 30, 40, 2, 77, 1});
+    Check(s.SetPins(native) && Count(s) == 2, "second top pin");
+    Check(s.Select(0) && s.Editing(), "edit existing pin");
+    std::swap(native[0], native[1]);
+    native[1].kind = 5;
+    native[1].x = 15;
+    Check(s.SetPins(native) && s.Editing() && s.All()[1]->kind == 5,
+          "top edit and reorder preserve native identity");
+    Check(s.Choose(8) && s.Busy() && s.All()[1]->kind == 5 &&
+              s.All()[1]->x == 15,
+          "edit emits intent without optimistic mutation");
+    q = s.TakeRequest();
+    Check(q && q->operation == Operation::Change && q->pin.native_id == 42 &&
+              q->pin.native_navigation == 1 && q->pin.kind == 8 &&
+              q->pin.x == 15,
+          "change targets stable refreshed identity");
+    s.FinishRequest();
+    Check(s.All()[1]->kind == 5,
+          "failed/unacknowledged change remains source value");
+    native[1].kind = 8;
+    Check(s.SetPins(native) && s.All()[1]->kind == 8,
+          "native acknowledged change visible");
+    Check(s.Select(1) && s.Remove() && Count(s) == 2 && s.Busy(),
+          "remove is only intent");
+    q = s.TakeRequest();
+    Check(q && q->operation == Operation::Remove && q->pin.native_id == 42 &&
+              q->pin.kind == 8,
+          "exact native remove identity");
+    native.pop_back();
+    Check(s.SetPins(native) && Count(s) == 1 && s.Busy(),
+          "native top delete refresh independent of execution lock");
+    s.FinishRequest();
+    Check(!s.Busy() && Count(s) == 1, "delete completion no extra mutation");
+    Check(s.Select(0), "select before top delete");
+    native.clear();
+    Check(s.SetPins(native) && !s.Editing() && !s.Picker() && !s.Remove(),
+          "top deletion cancels missing edit target");
+    native = {{"A", 10, 20, 0, 12, 0}, {"A", 30, 40, 1, 12, 1}};
+    Check(s.SetPins(native) && s.Select(1) && s.Remove(),
+          "same ID across navigation scoped separately");
+    q = s.TakeRequest();
+    Check(q && q->pin.native_navigation == 1,
+          "navigation scopes selected native identity");
+    s.FinishRequest();
+    Check(s.Select(0) && s.Remove(), "pending remove before top delete");
+    native.erase(native.begin());
+    Check(s.SetPins(native) && !s.Busy() && !s.TakeRequest(),
+          "target gone cancels undispatched remove");
     Arm(s, 2);
-    Check(s.Begin(40), "pending before map bounds change");
-    s.Context("A", {0, 0, 200, 200}, true);
-    Check(!s.Armed() && !s.Waiting() && !s.Capture(41, 1, 2) && Count(s) == 2,
-          "map context bounds change cancels pending placement");
-    Arm(s, 1);
-    s.Context("A", {0, 0, 200, 200}, false);
-    Check(!s.Armed() && !s.Open() && !s.Begin(42) && Count(s) == 2,
-          "dim loading disabled context cancels and blocks placement");
-    s.Context("A", {0, 0, 200, 200}, true);
-    Check(s.Select(0), "select before disabling context");
-    s.Context("A", {0, 0, 200, 200}, false);
-    Check(!s.Remove() && Count(s) == 2, "disabled edit cannot delete pin");
-    s.Context("A", {0, 0, 200, 200}, true);
-    Arm(s, 1);
-    s.Context("", {0, 0, 200, 200}, true);
-    Check(!s.Armed() && !s.Open(), "missing area disables armed placement");
-    s.Context("A", {0, 0, NAN, 200}, true);
-    Check(!s.Open(), "invalid bounds disable interactions");
-    s.Context("A", {0, 0, 200, 200}, true);
-    s.Clear();
-    for (unsigned n = 0; n < 32; ++n) {
-      Arm(s, int(n % 9));
-      Check(s.Begin(100 + 2 * n) && s.Capture(101 + 2 * n, n + 1, 2),
-            "fill bounded session pins");
-    }
-    Check(Count(s) == 32 && s.Open() && !s.Choose(0) && s.Picker() &&
-              !s.Armed() && !s.Begin(200),
-          "full capacity cannot arm a 33rd pin");
+    Check(s.Begin(10) && !s.Capture(11, NAN, 2) && !s.Waiting() && s.Armed(),
+          "NaN leaves armed for retry");
+    Check(s.Begin(11) && !s.Capture(12, 101, 2) && s.Armed(), "bounds reject");
+    Check(s.Begin(12) && !s.Capture(13, INFINITY, 2), "infinity reject");
+    Check(s.Begin(13) && s.Capture(14, 100, 0) && Count(s) == 1,
+          "boundary only enqueues");
     s.Cancel();
-    Check(s.Select(0) && s.Choose(8) && s.All()[0]->kind == 8 && Count(s) == 32,
-          "full store still edits existing pins");
-    s.Context("B", {0, 0, 200, 200}, true);
-    Check(s.Open() && !s.Choose(1) && Count(s) == 32,
-          "capacity applies across session areas");
+    Check(!s.Busy() && !s.TakeRequest() && Count(s) == 1,
+          "cancel removes undispatched intent");
+    Arm(s, 1);
+    s.Context("A", {0, 0, 100, 100}, true);
+    Check(s.Armed() && s.Begin(15), "same context preserves capture");
     s.Context("A", {0, 0, 200, 200}, true);
-    Check(s.Select(0) && s.Remove() && Count(s) == 31, "remove frees one slot");
-    Arm(s, 7);
-    Check(Count(s) == 31 && s.Begin(201) && s.Capture(202, 5, 6) &&
-              Count(s) == 32 && s.All()[0]->kind == 7,
-          "replacement reuses freed slot only after map placement");
-    Check(s.Open(), "chooser before clear");
+    Check(!s.Armed() && !s.Waiting() && !s.Capture(16, 1, 2),
+          "bounds change cancels capture");
+    Arm(s, 1);
+    s.Context("B", {0, 0, 200, 200}, true);
+    Check(!s.Armed() && !s.Select(0), "area change scopes selection");
+    s.Context("A", {0, 0, 200, 200}, true);
+    Check(s.Select(0), "select before disable");
+    s.Context("A", {0, 0, 200, 200}, false);
+    Check(!s.Remove() && !s.Open() && !s.Editing() && Count(s) == 1,
+          "loading disabled context");
+    s.Context("", {0, 0, 200, 200}, true);
+    Check(!s.Open(), "empty area blocked");
+    s.Context("A", {0, 0, NAN, 200}, true);
+    Check(!s.Open(), "invalid bounds blocked");
+    s.Context("A", {0, 0, 200, 200}, true);
+    native.clear();
+    for (unsigned i = 0; i < Capacity; ++i)
+      native.push_back({"A", double(i), 2, i % 9, int(i), 0});
+    Check(s.SetPins(native) && Count(s) == Capacity && s.Open() &&
+              !s.Choose(0) && s.Picker(),
+          "native capacity bounds new intents");
+    s.Cancel();
+    Check(s.Select(0) && s.Choose(8) && Count(s) == Capacity,
+          "full native snapshot still permits edit intent");
+    s.Cancel();
+    native.push_back({"A", 1, 2, 0, 99, 0});
+    Check(!s.SetPins(native) && Count(s) == 0 && !s.Busy(),
+          "oversized authoritative snapshot fails atomically");
+    native = {{"A", 1, 2, 0, 1, 0}, {"A", 3, 4, 2, 1, 0}};
+    Check(!s.SetPins(native) && Count(s) == 0, "duplicate identity refused");
+    native = {{"A", 1, 2, 0, -1, 0}};
+    Check(!s.SetPins(native), "unsaved identity refused");
+    native[0].native_id = 1;
+    native[0].native_navigation = -1;
+    Check(!s.SetPins(native), "unknown navigation refused");
+    native[0].native_navigation = 0;
+    native[0].kind = 9;
+    Check(!s.SetPins(native), "unknown glyph refused");
+    native[0].kind = 0;
+    native[0].x = NAN;
+    Check(!s.SetPins(native), "malformed native coordinate refused");
+    Check(s.SetPins({}) && Count(s) == 0, "native empty snapshot valid");
+    Arm(s, 1);
+    Check(s.Begin(20) && s.Capture(21, 2, 3) && s.TakeRequest() && s.Busy(),
+          "executing before clear");
     s.Clear();
-    Check(Count(s) == 0 && !s.Picker() && !s.Armed() && !s.Waiting(),
-          "clear discards all pins and interaction state");
-    Check(belmont_pins::NativeImage(0).find("1912900965121370566") !=
-                  std::string::npos &&
-              belmont_pins::NativeImage(9).empty() &&
-              belmont_pins::Image(9).empty(),
-          "native icon identities remain bounded");
-    std::cout << "pin store tests passed\n";
+    Check(!s.Busy() && !s.Waiting() && !s.Picker() && !s.Armed() &&
+              Count(s) == 0,
+          "clear hard resets UI shadow");
+    Check(NativeImage(0).find("1912900965121370566") != std::string::npos &&
+              NativeImage(9).empty() && Image(9).empty(),
+          "native glyph bounds");
+    std::cout << "native pin shadow tests passed\n";
   } catch (const std::exception &e) {
     std::cerr << e.what() << '\n';
     return 1;

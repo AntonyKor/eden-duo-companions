@@ -4,9 +4,12 @@
 #include <cmath>
 #include <cstdint>
 #include <optional>
+#include <set>
+#include <span>
 #include <string>
+#include <tuple>
 namespace belmont_pins {
-inline constexpr std::size_t Capacity = 32, KindCount = 9;
+inline constexpr std::size_t Capacity = 64, KindCount = 9;
 // Native MapMarker_*_DisplayData.markerIcon PPtrs (map-common external CAB2).
 // Asset identities only: no game text, pixels or progression table is shipped.
 inline constexpr std::array<std::int64_t, KindCount> Sprites{
@@ -28,6 +31,12 @@ struct Pin {
   std::string area;
   double x{}, y{};
   std::size_t kind{};
+  std::int32_t native_id{-1}, native_navigation{-1};
+};
+enum class Operation { Add, Change, Remove };
+struct Request {
+  Operation operation;
+  Pin pin;
 };
 struct Bounds {
   double x0{}, y0{}, x1{}, y1{};
@@ -46,19 +55,74 @@ struct Bounds {
 class Store {
   std::array<std::optional<Pin>, Capacity> pins{};
   std::optional<std::size_t> armed_kind;
+  std::optional<Pin> editing;
+  std::optional<Request> request;
   std::string area;
   Bounds bounds;
-  bool interactive{}, choosing{}, waiting{};
+  bool interactive{}, choosing{}, waiting{}, executing{};
   std::int64_t old_sequence{-1};
-  int editing{-1};
-  int FreeSlot() const {
-    for (std::size_t n = 0; n < Capacity; ++n)
-      if (!pins[n])
-        return int(n);
-    return -1;
+  static bool SameIdentity(const Pin &a, const Pin &b) {
+    return a.area == b.area && a.native_id == b.native_id &&
+           a.native_navigation == b.native_navigation;
+  }
+  const Pin *Find(const Pin &target) const {
+    for (const auto &p : pins)
+      if (p && SameIdentity(*p, target))
+        return &*p;
+    return nullptr;
+  }
+  bool HasCapacity() const {
+    for (const auto &p : pins)
+      if (!p)
+        return true;
+    return false;
+  }
+  bool Enqueue(Operation operation, Pin pin) {
+    if (Busy())
+      return false;
+    Cancel();
+    request = Request{operation, std::move(pin)};
+    return true;
   }
 
 public:
+  // The caller supplies only source-joined pins for the current native level /
+  // navigation. This is the sole path that changes visible saved pin records.
+  // Reject malformed snapshots atomically rather than truncate or retain stale
+  // pins. Stable native identity preserves an open edit when native lists
+  // reorder.
+  bool SetPins(std::span<const Pin> native) {
+    std::array<std::optional<Pin>, Capacity> next{};
+    std::set<std::tuple<std::string, std::int32_t, std::int32_t>> identities;
+    bool valid = native.size() <= Capacity;
+    if (valid)
+      for (std::size_t i = 0; i < native.size(); ++i) {
+        const auto &p = native[i];
+        if (p.area.empty() || p.kind >= KindCount || p.native_id < 0 ||
+            p.native_navigation < 0 || p.native_navigation > 255 ||
+            !std::isfinite(p.x) || !std::isfinite(p.y) ||
+            !identities.emplace(p.area, p.native_navigation, p.native_id)
+                 .second) {
+          valid = false;
+          break;
+        }
+        next[i] = p;
+      }
+    pins = valid ? std::move(next) : decltype(next){};
+    if (!valid) {
+      Cancel();
+      return false;
+    }
+    if (editing) {
+      if (const auto *p = Find(*editing))
+        editing = *p;
+      else
+        Cancel();
+    }
+    if (request && request->operation != Operation::Add && !Find(request->pin))
+      request.reset();
+    return true;
+  }
   void Context(std::string current, Bounds b, bool enabled) {
     const bool valid = enabled && !current.empty() && b.Valid();
     if (!valid || area != current || !bounds.Same(b))
@@ -67,88 +131,101 @@ public:
     bounds = b;
     interactive = valid;
   }
-  // Pin button opens the native icon chooser before a map coordinate exists.
   bool Open() {
-    if (!interactive)
+    if (!interactive || Busy())
       return false;
     Cancel();
     choosing = true;
     return true;
   }
-  // A map tap can request a fresh SDK coordinate only after an icon is chosen.
-  // Do not consume a stale coordinate from the chooser or an earlier map tap.
   bool Begin(std::int64_t sequence) {
-    if (!interactive || !armed_kind || choosing || waiting || sequence < -1)
+    if (!interactive || Busy() || !armed_kind || choosing || waiting ||
+        sequence < -1)
       return false;
     waiting = true;
     old_sequence = sequence;
     return true;
   }
   bool Capture(std::int64_t sequence, double x, double y) {
-    if (!interactive || !armed_kind || !waiting || sequence <= old_sequence)
+    if (!interactive || Busy() || !armed_kind || !waiting ||
+        sequence <= old_sequence)
       return false;
     waiting = false;
-    if (!bounds.Contains(x, y))
+    if (!bounds.Contains(x, y) || !HasCapacity())
       return false;
-    const int target = FreeSlot();
-    if (target < 0)
-      return false;
-    pins[std::size_t(target)] = Pin{area, x, y, *armed_kind};
-    Cancel();
-    return true;
+    return Enqueue(Operation::Add, Pin{area, x, y, *armed_kind});
   }
   bool Select(std::int64_t index) {
-    if (!interactive || index < 0 || index >= std::int64_t(Capacity) ||
-        !pins[std::size_t(index)] || pins[std::size_t(index)]->area != area)
+    if (!interactive || Busy() || index < 0 ||
+        index >= std::int64_t(Capacity) || !pins[std::size_t(index)] ||
+        pins[std::size_t(index)]->area != area)
       return false;
     Cancel();
-    editing = int(index);
+    editing = *pins[std::size_t(index)];
     choosing = true;
     return true;
   }
   bool Choose(std::int64_t kind) {
-    if (!interactive || !choosing || kind < 0 ||
+    if (!interactive || Busy() || !choosing || kind < 0 ||
         kind >= std::int64_t(KindCount))
       return false;
-    if (editing >= 0) {
-      auto &pin = pins[std::size_t(editing)];
-      if (!pin || pin->area != area)
+    if (editing) {
+      const auto *target = Find(*editing);
+      if (!target || target->area != area)
         return false;
-      pin->kind = std::size_t(kind);
-      Cancel();
-      return true;
+      Pin changed = *target;
+      changed.kind = std::size_t(kind);
+      return Enqueue(Operation::Change, std::move(changed));
     }
-    // At capacity, preserve the chooser for cancel/edit; never arm a 33rd pin.
-    if (FreeSlot() < 0)
+    if (!HasCapacity())
       return false;
     Cancel();
     armed_kind = std::size_t(kind);
     return true;
   }
   bool Remove() {
-    if (!interactive || !choosing || editing < 0)
+    if (!interactive || Busy() || !choosing || !editing)
       return false;
-    auto &pin = pins[std::size_t(editing)];
-    if (!pin || pin->area != area)
+    const auto *target = Find(*editing);
+    if (!target || target->area != area)
       return false;
-    pin.reset();
-    Cancel();
-    return true;
+    return Enqueue(Operation::Remove, *target);
+  }
+  bool Busy() const { return request.has_value() || executing; }
+  std::optional<Request> TakeRequest() {
+    if (executing || !request)
+      return {};
+    auto out = std::move(request);
+    request.reset();
+    executing = true;
+    return out;
+  }
+  // Completion or failure releases input; the next SetPins supplies the actual
+  // native result. Neither request dispatch nor completion changes visible
+  // pins.
+  void FinishRequest() {
+    request.reset();
+    executing = false;
   }
   void Cancel() {
     armed_kind.reset();
+    editing.reset();
+    request.reset();
     choosing = waiting = false;
-    editing = -1;
     old_sequence = -1;
+    // A dispatched native action cannot be undone locally; the controller must
+    // cancel/acknowledge and call FinishRequest before another action may
+    // start.
   }
   void Clear() {
     Cancel();
-    for (auto &pin : pins)
-      pin.reset();
+    FinishRequest();
+    for (auto &p : pins)
+      p.reset();
   }
   bool Waiting() const { return waiting; }
   bool Picker() const { return choosing; }
-  bool Editing() const { return choosing && editing >= 0; }
+  bool Editing() const { return choosing && editing.has_value(); }
   bool Armed() const { return armed_kind.has_value(); }
   const auto &All() const { return pins; }
 };

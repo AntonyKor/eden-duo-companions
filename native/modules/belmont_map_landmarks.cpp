@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "belmont_map_landmarks.h"
 #include "belmont_map_refs.h"
+#include "belmont_pins.h"
 #include <algorithm>
 #include <cmath>
 #include <set>
@@ -113,6 +114,296 @@ bool Metadata(const V &s, Sprite &art) {
       return false;
   return true;
 }
+// Minimal bounded JSON traversal for the installed Addressables catalog. It
+// retains views into one capped file buffer, not a general-purpose DOM.
+struct Json {
+  std::string_view s;
+  std::size_t p{}, nodes{};
+  void Ws() {
+    while (p < s.size() &&
+           (s[p] == ' ' || s[p] == '\n' || s[p] == '\r' || s[p] == '\t'))
+      ++p;
+  }
+  bool Char(char c) {
+    Ws();
+    if (p == s.size() || s[p] != c)
+      return false;
+    ++p;
+    return true;
+  }
+  std::optional<std::string_view> String() {
+    Ws();
+    if (p == s.size() || s[p++] != '"')
+      return {};
+    auto start = p;
+    while (p < s.size()) {
+      auto c = static_cast<unsigned char>(s[p++]);
+      if (c == '"')
+        return s.substr(start, p - start - 1);
+      if (c < 32)
+        return {};
+      if (c == '\\') {
+        if (p == s.size())
+          return {};
+        auto e = s[p++];
+        if (e == 'u') {
+          for (int k = 0; k < 4; ++k) {
+            if (p == s.size() ||
+                !((s[p] >= '0' && s[p] <= '9') ||
+                  (s[p] >= 'a' && s[p] <= 'f') || (s[p] >= 'A' && s[p] <= 'F')))
+              return {};
+            ++p;
+          }
+        } else if (std::string_view("\"\\/bfnrt").find(e) ==
+                   std::string_view::npos)
+          return {};
+      }
+    }
+    return {};
+  }
+  bool Value(unsigned depth = 0) {
+    if (depth > 16 || ++nodes > 1000000)
+      return false;
+    Ws();
+    if (p == s.size())
+      return false;
+    if (s[p] == '"')
+      return bool(String());
+    if (s[p] == '{' || s[p] == '[') {
+      bool obj = s[p++] == '{';
+      Ws();
+      auto close = obj ? '}' : ']';
+      if (p < s.size() && s[p] == close) {
+        ++p;
+        return true;
+      }
+      for (;;) {
+        if (obj && (!String() || !Char(':')))
+          return false;
+        if (!Value(depth + 1))
+          return false;
+        Ws();
+        if (p == s.size())
+          return false;
+        if (s[p] == close) {
+          ++p;
+          return true;
+        }
+        if (!Char(','))
+          return false;
+      }
+    }
+    auto start = p;
+    while (p < s.size() && s[p] != ',' && s[p] != '}' && s[p] != ']' &&
+           s[p] != ' ' && s[p] != '\n' && s[p] != '\r' && s[p] != '\t')
+      ++p;
+    auto token = s.substr(start, p - start);
+    if (token == "true" || token == "false" || token == "null")
+      return true;
+    std::size_t n = 0;
+    if (n < token.size() && token[n] == '-')
+      ++n;
+    if (n == token.size())
+      return false;
+    if (token[n] == '0')
+      ++n;
+    else {
+      if (token[n] < '1' || token[n] > '9')
+        return false;
+      while (n < token.size() && token[n] >= '0' && token[n] <= '9')
+        ++n;
+    }
+    if (n < token.size() && token[n] == '.') {
+      auto q = ++n;
+      while (n < token.size() && token[n] >= '0' && token[n] <= '9')
+        ++n;
+      if (q == n)
+        return false;
+    }
+    if (n < token.size() && (token[n] == 'e' || token[n] == 'E')) {
+      ++n;
+      if (n < token.size() && (token[n] == '+' || token[n] == '-'))
+        ++n;
+      auto q = n;
+      while (n < token.size() && token[n] >= '0' && token[n] <= '9')
+        ++n;
+      if (q == n)
+        return false;
+    }
+    return n == token.size();
+  }
+};
+std::optional<std::map<std::string, std::string_view>>
+CatalogFields(std::string_view s) {
+  Json j{s};
+  if (!j.Char('{'))
+    return {};
+  std::map<std::string, std::string_view> fields;
+  std::set<std::string_view> seen;
+  for (;;) {
+    auto key = j.String();
+    if (!key || key->find('\\') != std::string_view::npos ||
+        !seen.insert(*key).second || !j.Char(':'))
+      return {};
+    j.Ws();
+    auto at = j.p;
+    if (!j.Value())
+      return {};
+    if (*key == "m_InternalIds" || *key == "m_KeyDataString" ||
+        *key == "m_BucketDataString" || *key == "m_EntryDataString")
+      fields.emplace(*key, s.substr(at, j.p - at));
+    j.Ws();
+    if (j.p < s.size() && s[j.p] == '}') {
+      ++j.p;
+      break;
+    }
+    if (!j.Char(','))
+      return {};
+  }
+  j.Ws();
+  if (j.p != s.size() || fields.size() != 4)
+    return {};
+  return fields;
+}
+std::optional<std::vector<std::uint8_t>> Base64(std::string_view raw) {
+  Json j{raw};
+  auto s = j.String();
+  j.Ws();
+  if (!s || j.p != raw.size() || s->size() % 4 || s->size() > 24 * 1024 * 1024)
+    return {};
+  std::vector<std::uint8_t> out;
+  out.reserve(s->size() / 4 * 3);
+  auto digit = [](char c) -> int {
+    if (c >= 'A' && c <= 'Z')
+      return c - 'A';
+    if (c >= 'a' && c <= 'z')
+      return c - 'a' + 26;
+    if (c >= '0' && c <= '9')
+      return c - '0' + 52;
+    if (c == '+')
+      return 62;
+    if (c == '/')
+      return 63;
+    return -1;
+  };
+  for (std::size_t i = 0; i < s->size(); i += 4) {
+    auto a = digit((*s)[i]), b = digit((*s)[i + 1]);
+    bool pad2 = (*s)[i + 2] == '=', pad3 = (*s)[i + 3] == '=';
+    auto c = pad2 ? 0 : digit((*s)[i + 2]), d = pad3 ? 0 : digit((*s)[i + 3]);
+    if (a < 0 || b < 0 || c < 0 || d < 0 || (pad2 && !pad3) ||
+        ((pad2 || pad3) && i + 4 != s->size()) || (pad2 && (b & 15)) ||
+        (!pad2 && pad3 && (c & 3)))
+      return {};
+    std::uint32_t n = (a << 18) | (b << 12) | (c << 6) | d;
+    out.push_back(n >> 16);
+    if (!pad2)
+      out.push_back(n >> 8);
+    if (!pad3)
+      out.push_back(n);
+  }
+  return out;
+}
+std::optional<std::uint32_t> U32(std::span<const std::uint8_t> b,
+                                 std::size_t p) {
+  if (p > b.size() || 4 > b.size() - p)
+    return {};
+  return std::uint32_t(b[p]) | std::uint32_t(b[p + 1]) << 8 |
+         std::uint32_t(b[p + 2]) << 16 | std::uint32_t(b[p + 3]) << 24;
+}
+bool Guid(std::string_view s) {
+  return s.size() == 32 && std::all_of(s.begin(), s.end(), [](char c) {
+           return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+         });
+}
+std::optional<std::map<std::string, std::string>>
+Addresses(std::string_view catalog, const std::set<std::string> &guids) {
+  auto fields = CatalogFields(catalog);
+  if (!fields)
+    return {};
+  auto keys = Base64(fields->at("m_KeyDataString")),
+       buckets = Base64(fields->at("m_BucketDataString")),
+       entries = Base64(fields->at("m_EntryDataString"));
+  if (!keys || !buckets || !entries)
+    return {};
+  auto kn = U32(*keys, 0), bn = U32(*buckets, 0), en = U32(*entries, 0);
+  if (!kn || !bn || !en || *kn != *bn || *bn > 200000 || *en > 200000 ||
+      entries->size() != 4 + std::size_t(*en) * 28)
+    return {};
+  std::map<std::string, std::uint32_t> targets;
+  std::size_t pos = 4;
+  for (std::uint32_t i = 0; i < *bn; ++i) {
+    auto ko = U32(*buckets, pos), n = U32(*buckets, pos + 4);
+    pos += 8;
+    if (!ko || !n || *n > 200000 || pos > buckets->size() ||
+        std::size_t(*n) > (buckets->size() - pos) / 4 || *ko >= keys->size())
+      return {};
+    if ((*keys)[*ko] == 0) {
+      auto len = U32(*keys, std::size_t(*ko) + 1);
+      if (!len || std::size_t(*ko) + 5 > keys->size() ||
+          *len > keys->size() - (std::size_t(*ko) + 5))
+        return {};
+      if (*len == 32) {
+        std::string guid(reinterpret_cast<const char *>(keys->data() + *ko + 5),
+                         32);
+        if (guids.contains(guid)) {
+          if (*n != 1)
+            return {};
+          auto ei = U32(*buckets, pos);
+          if (!ei || *ei >= *en)
+            return {};
+          auto id = U32(*entries, 4 + std::size_t(*ei) * 28);
+          if (!id || !targets.emplace(guid, *id).second)
+            return {};
+        }
+      }
+    }
+    pos += std::size_t(*n) * 4;
+  }
+  if (pos != buckets->size() || targets.size() != guids.size())
+    return {};
+  Json ids{fields->at("m_InternalIds")};
+  if (!ids.Char('['))
+    return {};
+  std::map<std::uint32_t, std::string> wanted;
+  for (const auto &[g, id] : targets)
+    wanted.emplace(id, "");
+  std::uint32_t index = 0;
+  ids.Ws();
+  if (ids.p == ids.s.size() || ids.s[ids.p] == ']')
+    return {};
+  for (;;) {
+    auto s = ids.String();
+    if (!s || s->size() > 4096 || index >= 200000)
+      return {};
+    if (auto it = wanted.find(index); it != wanted.end()) {
+      if (s->find('\\') != std::string_view::npos ||
+          !s->starts_with("Assets/Data/Maps/MapMarkers/") ||
+          s->find("..") != std::string::npos || !s->ends_with(".asset"))
+        return {};
+      it->second = *s;
+    }
+    ++index;
+    ids.Ws();
+    if (ids.p < ids.s.size() && ids.s[ids.p] == ']') {
+      ++ids.p;
+      break;
+    }
+    if (!ids.Char(','))
+      return {};
+  }
+  ids.Ws();
+  if (ids.p != ids.s.size())
+    return {};
+  std::map<std::string, std::string> result;
+  for (const auto &[g, id] : targets) {
+    auto it = wanted.find(id);
+    if (it == wanted.end() || it->second.empty())
+      return {};
+    result.emplace(g, it->second);
+  }
+  return result;
+}
+
 // Managed-reference payloads are not interpreted. This bounded prefix schema
 // reads identity/localization and rejects every condition-dependent policy.
 struct NativeData {
@@ -593,6 +884,177 @@ std::optional<FastTravelPoint> ParseFastTravel(
     return {};
   return result;
 }
+constexpr std::string_view Managers =
+    "afm_scenes_scenes_managers_650601800ddfc88b482f7f4a9ca851cf.bundle";
+constexpr std::string_view ManagersCab = "CAB-0d1f3b1580eb36793eb3df18a126b3cb";
+constexpr std::string_view ManagersShared =
+    "CAB-0d1f3b1580eb36793eb3df18a126b3cb.sharedAssets";
+constexpr std::string_view MapCommon =
+    "map-common_assets_all_8379384e501f34587b2eb9eb294b0b1b.bundle";
+constexpr std::string_view MapCommonCab =
+    "CAB-eabd3d803cf517a027fa917c9b3473ca";
+std::optional<std::vector<std::string>>
+Cabs(ce_unity::Reader &r, std::string_view member, std::string_view cab) {
+  auto b = r.OpenBundle(member);
+  auto n = b ? b->FindNode(cab) : nullptr;
+  return n ? belmont_map_refs::ExternalCabs(b->NodeSource(*n)) : std::nullopt;
+}
+bool Script(const V &v, std::int64_t wanted) {
+  std::int64_t id{}, file{};
+  return Ref(v.Get("m_Script"), id, file) && file == 1 && id == wanted;
+}
+bool PinContext(
+    Scene &scene, const belmont_map_sources::SourceRecipe &source,
+    const std::vector<std::string> &cabs,
+    const std::shared_ptr<const ce_unity::SerializedFile> &level_ids,
+    Data &out) {
+  auto context = scene.Get(source.map_context_id);
+  std::int64_t level_id{};
+  if (!context || !Script(*context, 6647830585995460756LL) ||
+      !ExternalIs(cabs, context->Get("level"), LevelIdsCab, level_id))
+    return false;
+  auto level = Obj(level_ids, level_id, 114);
+  auto guid = level ? Text(level->Get("_guid")) : std::nullopt;
+  if (!level || !Script(*level, 1341962149057043309LL) || !guid || !Guid(*guid))
+    return false;
+  auto settings = scene.Get(Local(context->Get("settings")));
+  auto manager = settings
+                     ? scene.Get(Local(settings->Get("navigationZonesManager")))
+                     : nullptr;
+  auto zones = manager ? Array(manager->Get("navigationZones"), 64) : nullptr;
+  if (!manager || !Script(*manager, -1189974016863535272LL) || !zones ||
+      zones->empty())
+    return false;
+  std::set<std::int64_t> seen;
+  std::vector<std::int64_t> ordered;
+  for (const auto &ref : *zones) {
+    auto id = Local(&ref);
+    auto zone = scene.Get(id);
+    if (!id || !seen.insert(id).second || !zone ||
+        !Script(*zone, -2269660471775966453LL))
+      return false;
+    ordered.push_back(id);
+  }
+  if (!seen.contains(Local(manager->Get("mainNavigationZone"))))
+    return false;
+  out.level_guid = *guid;
+  out.navigation_zone_ids = std::move(ordered);
+  return true;
+}
+std::optional<std::vector<PinType>>
+PinTypes(ce_unity::Reader &reader, const ce_unity::RangeReader &romfs) {
+  auto scene = File(reader, Managers, ManagersCab),
+       shared = File(reader, Managers, ManagersShared);
+  auto ids = File(reader, Savable, SavableCab),
+       common = File(reader, MapCommon, MapCommonCab),
+       menu = File(reader, Menu, MenuCab);
+  auto cabs = Cabs(reader, Managers, ManagersCab),
+       shared_cabs = Cabs(reader, Managers, ManagersShared),
+       common_cabs = Cabs(reader, MapCommon, MapCommonCab);
+  if (!scene || !shared || !ids || !common || !menu || !cabs || !shared_cabs ||
+      !common_cabs)
+    return {};
+  auto ui = Obj(scene, 344, 114);
+  std::int64_t dictionary_id{};
+  if (!ui || !Script(*ui, -1298472910816597764LL) ||
+      !ExternalIs(*cabs, ui->Get("mapMarkerTypeDisplayDataDictionary"),
+                  ManagersShared, dictionary_id))
+    return {};
+  auto dictionary = Obj(shared, dictionary_id, 114);
+  auto elements =
+      dictionary ? Array(dictionary->Get("elements"), belmont_pins::KindCount)
+                 : nullptr;
+  if (!dictionary || !Script(*dictionary, -6398427658833412776LL) ||
+      !elements || elements->size() != belmont_pins::KindCount)
+    return {};
+  struct Pending {
+    PinType type;
+    std::string address_guid;
+  };
+  std::vector<Pending> pending;
+  std::set<std::string> guids, type_guids;
+  std::set<std::int64_t> type_ids;
+  for (const auto &entry : *elements) {
+    std::int64_t id{};
+    if (!ExternalIs(*shared_cabs, entry.Get("id"), SavableCab, id) ||
+        !type_ids.insert(id).second)
+      return {};
+    auto type = Obj(ids, id, 114);
+    auto guid = type ? Text(type->Get("_guid"), 32) : std::nullopt;
+    auto address = Text(entry.Path("item.m_AssetGUID"), 32);
+    if (!type || !Script(*type, 1587585272943161382LL) || !guid ||
+        !Guid(*guid) || !type_guids.insert(*guid).second || !address ||
+        !Guid(*address) || !guids.insert(*address).second ||
+        Text(entry.Path("item.m_SubObjectName")).value_or("bad") != "" ||
+        Text(entry.Path("item.m_SubObjectType")).value_or("bad") != "")
+      return {};
+    pending.push_back({PinType{*guid, 0, 0, id, 0}, *address});
+  }
+  constexpr std::string_view path = "Data/StreamingAssets/aa/catalog.json";
+  auto size = romfs ? romfs.size(path) : std::nullopt;
+  if (!size || !*size || *size > 40 * 1024 * 1024)
+    return {};
+  std::string catalog(std::size_t(*size), '\0');
+  for (std::size_t at = 0; at < catalog.size();) {
+    auto count = std::min<std::size_t>(1024 * 1024, catalog.size() - at);
+    if (!romfs.read(path, at,
+                    reinterpret_cast<std::uint8_t *>(catalog.data() + at),
+                    count))
+      return {};
+    at += count;
+  }
+  auto addresses = Addresses(catalog, guids);
+  if (!addresses)
+    return {};
+  std::map<std::string, std::int64_t, std::less<>> objects;
+  unsigned containers = 0;
+  for (const auto &o : common->Objects())
+    if (o.class_id == 142) {
+      if (++containers != 1)
+        return {};
+      auto container = Obj(common, o.path_id, 142);
+      auto rows =
+          container ? Array(container->Get("m_Container"), 256) : nullptr;
+      if (!rows)
+        return {};
+      for (const auto &row : *rows) {
+        if (row.kind != V::Kind::Array || row.items.size() != 2)
+          return {};
+        auto key = Text(&row.items[0], 4096);
+        auto id = Local(row.items[1].Get("asset"));
+        if (!key || !id || !objects.emplace(*key, id).second)
+          return {};
+      }
+    }
+  if (containers != 1)
+    return {};
+  std::vector<PinType> result;
+  std::set<std::size_t> kinds;
+  for (auto &p : pending) {
+    auto key = addresses->at(p.address_guid);
+    auto it = objects.find(key);
+    if (it == objects.end())
+      return {};
+    auto display = Obj(common, it->second, 114);
+    std::int64_t sprite{};
+    if (!display || !Script(*display, 8890737712029371569LL) ||
+        !ExternalIs(*common_cabs, display->Get("markerIcon"), MenuCab, sprite))
+      return {};
+    auto kind = std::find(belmont_pins::Sprites.begin(),
+                          belmont_pins::Sprites.end(), sprite);
+    if (kind == belmont_pins::Sprites.end() || !Obj(menu, sprite, 213))
+      return {};
+    p.type.kind = std::size_t(kind - belmont_pins::Sprites.begin());
+    p.type.sprite_id = sprite;
+    p.type.display_id = it->second;
+    if (!kinds.insert(p.type.kind).second)
+      return {};
+    result.push_back(std::move(p.type));
+  }
+  std::sort(result.begin(), result.end(),
+            [](const auto &a, const auto &b) { return a.kind < b.kind; });
+  return result;
+}
 } // namespace
 bool Visible(const FastTravelPoint& point,int revealed,int unlocked,std::int64_t navigation){
   return unlocked==1&&(revealed==1||point.visible_in_unrevealed_map)&&navigation>0&&point.unlocked_art.navigation_zone_id==navigation;
@@ -611,13 +1073,14 @@ bool Visible(const Landmark &l, std::span<const std::string> known,
          std::find(culled.begin(), culled.end(), l.navigation_zone_id) ==
              culled.end();
 }
-Reader::Reader(ce_unity::RangeReader r) : unity(std::move(r)) {}
+Reader::Reader(ce_unity::RangeReader r) : romfs(r), unity(std::move(r)) {}
 Reader::Reader(const EdenDsmodHostApi *h)
     : Reader(ce_unity::MakeHostRangeReader(h)) {}
 void Reader::ClearCache() {
   std::lock_guard lock(mutex);
   cache.reset();
   save_cache.reset();
+  pin_type_cache.reset();
   unity.ClearCache();
 }
 std::optional<Data> Reader::LoadForRoom(std::string_view room) {
@@ -636,8 +1099,13 @@ std::optional<Data> Reader::Load(std::string_view room,bool save_points_only) {
     if (!source)
       return {};
     auto& selected_cache=save_points_only?save_cache:cache;
-    if (selected_cache && selected_cache->world_name == source->world_name)
+    if (selected_cache && selected_cache->world_name == source->world_name) {
+      if (selected_cache->pin_types.empty()) {
+        if (!pin_type_cache) pin_type_cache = PinTypes(unity, romfs);
+        if (pin_type_cache) selected_cache->pin_types = *pin_type_cache;
+      }
       return selected_cache;
+    }
     auto sf = File(unity, source->map_bundle, source->map_cab);
     auto data = save_points_only ? nullptr : File(unity, Savable, SavableCab);
     auto menu = File(unity, Menu, MenuCab);
@@ -650,7 +1118,11 @@ std::optional<Data> Reader::Load(std::string_view room,bool save_points_only) {
     if (!sf || !menu || !cabs || (!save_points_only&&(!data||!common)))
       return {};
     Scene scene{sf, {}, {}};
-    Data out{std::string(source->world_name), {}, {}, -1, {}, {}};
+    Data out;
+    out.world_name = source->world_name;
+    PinContext(scene, *source, *cabs, level_ids, out);
+    if (!pin_type_cache) pin_type_cache = PinTypes(unity, romfs);
+    if (pin_type_cache) out.pin_types = *pin_type_cache;
     // ResetContext writes true to revealedMap; InitializeContext overwrites
     // it only when LevelUIDisplayData.mapRevealCondition is non-null. Do not
     // approximate conditional Hall of Mirrors revelation from explored fog.

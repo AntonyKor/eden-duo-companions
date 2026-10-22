@@ -16,11 +16,11 @@
     "libraries": {
       "linux-x86_64": {
         "path": "modules/linux-x86_64/0100BA4026E94000.so",
-        "sha256": "8532fb954328b15a109079f30c0ea800e17a575fd33c345f3ed6babcb38572ac"
+        "sha256": "c6be1cca12c76d5be8149b2f026db34c7756a995c771c19908bf79e63400415e"
       },
       "android-arm64-v8a": {
         "path": "modules/android-arm64-v8a/0100BA4026E94000.so",
-        "sha256": "9293c030050966f63a85b648c03b41930d6eed4c35f7080f77aa8987ca3816fa"
+        "sha256": "1527a7176a4078beb5b45d2860081f9757fe746571da105968b60a9c9e68036f"
       }
     }
   },
@@ -805,7 +805,16 @@
     "belmont.pending_map_key",
     "belmont.fast_travel_overlay_count",
     "belmont.fast_travel_unlocked_ready",
-    "belmont.fast_travel_unlocked_count"
+    "belmont.fast_travel_unlocked_count",
+    "belmont.native_pins_ready",
+    "belmont.native_pins_count",
+    "belmont.native_pins_reason",
+    "belmont.pin_context_ready",
+    "belmont.pin_busy",
+    "belmont.pin_visible_count",
+    "belmont.pin_action_reason",
+    "belmont.map_input_button",
+    "belmont.map_cursor_pulse"
   ],
   "derived": [
     {
@@ -892,7 +901,7 @@
     },
     {
       "name": "ui.enforce",
-      "expr": "@flag:ui.area_tier != @flag:ui.area_applied || (!belmont.ui_world && @flag:ui.equipment == 1) || belmont.pin_capture_pending || belmont.equipment_input_button != 0 || ui.eq_visibility_on || ui.eq_visibility_off"
+      "expr": "@flag:ui.area_tier != @flag:ui.area_applied || (!belmont.ui_world && @flag:ui.equipment == 1) || belmont.pin_capture_pending || belmont.equipment_input_button != 0 || ui.eq_visibility_on || ui.eq_visibility_off || belmont.map_input_button != 0 || belmont.map_cursor_pulse != 0"
     },
     {
       "name": "ui.vx0",
@@ -1000,7 +1009,7 @@
     },
     {
       "name": "ui.map_input",
-      "expr": "ui.map && !ui.equipment_page && !belmont.presentation_blocked && !belmont.pin_picker"
+      "expr": "ui.map && !ui.equipment_page && !belmont.presentation_blocked && !belmont.pin_picker && !belmont.pin_busy"
     },
     {
       "name": "ui.pin_picker",
@@ -1008,15 +1017,15 @@
     },
     {
       "name": "ui.action_tier_area",
-      "expr": "ui.map && !belmont.presentation_blocked && !belmont.pin_picker"
+      "expr": "ui.map && !belmont.presentation_blocked && !belmont.pin_picker && !belmont.pin_busy"
     },
     {
       "name": "ui.action_tier_sub",
-      "expr": "ui.map && !belmont.presentation_blocked && !belmont.pin_picker"
+      "expr": "ui.map && !belmont.presentation_blocked && !belmont.pin_picker && !belmont.pin_busy"
     },
     {
       "name": "ui.action_equipment_open",
-      "expr": "ui.equipment_available && !belmont.presentation_blocked && !belmont.pin_picker"
+      "expr": "ui.equipment_available && !belmont.presentation_blocked && !belmont.pin_picker && !belmont.pin_busy"
     },
     {
       "name": "ui.action_equipment_close",
@@ -1024,7 +1033,7 @@
     },
     {
       "name": "ui.action_return_to_rose",
-      "expr": "ui.focus_on && !belmont.presentation_blocked && !belmont.pin_picker"
+      "expr": "ui.focus_on && !belmont.presentation_blocked && !belmont.pin_picker && !belmont.pin_busy"
     },
     {
       "name": "ui.pin_editing",
@@ -1104,7 +1113,7 @@
     },
     {
       "name": "ui.pin_open_allowed",
-      "expr": "ui.map_input && !belmont.pin_armed"
+      "expr": "ui.map_input && !belmont.pin_armed && belmont.pin_context_ready && !belmont.pin_busy"
     },
     {
       "name": "ui.eq_health_upgrades",
@@ -1133,6 +1142,78 @@
     {
       "name": "ui.tier_changed_custom",
       "expr": "@flag:ui.area_tier != @flag:ui.area_applied && 'view_custom:belmont_map' != 0"
+    },
+    {
+      "name": "ui.map_native_input_1",
+      "expr": "belmont.map_input_button == 1 && !belmont.presentation_blocked"
+    },
+    {
+      "name": "ui.map_native_input_2",
+      "expr": "belmont.map_input_button == 2 && !belmont.presentation_blocked"
+    },
+    {
+      "name": "ui.map_native_input_3",
+      "expr": "belmont.map_input_button == 3 && !belmont.presentation_blocked"
+    },
+    {
+      "name": "ui.map_native_input_4",
+      "expr": "belmont.map_input_button == 4 && !belmont.presentation_blocked"
+    },
+    {
+      "name": "ui.map_native_input_5",
+      "expr": "belmont.map_input_button == 5 && !belmont.presentation_blocked"
+    },
+    {
+      "name": "ui.map_native_input_6",
+      "expr": "belmont.map_input_button == 6 && !belmont.presentation_blocked"
+    },
+    {
+      "name": "ui.map_native_input_7",
+      "expr": "belmont.map_input_button == 7 && !belmont.presentation_blocked"
+    },
+    {
+      "name": "ui.map_native_input_8",
+      "expr": "belmont.map_input_button == 8 && !belmont.presentation_blocked"
+    },
+    {
+      "name": "ui.map_native_input_9",
+      "expr": "belmont.map_input_button == 9 && !belmont.presentation_blocked"
+    },
+    {
+      "name": "ui.map_native_input_12",
+      "expr": "belmont.map_input_button == 12 && !belmont.presentation_blocked"
+    },
+    {
+      "name": "ui.map_cursor_1",
+      "expr": "belmont.map_cursor_pulse == 1 && !belmont.presentation_blocked"
+    },
+    {
+      "name": "ui.map_cursor_2",
+      "expr": "belmont.map_cursor_pulse == 2 && !belmont.presentation_blocked"
+    },
+    {
+      "name": "ui.map_cursor_3",
+      "expr": "belmont.map_cursor_pulse == 3 && !belmont.presentation_blocked"
+    },
+    {
+      "name": "ui.map_cursor_4",
+      "expr": "belmont.map_cursor_pulse == 4 && !belmont.presentation_blocked"
+    },
+    {
+      "name": "ui.map_cursor_5",
+      "expr": "belmont.map_cursor_pulse == 5 && !belmont.presentation_blocked"
+    },
+    {
+      "name": "ui.map_cursor_6",
+      "expr": "belmont.map_cursor_pulse == 6 && !belmont.presentation_blocked"
+    },
+    {
+      "name": "ui.map_cursor_7",
+      "expr": "belmont.map_cursor_pulse == 7 && !belmont.presentation_blocked"
+    },
+    {
+      "name": "ui.map_cursor_8",
+      "expr": "belmont.map_cursor_pulse == 8 && !belmont.presentation_blocked"
     }
   ],
   "enforce": [
@@ -1198,6 +1279,78 @@
     },
     {
       "action": "equipment_visibility_off",
+      "every_ms": 1
+    },
+    {
+      "action": "map_native_input_1",
+      "every_ms": 1
+    },
+    {
+      "action": "map_native_input_2",
+      "every_ms": 1
+    },
+    {
+      "action": "map_native_input_3",
+      "every_ms": 1
+    },
+    {
+      "action": "map_native_input_4",
+      "every_ms": 1
+    },
+    {
+      "action": "map_native_input_5",
+      "every_ms": 1
+    },
+    {
+      "action": "map_native_input_6",
+      "every_ms": 1
+    },
+    {
+      "action": "map_native_input_7",
+      "every_ms": 1
+    },
+    {
+      "action": "map_native_input_8",
+      "every_ms": 1
+    },
+    {
+      "action": "map_native_input_9",
+      "every_ms": 1
+    },
+    {
+      "action": "map_native_input_12",
+      "every_ms": 1
+    },
+    {
+      "action": "map_cursor_1",
+      "every_ms": 1
+    },
+    {
+      "action": "map_cursor_2",
+      "every_ms": 1
+    },
+    {
+      "action": "map_cursor_3",
+      "every_ms": 1
+    },
+    {
+      "action": "map_cursor_4",
+      "every_ms": 1
+    },
+    {
+      "action": "map_cursor_5",
+      "every_ms": 1
+    },
+    {
+      "action": "map_cursor_6",
+      "every_ms": 1
+    },
+    {
+      "action": "map_cursor_7",
+      "every_ms": 1
+    },
+    {
+      "action": "map_cursor_8",
       "every_ms": 1
     }
   ],
@@ -1439,6 +1592,114 @@
       "action": "equipment_visibility",
       "argument": 0,
       "enabled_bind": "ui.eq_visibility_off"
+    },
+    "map_native_input_1": {
+      "kind": "button",
+      "button": "Plus",
+      "frames": 4,
+      "enabled_bind": "ui.map_native_input_1"
+    },
+    "map_native_input_2": {
+      "kind": "button",
+      "button": "DLeft",
+      "frames": 4,
+      "enabled_bind": "ui.map_native_input_2"
+    },
+    "map_native_input_3": {
+      "kind": "button",
+      "button": "DRight",
+      "frames": 4,
+      "enabled_bind": "ui.map_native_input_3"
+    },
+    "map_native_input_4": {
+      "kind": "button",
+      "button": "A",
+      "frames": 4,
+      "enabled_bind": "ui.map_native_input_4"
+    },
+    "map_native_input_5": {
+      "kind": "button",
+      "button": "B",
+      "frames": 4,
+      "enabled_bind": "ui.map_native_input_5"
+    },
+    "map_native_input_6": {
+      "kind": "button",
+      "button": "DUp",
+      "frames": 4,
+      "enabled_bind": "ui.map_native_input_6"
+    },
+    "map_native_input_7": {
+      "kind": "button",
+      "button": "DDown",
+      "frames": 4,
+      "enabled_bind": "ui.map_native_input_7"
+    },
+    "map_native_input_8": {
+      "kind": "button",
+      "button": "L",
+      "frames": 4,
+      "enabled_bind": "ui.map_native_input_8"
+    },
+    "map_native_input_9": {
+      "kind": "button",
+      "button": "R",
+      "frames": 4,
+      "enabled_bind": "ui.map_native_input_9"
+    },
+    "map_native_input_12": {
+      "kind": "button",
+      "button": "Y",
+      "frames": 4,
+      "enabled_bind": "ui.map_native_input_12"
+    },
+    "map_cursor_1": {
+      "kind": "button",
+      "button": "LStick(0.35,0)",
+      "frames": 4,
+      "enabled_bind": "ui.map_cursor_1"
+    },
+    "map_cursor_2": {
+      "kind": "button",
+      "button": "LStick(-0.35,0)",
+      "frames": 4,
+      "enabled_bind": "ui.map_cursor_2"
+    },
+    "map_cursor_3": {
+      "kind": "button",
+      "button": "LStick(0,0.35)",
+      "frames": 4,
+      "enabled_bind": "ui.map_cursor_3"
+    },
+    "map_cursor_4": {
+      "kind": "button",
+      "button": "LStick(0,-0.35)",
+      "frames": 4,
+      "enabled_bind": "ui.map_cursor_4"
+    },
+    "map_cursor_5": {
+      "kind": "button",
+      "button": "LStick(1,0)",
+      "frames": 4,
+      "enabled_bind": "ui.map_cursor_5"
+    },
+    "map_cursor_6": {
+      "kind": "button",
+      "button": "LStick(-1,0)",
+      "frames": 4,
+      "enabled_bind": "ui.map_cursor_6"
+    },
+    "map_cursor_7": {
+      "kind": "button",
+      "button": "LStick(0,1)",
+      "frames": 4,
+      "enabled_bind": "ui.map_cursor_7"
+    },
+    "map_cursor_8": {
+      "kind": "button",
+      "button": "LStick(0,-1)",
+      "frames": 4,
+      "enabled_bind": "ui.map_cursor_8"
     }
   },
   "pages": [
@@ -1738,7 +1999,8 @@
           ],
           "marker_hit_px": 88,
           "empty_tap_deselects": false,
-          "marker_scale": 0.00390625
+          "marker_scale": 0.00390625,
+          "bind": "@flag:ui.area_tier"
         },
         {
           "type": "image",

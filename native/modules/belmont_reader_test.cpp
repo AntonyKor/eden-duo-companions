@@ -226,7 +226,8 @@ struct Host {
   std::string reason;
   std::map<std::string, std::string> texts;
   std::map<std::string, double> numbers;
-  std::atomic<unsigned> romfs_reads{}, publications{};
+  std::atomic<unsigned> romfs_reads{}, publications{}, writes{};
+  static EdenDsmodBool Write(void* p,std::uint64_t,const void*,std::size_t){++static_cast<Host*>(p)->writes;return EDEN_DSMOD_FALSE;}
   static EdenDsmodBool Read(void *p, std::uint64_t at, void *dst,
                             std::size_t n) {
     return static_cast<Host *>(p)->memory(at, dst, n);
@@ -269,6 +270,7 @@ struct Host {
     a.main_size = 0x7000000;
     a.is_mapped = &Mapped;
     a.read_memory = &Read;
+    a.write_memory = &Write;
     a.publish_i64 = &Int;
     a.publish_text = &Text;
     a.publish_f64 = &Number;
@@ -836,8 +838,8 @@ int main() {
       const auto *module = eden_dsmod_get_module(EDEN_DSMOD_MODULE_ABI_VERSION,
                                                  EDEN_DSMOD_MODULE_ABI_HASH);
       Check(module && module->capabilities == (EDEN_DSMOD_CAP_EXTENSIONS |
-                                               EDEN_DSMOD_CAP_ROMFS_READ),
-            "module declares only extension and read-only RomFS capabilities");
+                                               EDEN_DSMOD_CAP_ROMFS_READ | EDEN_DSMOD_CAP_WRITE_MEMORY),
+            "module declares assets and bounded native placement write capability without guest calls");
       void *instance = module->create(&host, nullptr);
       Check(instance, "create exact build");
       const auto* visibility=eden_dsmod_get_extensions(EDEN_DSMOD_EXT_VERSION,EDEN_DSMOD_EXT_HASH);
@@ -846,6 +848,7 @@ int main() {
       Check(h.values["belmont.equipment_visible"]==1,"entry acknowledges visibility even before optional assets");
       Check(visibility->on_action(instance,"equipment_visibility",0),"Equipment visibility handshake accepts exit");
       module->sample(instance, &host);
+      Check(h.writes==0,"sampling and Equipment visibility never write guest memory without an explicit pin placement");
       Check(h.values["belmont.equipment_visible"]==0&&!h.values.contains("belmont.picker_slot_0_ready"),
             "hidden Equipment acknowledges exit and omits unused picker outputs");
       Check(!visibility->on_action(instance,"equipment_visibility",2),"invalid visibility values rejected");

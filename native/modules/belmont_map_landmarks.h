@@ -59,6 +59,12 @@ struct FastTravelPoint {
   float icon_anchor_x{}, icon_anchor_y{}, icon_size_factor{};
   float screen_percentage{}, screen_percentage_at_zoom_max{};
 };
+struct PinType {
+  std::string guid;
+  std::size_t
+      kind{}; // Existing belmont_pins::Sprites index, never dictionary order.
+  std::int64_t sprite_id{}, type_id{}, display_id{};
+};
 struct Data {
   std::string world_name;
   std::vector<Landmark> landmarks;
@@ -68,6 +74,11 @@ struct Data {
   int map_revealed_policy{-1};
   std::vector<Elevator> elevators;
   std::vector<FastTravelPoint> fast_travel_points;
+  // Source identities for native user-pin joins. Empty means unavailable;
+  // never substitute room/fog order for the authored navigation index.
+  std::string level_guid;
+  std::vector<std::int64_t> navigation_zone_ids;
+  std::vector<PinType> pin_types;
 };
 // Native SavePointItem visibility: used room, map revelation and navigation.
 // Unknown live booleans are represented by -1 and fail closed.
@@ -97,7 +108,9 @@ public:
 
 private:
   std::mutex mutex;
+  ce_unity::RangeReader romfs;
   ce_unity::Reader unity;
+  std::optional<std::vector<PinType>> pin_type_cache;
   std::optional<Data> cache;
   std::optional<Data> save_cache;
   std::optional<Data> Load(std::string_view room_id, bool save_points_only);
