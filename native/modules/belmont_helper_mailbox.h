@@ -168,6 +168,13 @@ public:
     return store32_(EpochOffset, host_epoch);
   }
 
+  // Current epoch word (host pause/invalidate bumps it in place). Stage each
+  // request with this value; 0 means unreadable/never seeded.
+  std::uint32_t Epoch() {
+    std::uint32_t value{};
+    return load32_(EpochOffset, &value) ? value : 0;
+  }
+
   // True once the guest has ticked at least once since the previous call.
   bool IsAlive() {
     std::uint32_t value{};

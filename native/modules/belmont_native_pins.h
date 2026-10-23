@@ -11,10 +11,12 @@ struct Pin {
   std::string level_guid, type_guid;
   std::int32_t id{}, nav_index{};
   float x{}, y{};
+  // Guest objects for the guest helper (CHANGE_PIN/REMOVE_PIN); never written.
+  U64 object{}, level{};
 };
 struct Snapshot {
   bool supported{}, coherent{}, ready{};
-  U64 entity{};
+  U64 entity{}, component{};
   std::int32_t limit_mode{}, limit{};
   std::vector<Pin> pins;
   std::string reason{"unavailable"};
@@ -280,6 +282,7 @@ template <class Read> class Decoder {
         Pin pin;
         std::uint32_t x{}, y{};
         pin.level_guid = level_guid;
+        pin.level = level;
         if (out.pins.size() >= 4096 ||
             !Ptr(items + 0x20 + 8 * U64(j), marker) ||
             !Object(marker, "MapMarkerData") || !Get(marker + 0x10, pin.id) ||
@@ -289,6 +292,7 @@ template <class Read> class Decoder {
             pin.nav_index > 255 || !Ptr(marker + 0x20, g) ||
             !Guid(g, pin.type_guid))
           return false;
+        pin.object = marker;
         std::memcpy(&pin.x, &x, 4);
         std::memcpy(&pin.y, &y, 4);
         if (!std::isfinite(pin.x) || !std::isfinite(pin.y) ||
@@ -348,6 +352,7 @@ public:
     }
     out.ready = out.coherent = true;
     out.entity = source.entity;
+    out.component = component;
     out.reason = "ready";
     return out;
   }

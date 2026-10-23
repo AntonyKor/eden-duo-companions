@@ -280,8 +280,8 @@ op_equip_spell:
     ldr  x13, [x12, #0]
     ldr  x14, [x19, #0x88]                     // class_table[3] = SpellItemData klass
     cbz  x14, refuse_not_configured
-    cmp  x13, x14
-    b.ne refuse_class_mismatch_primary
+    bl   belmont_is_a                           // in: x13=klass, x14=base; out: w0
+    cbz  w0, refuse_class_mismatch_primary
 
     bl   belmont_scan_owned                      // in: x9=Inventory*, x12=item*; out: w0
     cbz  w0, refuse_not_owned
@@ -306,8 +306,8 @@ op_equip_weapon:
     ldr  x13, [x12, #0]
     ldr  x14, [x19, #0x90]                       // class_table[4] = WeaponItemData klass
     cbz  x14, refuse_not_configured
-    cmp  x13, x14
-    b.ne refuse_class_mismatch_primary
+    bl   belmont_is_a                           // in: x13=klass, x14=base; out: w0
+    cbz  w0, refuse_class_mismatch_primary
 
     bl   belmont_scan_owned
     cbz  w0, refuse_not_owned
@@ -332,8 +332,8 @@ op_equip_charm:
     ldr  x13, [x12, #0]
     ldr  x14, [x19, #0x98]                        // class_table[5] = CharmItemData klass
     cbz  x14, refuse_not_configured
-    cmp  x13, x14
-    b.ne refuse_class_mismatch_primary
+    bl   belmont_is_a                           // in: x13=klass, x14=base; out: w0
+    cbz  w0, refuse_class_mismatch_primary
 
     bl   belmont_scan_owned
     cbz  w0, refuse_not_owned
@@ -345,6 +345,30 @@ op_equip_charm:
     sxtw x0, w0                                       // EquipCharmFromInventory returns int
     str  x0, [x19, #0x68]
     b    op_success
+
+// ---------------------------------------------------------------------------
+// belmont_is_a: IL2CPP klass parent walk (klass+0x58 = parent, the same link
+// belmont_inventory.h follows to ItemData). Weapons are concrete subclasses
+// (WeaponFistItemData, WeaponSpearItemData, ...) of the class_table base, so
+// an exact klass compare would refuse every real weapon. Bounded to 8 hops.
+//   in:  x13 = candidate klass, x14 = required base klass
+//   out: w0 = 1 if x13 is x14 or derives from it, else 0. Clobbers x0,x13,x15.
+// ---------------------------------------------------------------------------
+belmont_is_a:
+    mov  x15, #8
+is_a_loop:
+    cmp  x13, x14
+    b.eq is_a_yes
+    ldr  x13, [x13, #0x58]
+    cbz  x13, is_a_no
+    subs x15, x15, #1
+    b.ne is_a_loop
+is_a_no:
+    mov  w0, #0
+    ret
+is_a_yes:
+    mov  w0, #1
+    ret
 
 // ---------------------------------------------------------------------------
 // belmont_scan_owned: bounded linear scan of Inventory._itemsInInventory

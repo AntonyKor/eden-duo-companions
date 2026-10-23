@@ -24,6 +24,7 @@
       }
     }
   },
+  "load_plan": "guest/<build>/load-plan.json",
   "font": "file:fonts/latin51sc.bfont",
   "font_atlas": "module:belmont-font:LatinFont:51sc",
   "debug_page": false,
@@ -32,6 +33,9 @@
   },
   "module_outputs": [
     "belmont.build_supported",
+    "belmont.helper_ready",
+    "belmont.helper_reason",
+    "belmont.helper_refs_reason",
     "belmont.native_assets_ready",
     "belmont.ui_title",
     "belmont.ui_loading",

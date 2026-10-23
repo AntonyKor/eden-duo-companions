@@ -1,11 +1,11 @@
-# Belmont GUEST HELPER (format-2 load plan) -- skeleton
+# Belmont GUEST HELPER (format-2 load plan)
 
-Offline design + skeleton for the Castlevania (Belmont's Curse) in-game guest
-helper, mirroring the BOTW companion's proven format-2 mechanism
-(the BOTW companion's format-2 hook builder +
-`packaging/duo-110-docs-r18/native/modules/botw_bridge.h`). Everything here is
-new files only; see "Integration edits needed" at the end for what an
-integrator still has to change in files this work deliberately did not touch.
+In-game guest helper for the Castlevania (Belmont's Curse) companion, mirroring
+the BOTW companion's proven format-2 mechanism (the BOTW companion's format-2
+hook builder + `packaging/duo-110-docs-r18/native/modules/botw_bridge.h`). It
+lets the companion add/change/remove native map pins and equip Arcanas,
+weapons and relics by calling the game's own functions, with no native menu
+driving. Integrated and desktop-verified 2026-10-23 (section 8).
 
 Title `0100BA4026E94000`, build
 `0F1169AA7D0FA4529C861F96ADEC306E00000000000000000000000000000000`.
@@ -290,7 +290,7 @@ Both were run while writing this skeleton:
 
 Neither step launches the emulator.
 
-## 7. Open questions for live verification
+## 7. Open questions for live verification (see section 8 for what the 2026-10-23 live run settled)
 
 - ~~Which `LevelID*`/marker-type pointers the module should actually pass~~
   **RESOLVED** by `HELPER-RESIDENCY-20261023.md` (live probe): the module
@@ -323,41 +323,37 @@ Neither step launches the emulator.
   part of this probe and still needs a live cross-check before the module
   hardcodes any index-to-name assumption.
 
-## 8. Integration edits needed (not made here)
+## 8. Integration (done 2026-10-23) and live verification
 
-This task's brief is new files only; an integrator still has to:
+- **Package:** `packages/BelmontsCurse/dualscreen/guest/<BUILD>/load-plan.json`
+  (copied from `build_helper_plan.py` output), manifest
+  `"load_plan": "guest/<build>/load-plan.json"`, provenance entry.
+- **Module:** `0100BA4026E94000.cpp` binds `belmont_helper_mailbox::Client` in
+  `Configure()` when the host supplies a mailbox, seeds magic/epoch, and every
+  sample: polls the in-flight request, checks the heartbeat (helper "usable"
+  for 500 ms after the last change), refreshes `class_table[]` and the
+  registries (`belmont_helper_refs.h`) once a second, and writes the context
+  pointers. Requests are staged only in field gameplay (`initial_identity==1`,
+  not paused) so they never race a native menu transaction.
+- **Pins:** each companion pin intent is staged as ADD/CHANGE/REMOVE when the
+  helper is usable; a refusal (always before any game call) falls back to the
+  existing menu steering; a 2 s timeout never falls back (the call may still
+  land) and retires the helper for the session.
+- **Equipment:** with the helper usable and the native menu closed, the
+  Armoury/Arcanas/Relics buttons open a companion picker built from
+  `Inventory._itemsInInventory`; a pick stages EQUIP_*. Relics use slot -1
+  (first free) or, with every slot worn, a "Choose relic slot" step that
+  passes the explicit slot. Otherwise the native-menu picker is unchanged.
+- **Fixes found while integrating:** weapons are concrete subclasses
+  (`WeaponFistItemData`, ...), so the equip ops check class with a bounded
+  parent walk (`belmont_is_a`, klass+0x58), not an exact compare. Pins loaded
+  from a save leave the lazy `MapMarkerData` TypeInfo slot as the metadata
+  token, so its klass comes from a live `MapMarkerData` object.
 
-1. **`packages/BelmontsCurse/dualscreen/manifest.json`** (currently
-   `"load_plan": null`, `"min_runtime": 22` -- already >= the format-2
-   minimum of 19, so no bump needed there): add
-   `"load_plan": "load-plans/<build>.json"` (or wherever the packaged plan
-   ends up) pointing at the file `build_helper_plan.py` produces, renamed/
-   copied from `.scratch/helper-out/plan.json` to
-   `<BUILD16>.json`/`<build16-lowercase>.json`/`data.json` naming per
-   `mod_load_plan.cpp`'s `<build>` token substitution.
-2. **`native/modules/0100BA4026E94000.cpp`**:
-   - `#include "belmont_helper_mailbox.h"`.
-   - In `Configure()` (currently only builds `astc` from `ext->decode_astc`,
-     line ~1136): when `ext->mailbox_address`/`mailbox_size` are populated
-     (i.e. non-zero; the host only provides them for a package whose load
-     plan was discovered), construct a
-     `belmont_helper_mailbox::Client` bound to
-     `ext->load_u32`/`load_u64`/`store_u32`/`store_u64` + `ext->userdata`,
-     store it on `Module`, call `Initialize()`, and fill `class_table[]`
-     (8 `SetClass` calls) with the klass pointers the existing readers
-     (`belmont_native_pins.h`, `belmont_inventory.h`) already resolve for
-     their own validation.
-   - In the per-tick path (the function around line ~1050-1134 that already
-     publishes map/equipment state and drains `m.pins.TakeRequest()` for the
-     existing polled-button pin flow, since the current `Tick()` export at
-     line 1135 is a no-op): every tick, call `helper->SetContext(...)` with
-     the current `MapMarkersComponent*`/`Inventory*`; when a UI intent wants
-     a guest-helper op, `TryStage()` it (refusing a second one while
-     `Busy()`); `Poll()` the previous one's `Outcome` and react (publish a
-     value, clear a pending-UI-request flag, etc.).
-3. **`native/modules/belmont_build.sh`**: add `belmont_helper_mailbox` to
-   the `for test in ...; do` list so the mailbox client's unit test runs as
-   part of the normal module build, same as every other `_test.cpp`.
-4. **The package build script** (`tools/build_dualscreen_package.py` or
-   whatever assembles `BelmontsCurse`'s zip): copy the plan JSON into the
-   package under the path the manifest's `load_plan` now names.
+Live desktop result (runtime 22 eden-cli, late save, Master's Quarters):
+ADD (allocator `0x5BE780` exercised), CHANGE and REMOVE each answered OK with
+no native button pulses; the native Map then showed the helper-added pin and
+an updated remaining-marker count. EQUIP_SPELL (LifeDrain -> CursedFireBall),
+EQUIP_WEAPON (whip -> Cestus, a subclass) and EQUIP_CHARM with an explicit
+slot all answered OK and the native Equipment tab matched. Not yet verified:
+save persistence across a save/reload, Android/NCE on the Thor.

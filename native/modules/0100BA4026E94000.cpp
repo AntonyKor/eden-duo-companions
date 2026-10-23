@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Unreleased companion; native menu actions via host buttons. Pin placement
-// changes only a validated transient UI coordinate before native confirmation.
+// Unreleased companion. With the package's guest helper running (format-2
+// load plan), pins and equipment change through the game's own functions;
+// otherwise native menu actions via host buttons. Pin placement changes only
+// a validated transient UI coordinate before native confirmation.
 // Worker input is a coherent copied
 // snapshot; workers never read guest memory or publish host values.
 #include "belmont_reader.h"
@@ -10,6 +12,7 @@
 #include "belmont_pin_transaction.h"
 #include "belmont_inventory.h"
 #include "belmont_equipment_control.h"
+#include "belmont_helper_refs.h"
 #include "belmont_asset_callbacks.h"
 #include "belmont_map_assets.h"
 #include "belmont_map_fog.h"
@@ -193,6 +196,20 @@ struct LiveBundle {
     belmont_equipment::Snapshot equipment;
     belmont_equipment_stats::Snapshot stats;
 };
+// Host mailbox primitives, copied out of configure()'s extension table.
+struct HelperIo {
+    void* userdata{};
+    EdenDsmodBool (*load_u32)(void*,std::uint32_t,std::uint32_t*){};
+    EdenDsmodBool (*load_u64)(void*,std::uint32_t,std::uint64_t*){};
+    EdenDsmodBool (*store_u32)(void*,std::uint32_t,std::uint32_t){};
+    EdenDsmodBool (*store_u64)(void*,std::uint32_t,std::uint64_t){};
+};
+struct HelperLoad32{HelperIo io;bool operator()(std::uint32_t o,std::uint32_t* v)const{return io.load_u32(io.userdata,o,v)==EDEN_DSMOD_TRUE;}};
+struct HelperLoad64{HelperIo io;bool operator()(std::uint32_t o,std::uint64_t* v)const{return io.load_u64(io.userdata,o,v)==EDEN_DSMOD_TRUE;}};
+struct HelperStore32{HelperIo io;bool operator()(std::uint32_t o,std::uint32_t v)const{return io.store_u32(io.userdata,o,v)==EDEN_DSMOD_TRUE;}};
+struct HelperStore64{HelperIo io;bool operator()(std::uint32_t o,std::uint64_t v)const{return io.store_u64(io.userdata,o,v)==EDEN_DSMOD_TRUE;}};
+using HelperClient=belmont_helper_mailbox::Client<HelperLoad32,HelperLoad64,HelperStore32,HelperStore64>;
+enum class HelperJob{None,Pin,Equip};
 struct Module {
     // Copied table is used only for read_romfs on workers. userdata is kept alive
     // by the host until Destroy; stop/join every worker before destroying assets.
@@ -269,6 +286,23 @@ struct Module {
     std::array<float,4> pin_bounds{};
     std::array<std::string,belmont_pins::KindCount> pin_type_guids;
     std::int64_t map_tap_sequence{-1};
+    // Guest helper: one native call in flight at a time. A refusal happens
+    // before any game call, so pins may then fall back to menu steering; a
+    // timeout never falls back (the call may still land) and retires the helper.
+    std::optional<HelperClient> helper;
+    belmont_helper_refs::Refs helper_refs;
+    std::chrono::steady_clock::time_point helper_refs_at{},helper_beat_at{},helper_alive_at{},helper_staged_at{};
+    bool helper_dead{};
+    HelperJob helper_job{HelperJob::None};
+    std::string helper_reason{"absent"};
+    std::optional<belmont_map_control::Request> helper_pin_fallback;
+    std::atomic<std::uint32_t> helper_equip_mask{}; // bit n: direct equip ready for category n
+    // Direct (menu-free) equipment picker, guarded by map_mutex.
+    std::int32_t direct_category{};
+    std::string direct_held_charm_id;
+    std::uint64_t direct_held_charm{};
+    bool direct_free_charm{};
+    std::optional<belmont_helper_mailbox::Request> equip_pending;
     // Idle redraw fix: target_position is a live transform read, noisy by a
     // sub-LSB amount even while the player stands still (ground-contact
     // settling). Hold the last published position while a sample's drift
@@ -782,18 +816,55 @@ void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = 
         t("belmont.equipment_control_reason",control.reason.c_str());
         i("belmont.equipment_control_busy",m->equipment_controller.busy());
         t("belmont.equipment_action_reason",m->equipment_controller.reason());
-        const bool picker=fresh&&control.ready&&control.picker&&control.equipment_tab;
+        i("belmont.helper_ready",m->helper&&!m->helper_dead&&std::chrono::steady_clock::now()-m->helper_alive_at<std::chrono::milliseconds(500));
+        t("belmont.helper_reason",m->helper_reason.c_str());t("belmont.helper_refs_reason",m->helper_refs.reason.c_str());
+        const bool native_picker=fresh&&control.ready&&control.picker&&control.equipment_tab;
+        std::int32_t direct=0;std::string held_id;
+        {std::lock_guard lock{m->map_mutex};direct=m->direct_category;held_id=m->direct_held_charm_id;}
+        if(direct&&(native_picker||!((m->helper_equip_mask.load()>>direct)&1u))){
+            // The native menu took over, or the helper stopped answering.
+            std::lock_guard lock{m->map_mutex};
+            m->direct_category=0;m->direct_held_charm=0;m->direct_held_charm_id.clear();direct=0;held_id.clear();
+        }
+        // Direct picker: owned items straight from Inventory, equipped by the
+        // guest helper with no native menu. Relics with every slot full first
+        // ask which slot to replace.
+        const bool direct_picker=!native_picker&&direct>0&&fresh&&equipment.ready&&equipment.coherent;
+        const bool picker=native_picker||direct_picker;
+        const std::int32_t category=native_picker?control.category:direct;
+        const bool holding=native_picker?control.holding_charm:!held_id.empty();
         std::vector<belmont_inventory::Slot> slots;
-        if(picker)for(const auto& slot:control.slots)
+        bool free_charm=false;
+        if(native_picker)for(const auto& slot:control.slots)
             if(slot.item.type==control.category &&
                (control.holding_charm ? (slot.index<0&&slot.enabled) :
                 (slot.index>=0&&!slot.item.id.empty()&&
                  (slot.enabled||(control.category==3&&slot.native_page>=0&&slot.native_page<control.native_pages)))))
                 slots.push_back(slot);
+        if(direct_picker){
+            for(const auto& charm:equipment.charms)if(!charm.equipped)free_charm=true;
+            if(holding){
+                for(std::size_t n=0;n<equipment.charms.size();++n){
+                    belmont_inventory::Slot slot;slot.index=-std::int32_t(n)-1;slot.enabled=true;
+                    slot.item.type=3;slot.item.id=equipment.charms[n].id;slot.item.equipped=equipment.charms[n].equipped;
+                    for(const auto& item:inv.items)if(item.type==3&&item.id==slot.item.id){slot.item.object=item.object;break;}
+                    slots.push_back(std::move(slot));
+                }
+            }else for(const auto& item:inv.items){
+                if(item.type!=category||item.id.empty())continue;
+                belmont_inventory::Slot slot;slot.item=item;slot.index=item.index;slot.enabled=true;
+                const auto& one=category==1?equipment.weapon:equipment.spell;
+                slot.item.equipped=category==3?std::any_of(equipment.charms.begin(),equipment.charms.end(),[&](const auto& c){return c.equipped&&c.id==item.id;}):
+                                               one.equipped&&one.id==item.id;
+                slot.selected=slot.item.equipped;
+                slots.push_back(std::move(slot));
+            }
+            if(slots.size()>128)slots.resize(128);
+        }
         // Membership identity deliberately excludes native focus/page/enable
         // flags. Scrolling remains stable while the controller routes a relic
         // to its source page and waits for fresh UIButton selection.
-        std::string signature=std::to_string(inv.entity)+":"+std::to_string(control.category)+":"+std::to_string(control.holding_charm);
+        std::string signature=std::to_string(inv.entity)+":"+std::to_string(category)+":"+std::to_string(holding)+":"+std::to_string(direct_picker)+":"+held_id;
         for(const auto& slot:slots)signature+=":"+std::to_string(slot.index)+":"+std::to_string(slot.item.object)+":"+std::to_string(slot.item.type)+":"+slot.item.id;
         std::lock_guard lock{m->map_mutex};
         const bool lost=!world||blocked||!inv.ready||!inv.coherent||inv.entity!=s.entity||(control.ready&&!control.picker);
@@ -804,11 +875,11 @@ void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = 
             if(signature!=m->picker_signature){m->picker_signature=signature;m->picker_images.clear();++m->picker_generation;}
             m->picker_slots=slots;
         }
-        m->picker_exposed=picker;
-        i("belmont.picker_ready",picker);i("belmont.picker_category",picker?control.category:0);i("belmont.picker_count",picker?slots.size():0);
+        m->picker_exposed=picker;m->direct_free_charm=free_charm;
+        i("belmont.picker_ready",picker);i("belmont.picker_category",picker?category:0);i("belmont.picker_count",picker?slots.size():0);
         i("belmont.picker_reset_epoch",m->picker_generation);
         i("belmont.picker_can_prev",0);i("belmont.picker_can_next",0);
-        const char* picker_title=control.holding_charm?"Choose relic slot":control.category==1?"Armoury":control.category==2?"Arcanas":"Relics";
+        const char* picker_title=holding?"Choose relic slot":category==1?"Armoury":category==2?"Arcanas":"Relics";
         t("belmont.picker_title",picker?picker_title:"");t("belmont.picker_page_text","");
         i("belmont.picker_selected_ready",0);t("belmont.picker_selected_name","");t("belmont.picker_selected_image","");
         for(std::size_t n=0;n<slots.size();++n){
@@ -1019,6 +1090,101 @@ void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = 
     }
     t("belmont.state_reason", s.reason.c_str());
 }
+// Field gameplay only: with a native menu open its own transaction may be
+// mid-flight on the same objects, so requests then use menu steering.
+bool HelperField(const belmont::Snapshot& s) {
+    return World(s)&&s.initial_identity==1&&s.paused!=1;
+}
+bool HelperUsable(const Module& m,std::chrono::steady_clock::time_point now) {
+    return m.helper&&!m.helper_dead&&now-m.helper_alive_at<std::chrono::milliseconds(500);
+}
+template<class Read>
+void HelperUpkeep(Module& m,const EdenDsmodHostApi& h,Read& read,const belmont::Snapshot& s,std::chrono::steady_clock::time_point now) {
+    if(!m.helper){m.helper_equip_mask.store(0);return;}
+    auto& client=*m.helper;
+    if(now-m.helper_beat_at>=std::chrono::milliseconds(100)){m.helper_beat_at=now;if(client.IsAlive())m.helper_alive_at=now;}
+    const bool world=World(s);
+    const std::uint64_t component=world&&m.native_pins.ready&&m.native_pins.entity==s.entity?m.native_pins.component:0;
+    const std::uint64_t inventory=world&&m.inventory.ready&&m.inventory.coherent&&m.inventory.entity==s.entity?m.inventory.inventory:0;
+    using belmont_helper_refs::Slot;
+    if(!world){m.helper_refs={};m.helper_refs_at={};}
+    else if(now-m.helper_refs_at>=std::chrono::seconds(1)||(component&&!m.helper_refs.Klass(Slot::MapMarkersComponent))||
+            (component&&!m.helper_refs.Klass(Slot::MapMarkerData)&&!m.native_pins.pins.empty())){
+        belmont_helper_refs::Decoder refs_reader(read);
+        const std::uint64_t marker=component&&!m.native_pins.pins.empty()?m.native_pins.pins.front().object:0;
+        m.helper_refs=refs_reader.Sample(Identity(h),component,marker);m.helper_refs_at=now;
+        for(std::uint32_t n=0;n<m.helper_refs.klass.size();++n)
+            if(const auto k=m.helper_refs.klass[n])client.SetClass(static_cast<Slot>(n),k);
+    }
+    client.SetContext(component,inventory);
+    std::uint32_t mask=0;
+    if(HelperUsable(m,now)&&HelperField(s)&&inventory&&!m.inventory.control.menu_open)
+        for(std::int32_t type=1;type<=3;++type)if(m.helper_refs.EquipReady(type))mask|=1u<<type;
+    m.helper_equip_mask.store(mask);
+}
+void StartMenuPin(Module& m,const belmont_map_control::Request& request,std::chrono::steady_clock::time_point now) {
+    if(m.pin_controller.Start(request,std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count())){
+        m.pin_request=request;m.pin_ids_before.clear();
+        for(const auto& pin:m.native_pins.pins)if(pin.level_guid==request.level_guid)m.pin_ids_before.insert(pin.id);
+        m.pin_action_reason="requested";
+    }else {m.pins.FinishRequest();m.pin_action_reason="native_pin_request_refused";}
+}
+bool HelperStagePin(Module& m,const belmont_map_control::Request& r,const belmont::Snapshot& s,std::chrono::steady_clock::time_point now) {
+    using belmont_helper_mailbox::Op;using belmont_map_control::Operation;
+    if(!HelperUsable(m,now)||m.helper_job!=HelperJob::None||!HelperField(s)||!m.native_pins.ready||
+       !m.native_pins.coherent||m.native_pins.entity!=s.entity||!m.native_pins.component||!m.helper_refs.PinsReady())return false;
+    belmont_helper_mailbox::Request q;
+    // Prefer the pin dictionary's own LevelID key; a level without pins yet
+    // resolves through LevelManager.mainFlowLevelIDs.
+    for(const auto& pin:m.native_pins.pins)if(pin.level_guid==r.level_guid&&pin.level){q.primary_ptr=pin.level;break;}
+    if(!q.primary_ptr)q.primary_ptr=m.helper_refs.Level(r.level_guid);
+    if(!q.primary_ptr)return false;
+    if(r.operation==Operation::Add){
+        q.op=Op::AddPin;q.secondary_ptr=m.helper_refs.MarkerType(r.type_guid);
+        if(!q.secondary_ptr||r.navigation_index<0||!std::isfinite(r.x)||!std::isfinite(r.y))return false;
+        std::memcpy(&q.arg_a,&r.x,4);std::memcpy(&q.arg_b,&r.y,4);q.arg_c=std::uint32_t(r.navigation_index);
+    }else{
+        const auto found=std::find_if(m.native_pins.pins.begin(),m.native_pins.pins.end(),[&](const auto& pin){return pin.level_guid==r.level_guid&&pin.id==r.native_id;});
+        if(found==m.native_pins.pins.end()||!found->object)return false;
+        q.primary_ptr=found->level;
+        if(r.operation==Operation::Change){
+            q.op=Op::ChangePin;q.secondary_ptr=found->object;q.tertiary_ptr=m.helper_refs.MarkerType(r.type_guid);
+            if(!q.tertiary_ptr)return false;
+        }else {q.op=Op::RemovePin;q.arg_a=std::uint32_t(r.native_id);}
+    }
+    q.epoch=m.helper->Epoch();
+    if(!q.epoch||!m.helper->TryStage(q))return false;
+    m.helper_job=HelperJob::Pin;m.helper_pin_fallback=r;m.helper_staged_at=now;m.helper_reason="pin_staged";
+    return true;
+}
+void HelperPoll(Module& m,const belmont::Snapshot& s,std::chrono::steady_clock::time_point now) {
+    using belmont_helper_mailbox::Result;
+    if(!m.helper||m.helper_job==HelperJob::None)return;
+    const auto job=m.helper_job;
+    const auto out=m.helper->Poll();
+    if(!out.answered){
+        if(now-m.helper_staged_at<std::chrono::seconds(2))return;
+        // The call may still land later: never retry it via the menu.
+        m.helper_dead=true;m.helper_reason="timeout";m.helper_job=HelperJob::None;
+        if(job==HelperJob::Pin){m.helper_pin_fallback.reset();m.pins.FinishRequest();m.pin_action_reason="helper_timeout";m.native_pins_at={};}
+        else {m.details_at={};m.inventory_at={};}
+        return;
+    }
+    m.helper_job=HelperJob::None;
+    m.helper_reason=out.code==Result::Ok?"ok":"refused_"+std::to_string(static_cast<std::uint32_t>(out.code));
+    if(job==HelperJob::Pin){
+        m.native_pins_at={};
+        auto fallback=std::move(m.helper_pin_fallback);m.helper_pin_fallback.reset();
+        if(out.code==Result::Ok){m.pins.FinishRequest();m.pin_action_reason="helper_done";}
+        // Every refusal precedes any game call, so menu steering is safe.
+        else if(fallback&&out.code!=Result::Loading&&World(s))StartMenuPin(m,*fallback,now);
+        else {m.pins.FinishRequest();m.pin_action_reason="helper_refused";}
+    }else{
+        m.details_at={};m.inventory_at={};
+        std::lock_guard lock{m.map_mutex};
+        if(out.code==Result::Ok){m.direct_category=0;m.direct_held_charm=0;m.direct_held_charm_id.clear();}
+    }
+}
 void Sample(void* p, const EdenDsmodHostApi* h) {
     if (!p || !Valid(h)) return;
     auto& m = *static_cast<Module*>(p);
@@ -1034,6 +1200,7 @@ void Sample(void* p, const EdenDsmodHostApi* h) {
         auto s=full?decoder.Sample(Identity(*h)):decoder.SampleMotion(Identity(*h),*m.full_source);
         if(!full&&s.reason=="motion_refresh_required"){s=decoder.Sample(Identity(*h));full=true;}
         if(full){m.full_sample_at=now;if(World(s))m.full_source=s;else m.full_source.reset();}
+        HelperPoll(m,s,now);
         if(World(s)) {
             if(m.native_pins.entity!=s.entity||now-m.native_pins_at>=std::chrono::milliseconds(m.pins.Busy()?50:200)){
                 belmont_native_pins::Decoder pin_reader(read);
@@ -1106,6 +1273,20 @@ void Sample(void* p, const EdenDsmodHostApi* h) {
             // a full fresh inventory before resuming the observed native step.
             m.inventory_at={};
         }else {m.inventory={};m.equipment_controller.Cancel("equipment_hidden_or_world_transition");}
+        HelperUpkeep(m,*h,read,s,now);
+        {
+            std::optional<belmont_helper_mailbox::Request> equip;
+            {std::lock_guard lock{m.map_mutex};equip=std::move(m.equip_pending);m.equip_pending.reset();}
+            if(equip){
+                bool staged=false;
+                if(HelperUsable(m,now)&&m.helper_job==HelperJob::None&&HelperField(s)){
+                    equip->epoch=m.helper->Epoch();
+                    staged=equip->epoch&&m.helper->TryStage(*equip);
+                }
+                if(staged){m.helper_job=HelperJob::Equip;m.helper_staged_at=now;m.helper_reason="equip_staged";}
+                else m.helper_reason="equip_unavailable";
+            }
+        }
         m.allowed.store(s.supported);m.Queue(display.value.base,display.value.objective,display.value.equipment);
         Publish(*h,display.value.base,&m,display.value.objective,display.value.equipment,display.value.stats,display.dim,&s,display.blocked);
         h->publish_i64(h->userdata,"belmont.equipment_input_button",static_cast<std::int32_t>(input));
@@ -1118,11 +1299,8 @@ void Sample(void* p, const EdenDsmodHostApi* h) {
             request.type_guid=intent->pin.kind<belmont_pins::KindCount?m.pin_type_guids[intent->pin.kind]:"";
             request.x=float(intent->pin.x);request.y=float(intent->pin.y);request.bounds=m.pin_bounds;
             request.source_proven=m.pin_context_ready&&!m.presentation_blocked&&!m.equipment_controller.busy()&&World(s)&&h->write_memory;
-            if(m.pin_controller.Start(request,std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count())){
-                m.pin_request=request;m.pin_ids_before.clear();
-                for(const auto& pin:m.native_pins.pins)if(pin.level_guid==request.level_guid)m.pin_ids_before.insert(pin.id);
-                m.pin_action_reason="requested";
-            }else {m.pins.FinishRequest();m.pin_action_reason="native_pin_request_refused";}
+            if(HelperStagePin(m,request,s,now))m.pin_action_reason="helper_requested";
+            else StartMenuPin(m,request,now);
         }
     } catch (...) {
         try {
@@ -1143,6 +1321,21 @@ void Configure(void* p, const EdenDsmodHostExtensions* ext) {
         if (ext && ext->version == EDEN_DSMOD_EXT_VERSION && ext->struct_size == sizeof(*ext) &&
             ext->abi_hash == EDEN_DSMOD_EXT_HASH && ext->decode_astc)
             astc = ce_unity::MakeHostAstcDecoder(ext->userdata, ext->decode_astc);
+        m.helper.reset();m.helper_refs={};m.helper_job=HelperJob::None;m.helper_pin_fallback.reset();
+        m.helper_dead=false;m.helper_equip_mask.store(0);m.helper_reason="absent";m.helper_alive_at={};
+        {std::lock_guard lock{m.map_mutex};m.direct_category=0;m.direct_held_charm=0;m.direct_held_charm_id.clear();m.equip_pending.reset();}
+        // The host provides a mailbox only when the package's load plan matched
+        // this build and its helper code was installed.
+        if (ext && ext->version == EDEN_DSMOD_EXT_VERSION && ext->struct_size == sizeof(*ext) &&
+            ext->abi_hash == EDEN_DSMOD_EXT_HASH && ext->mailbox_address &&
+            ext->mailbox_size >= belmont_helper_mailbox::MailboxSize && ext->load_u32 &&
+            ext->load_u64 && ext->store_u32 && ext->store_u64) {
+            const HelperIo io{ext->userdata, ext->load_u32, ext->load_u64, ext->store_u32, ext->store_u64};
+            m.helper.emplace(HelperLoad32{io}, HelperLoad64{io}, HelperStore32{io}, HelperStore64{io});
+            const auto epoch = m.helper->Epoch();
+            if (m.helper->Initialize(epoch ? epoch : 1)) m.helper_reason = "configured";
+            else m.helper.reset();
+        }
         if (!m.allowed.load() || !m.io_host.read_romfs) return;
         {
             std::lock_guard lock{m.map_mutex};
@@ -1391,10 +1584,24 @@ EdenDsmodBool Action(void* p,const char* action,std::int64_t argument){
         if(name=="pin_cancel"){m.pins.Cancel();m.pin_controller.Cancel();m.pins.FinishRequest();m.pin_request.reset();return EDEN_DSMOD_TRUE;}
         if(m.presentation_blocked)return EDEN_DSMOD_FALSE;
         if(name=="equipment_category"){
+            if(m.control_ready&&!m.equipment_controller.busy()&&argument>=1&&argument<=3&&((m.helper_equip_mask.load()>>argument)&1u)){
+                std::lock_guard lock{m.map_mutex};
+                if(m.equip_pending)return EDEN_DSMOD_FALSE;
+                m.direct_category=std::int32_t(argument);m.direct_held_charm=0;m.direct_held_charm_id.clear();
+                return EDEN_DSMOD_TRUE;
+            }
             if(!m.control_ready||m.equipment_controller.busy()||argument<1||argument>3)return EDEN_DSMOD_FALSE;
             m.equipment_controller.RequestCategory(static_cast<std::int32_t>(argument));return EDEN_DSMOD_TRUE;
         }
         if(name=="equipment_back"){
+            {
+                std::lock_guard lock{m.map_mutex};
+                if(m.direct_category){
+                    if(m.direct_held_charm){m.direct_held_charm=0;m.direct_held_charm_id.clear();}
+                    else m.direct_category=0;
+                    return EDEN_DSMOD_TRUE;
+                }
+            }
             if(!m.control_ready)return EDEN_DSMOD_FALSE;
             m.equipment_controller.Back();return EDEN_DSMOD_TRUE;
         }
@@ -1408,6 +1615,25 @@ EdenDsmodBool Action(void* p,const char* action,std::int64_t argument){
                 if(!m.picker_exposed||argument>=std::int64_t(m.picker_slots.size()))return EDEN_DSMOD_FALSE;
                 bool art=false;for(const auto& image:m.picker_images)if(image.slot==std::to_string(argument))art=true;
                 if(!art)return EDEN_DSMOD_FALSE;
+                if(m.direct_category){
+                    using belmont_helper_mailbox::Op;
+                    if(m.equip_pending)return EDEN_DSMOD_FALSE;
+                    const auto& slot=m.picker_slots[std::size_t(argument)];
+                    belmont_helper_mailbox::Request q;
+                    if(m.direct_held_charm){
+                        q.op=Op::EquipCharm;q.primary_ptr=m.direct_held_charm;q.arg_a=std::uint32_t(-slot.index-1);
+                        if(slot.index>=0)return EDEN_DSMOD_FALSE;
+                    }else if(slot.item.equipped||!slot.item.object){
+                        m.direct_category=0;return EDEN_DSMOD_TRUE; // already worn
+                    }else if(m.direct_category==3&&!m.direct_free_charm){
+                        m.direct_held_charm=slot.item.object;m.direct_held_charm_id=slot.item.id;return EDEN_DSMOD_TRUE;
+                    }else{
+                        q.op=m.direct_category==1?Op::EquipWeapon:m.direct_category==2?Op::EquipSpell:Op::EquipCharm;
+                        q.primary_ptr=slot.item.object;
+                        if(q.op==Op::EquipCharm)q.arg_a=std::uint32_t(-1); // first free slot
+                    }
+                    m.equip_pending=q;return EDEN_DSMOD_TRUE;
+                }
                 selected=m.picker_slots[std::size_t(argument)].index;
             }
             m.equipment_controller.RequestPick(selected);return EDEN_DSMOD_TRUE;
