@@ -35,6 +35,7 @@ This repository holds the companion source code, packages, documentation and scr
 | 15 | [Diablo III: Eternal Collection](#diablo-iii-eternal-collection) | `01001B300B9BE000` | 2.7.7, 2.7.6 | [.dsmod.zip](https://github.com/igawa6/eden-duo-companions/releases/tag/diablo-iii-eternal-collection-1.0.0) | 🥇 <a href="https://ko-fi.com/Z2B723BQK6"><img src="https://img.shields.io/badge/shy-F16061?style=flat-square&logo=ko-fi&logoColor=white" style="vertical-align: middle;" alt="shy"></a> |
 | 16 | [Farming Simulator: Nintendo Switch Edition](#farming-simulator-nintendo-switch-edition) | `0100D04004176000` | 1.5.0.1 | [.dsmod.zip](https://github.com/igawa6/eden-duo-companions/releases/tag/farming-simulator-nintendo-switch-edition-1.0.1) | 🥇 <a href="https://ko-fi.com/igawa6/commissions"><img src="https://img.shields.io/badge/Anon.-F16061?style=flat-square&logo=ko-fi&logoColor=white" style="vertical-align: middle;" alt="Anon."></a> |
 | 17 | [VA-11 Hall-A: Cyberpunk Bartender Action](#va-11-hall-a-cyberpunk-bartender-action) | `010086500D3C8000` | 1.0.0 | [.dsmod.zip](https://github.com/igawa6/eden-duo-companions/releases/tag/va-11-hall-a-1.0.0) | ⭐ <a href="https://ko-fi.com/matinc"><img src="https://img.shields.io/badge/Mati-F16061?style=flat-square&logo=ko-fi&logoColor=white" style="vertical-align: middle;" alt="Mati"></a> |
+| 18 | [The Legend of Zelda: Breath of the Wild](#the-legend-of-zelda-breath-of-the-wild) | `01007EF00011E000` | 1.6.0 | [.dsmod.zip](https://github.com/igawa6/eden-duo-companions/releases/tag/breath-of-the-wild-1.0.0) | 🗳️ <a href="https://ko-fi.com/polls/2nd-Poll-Next-Switch-Game-on-Eden-Duo-Q6B3284653"><img src="https://img.shields.io/badge/Poll_Winner-1ABC9C?style=flat-square&logo=ko-fi&logoColor=white" style="vertical-align: middle;" alt="Poll Winner"></a> |
 | 19 | [Castlevania: Belmont's Curse](#castlevania-belmonts-curse) | `0100BA4026E94000` | 1.1.0 | [.dsmod.zip](https://github.com/igawa6/eden-duo-companions/releases/tag/castlevania-belmonts-curse-1.0.0) | 🥇 <a href="https://www.reddit.com/user/gymgooner123"><img src="https://img.shields.io/badge/gymgooner123-FF4500?style=flat-square&logo=reddit&logoColor=white" style="vertical-align: middle;" alt="gymgooner123"></a> |
 
 ⭐ Companion contributor. Big thanks for your mods creation!
@@ -501,6 +502,30 @@ These companions were developed with AI assistance. The companion modules, the r
 ## License
 
 Companion packages and tools are free software, released under the [GNU General Public License v3.0](LICENSE). They are not affiliated with or endorsed by Nintendo, Atlus, SEGA, Sukeban Games, Ysbryd Games, the CTGP-DX team, or the Eden project. All trademarks belong to their respective owners.
+
+## The Legend of Zelda: Breath of the Wild
+
+🗳️ <a href="https://ko-fi.com/polls/2nd-Poll-Next-Switch-Game-on-Eden-Duo-Q6B3284653"><img src="https://img.shields.io/badge/Poll_Winner-1ABC9C?style=flat-square&logo=ko-fi&logoColor=white" style="vertical-align: middle;" alt="Poll Winner"></a>
+
+`01007EF00011E000` · game version 1.6.0 · works with or without DLC · companion 1.0.0
+
+| Ready | Inventory | Map |
+|:---:|:---:|:---:|
+| <img src="screenshots/breath-of-the-wild/ready.png" width="300" alt="The Legend of Zelda: Breath of the Wild: Ready"> | <img src="screenshots/breath-of-the-wild/inventory.png" width="300" alt="The Legend of Zelda: Breath of the Wild: Inventory"> | <img src="screenshots/breath-of-the-wild/map.png" width="300" alt="The Legend of Zelda: Breath of the Wild: Map"> |
+
+The Sheikah Slate moves to the second screen: equip, eat, plan and travel without opening the pause menu.
+
+- **Ready.** A round map that follows you, with your location, time, temperature and weather, rupees and the active quest. It shows your equipped weapon, bow, shield and arrows with durability, and your runes. Swap gear or runes from touch grids, or hold a controller button to pick them. Cards appear when you need them: the nearest shrine when the Sheikah Sensor is on, and food when your hearts run low.
+- **Inventory.** Every category in the game's own order and sort, with full item details. Tap to equip, remove or eat. Swipe to switch weapons. Hold materials or food to cook. If your weapon breaks, your previous secondary weapon is equipped again.
+- **Map.** A pan-and-zoom map of Hyrule with the game's own icons and place names. Place, move and remove pins and stamps, which are saved to your game. Layers choose what shows. Travel to any shrine or tower you have activated.
+- **Quests, Trackers and Recipes.** Choose the active quest, track the materials you still need and show where to find them, and browse meals and elixirs you can cook with what you own.
+- **Title, loading and pause** each have their own view. While the pause menu is open on the main screen, the second screen dims instead of competing with it.
+- **DLC.** Works with or without the DLC. With it, DLC items such as the Travel Medallion appear and work as well.
+- **Other versions.** On any other game version the companion shows a notice and reads nothing.
+
+The companion ships no game art: icons, the map, the font and all text are read from your own game files.
+
+Requires Eden Duo 1.3.2 or newer.
 
 ## Castlevania: Belmont's Curse
 
