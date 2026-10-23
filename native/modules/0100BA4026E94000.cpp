@@ -269,6 +269,16 @@ struct Module {
     std::array<float,4> pin_bounds{};
     std::array<std::string,belmont_pins::KindCount> pin_type_guids;
     std::int64_t map_tap_sequence{-1};
+    // Idle redraw fix: target_position is a live transform read, noisy by a
+    // sub-LSB amount even while the player stands still (ground-contact
+    // settling). Hold the last published position while a sample's drift
+    // stays under the marker's own 1/256 world-unit precision floor (the
+    // scale already chosen above for belmont.marker_x/_y), so that noise
+    // below the system's existing resolution does not dirty the map widget's
+    // marker/view bindings every tick. Any real movement still publishes at
+    // full float precision the instant it exceeds that floor.
+    double marker_hold_x{}, marker_hold_y{};
+    bool marker_hold_valid{};
     std::uint64_t sample_count{},incoherent_samples{},retained_samples{};
     bool presentation_blocked{true},control_ready{},picker_exposed{},equipment_visible{};
     belmont_inventory::Snapshot inventory;
@@ -832,7 +842,21 @@ void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = 
     // Sub-area home: a fixed world window in the 1240x930 map viewport,
     // ending above the footer controls. Keep its aspect in sync with manifest.
     constexpr double aspect = 930.0 / 1240.0, width = 96.0, height = width * aspect;
-    const double x = ready ? s.target_position[0] : 0, y = ready ? s.target_position[1] : 0;
+    double x = ready ? s.target_position[0] : 0, y = ready ? s.target_position[1] : 0;
+    if (m) {
+        // Below-floor drift is held at the prior sample so idle noise cannot
+        // redraw the marker/view every tick; see the Module field comment.
+        constexpr double kHoldFloor = 1.0 / 256.0;
+        if (ready && m->marker_hold_valid &&
+            std::abs(x - m->marker_hold_x) < kHoldFloor &&
+            std::abs(y - m->marker_hold_y) < kHoldFloor) {
+            x = m->marker_hold_x; y = m->marker_hold_y;
+        } else if (ready) {
+            m->marker_hold_x = x; m->marker_hold_y = y; m->marker_hold_valid = true;
+        } else {
+            m->marker_hold_valid = false;
+        }
+    }
     f("belmont.player_x", x); f("belmont.player_y", y);
     // rt22 hashes visible floats in coarse world-unit buckets. Scale only
     // these presentation bindings; the Map widget applies the exact inverse.
