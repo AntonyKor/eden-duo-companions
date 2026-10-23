@@ -35,6 +35,7 @@ This repository holds the companion source code, packages, documentation and scr
 | 15 | [Diablo III: Eternal Collection](#diablo-iii-eternal-collection) | `01001B300B9BE000` | 2.7.7, 2.7.6 | [.dsmod.zip](https://github.com/igawa6/eden-duo-companions/releases/tag/diablo-iii-eternal-collection-1.0.0) | 🥇 <a href="https://ko-fi.com/Z2B723BQK6"><img src="https://img.shields.io/badge/shy-F16061?style=flat-square&logo=ko-fi&logoColor=white" style="vertical-align: middle;" alt="shy"></a> |
 | 16 | [Farming Simulator: Nintendo Switch Edition](#farming-simulator-nintendo-switch-edition) | `0100D04004176000` | 1.5.0.1 | [.dsmod.zip](https://github.com/igawa6/eden-duo-companions/releases/tag/farming-simulator-nintendo-switch-edition-1.0.1) | 🥇 <a href="https://ko-fi.com/igawa6/commissions"><img src="https://img.shields.io/badge/Anon.-F16061?style=flat-square&logo=ko-fi&logoColor=white" style="vertical-align: middle;" alt="Anon."></a> |
 | 17 | [VA-11 Hall-A: Cyberpunk Bartender Action](#va-11-hall-a-cyberpunk-bartender-action) | `010086500D3C8000` | 1.0.0 | [.dsmod.zip](https://github.com/igawa6/eden-duo-companions/releases/tag/va-11-hall-a-1.0.0) | ⭐ <a href="https://ko-fi.com/matinc"><img src="https://img.shields.io/badge/Mati-F16061?style=flat-square&logo=ko-fi&logoColor=white" style="vertical-align: middle;" alt="Mati"></a> |
+| 19 | [Castlevania: Belmont's Curse](#castlevania-belmonts-curse) | `0100BA4026E94000` | 1.1.0 | [.dsmod.zip](https://github.com/igawa6/eden-duo-companions/releases/tag/castlevania-belmonts-curse-1.0.0) | 🥇 <a href="https://www.reddit.com/user/gymgooner123"><img src="https://img.shields.io/badge/gymgooner123-FF4500?style=flat-square&logo=reddit&logoColor=white" style="vertical-align: middle;" alt="gymgooner123"></a> |
 
 ⭐ Companion contributor. Big thanks for your mods creation!
 
@@ -500,3 +501,22 @@ These companions were developed with AI assistance. The companion modules, the r
 ## License
 
 Companion packages and tools are free software, released under the [GNU General Public License v3.0](LICENSE). They are not affiliated with or endorsed by Nintendo, Atlus, SEGA, Sukeban Games, Ysbryd Games, the CTGP-DX team, or the Eden project. All trademarks belong to their respective owners.
+
+## Castlevania: Belmont's Curse
+
+🥇 <a href="https://www.reddit.com/user/gymgooner123"><img src="https://img.shields.io/badge/gymgooner123-FF4500?style=flat-square&logo=reddit&logoColor=white" style="vertical-align: middle;" alt="gymgooner123"></a>
+
+`0100BA4026E94000` · game version 1.1.0 · companion 1.0.0
+
+| Map | Equipment | Pins |
+|:---:|:---:|:---:|
+| <img src="screenshots/castlevania-belmont/map.png" width="300" alt="Castlevania: Belmont's Curse: Map"> | <img src="screenshots/castlevania-belmont/equipment.png" width="300" alt="Castlevania: Belmont's Curse: Equipment"> | <img src="screenshots/castlevania-belmont/pins.png" width="300" alt="Castlevania: Belmont's Curse: Pins"> |
+
+Keep the map, your pins and your loadout on the second screen while Belmont explores the castle on the main one.
+
+- **Map.** The game's own Map tab, always open: the current area and sub-area, explored-zone fog, discovered landmark engravings and name ribbons, and the active main objective. An Area/Sub-area rail and Reset drive the local pan/zoom view.
+- **Pin.** Choose one of the game's nine native marker symbols and tap the map to place it, or tap an existing pin to change or remove it. Pins are placed directly in the game and saved exactly like the game's own map markers.
+- **Equipment.** Arcana, weapon and relics with their art and names, and final ATK/DEF/HP/MP, read the way the game's own menu shows them. Tap an item to equip it instantly.
+- **Feel.** Short fades between pages and haptic feedback on taps, equips and pin changes.
+
+The companion ships no game art: map geometry, fog, landmarks, fonts, icons and equipment artwork are read from your own game files.
