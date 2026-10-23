@@ -212,8 +212,10 @@ Renderer::RenderArt(const belmont_map_landmarks::Landmark &l) {
       Color color;
     };
     std::vector<Layer> layers;
-    Rect bounds{};
-    bool first = true;
+    // (This loop used to also accumulate a local `bounds` union of each
+    // sprite's rect, but that value was never read: placement below comes
+    // from ArtPlacement(l), which computes its own bounds independently.
+    // Removed the dead accumulation.)
     for (const auto &s : l.sprites) {
       if (!Positive(s.width) || !Positive(s.height) ||
           !Positive(s.pixels_per_unit) || !Positive(s.scale_x) ||
@@ -231,15 +233,6 @@ Renderer::RenderArt(const belmont_map_landmarks::Landmark &l) {
                   h = s.height / s.pixels_per_unit * s.scale_y;
       Rect r{s.x - w * s.pivot_x, s.y - h * s.pivot_y,
              s.x + w * (1 - s.pivot_x), s.y + h * (1 - s.pivot_y)};
-      if (first) {
-        bounds = r;
-        first = false;
-      } else {
-        bounds.left = std::min(bounds.left, r.left);
-        bounds.bottom = std::min(bounds.bottom, r.bottom);
-        bounds.right = std::max(bounds.right, r.right);
-        bounds.top = std::max(bounds.top, r.top);
-      }
       layers.push_back({std::move(*im), r, s.color});
     }
     constexpr float NativePPU = 16;
