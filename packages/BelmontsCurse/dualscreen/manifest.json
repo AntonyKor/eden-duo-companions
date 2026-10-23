@@ -1,7 +1,7 @@
 {
   "format": 1,
   "title_id": "0100BA4026E94000",
-  "name": "Belmont's Curse companion \u2014 internal candidate",
+  "name": "Castlevania: Belmont's Curse companion",
   "min_runtime": 22,
   "canvas_w": 1240,
   "canvas_h": 1080,
@@ -27,6 +27,7 @@
   "load_plan": "guest/<build>/load-plan.json",
   "font": "file:fonts/latin51sc.bfont",
   "font_atlas": "module:belmont-font:LatinFont:51sc",
+  "_about": "Map and Equipment companion for Castlevania: Belmont's Curse. The Map tab stays open with the current area/sub-area ribbon, discovered landmark engravings and the active objective; an Area/Sub-area rail and Reset drive the local pan/zoom view. Pin places one of nine native marker symbols, and Equipment changes Arcana, weapon and relics, directly through a format-2 guest helper that calls the game's own marker and inventory functions on the game thread (falls back to driving the native menu only when the helper is unavailable); the game allocates, limits and saves every change exactly as its own menus would. Overlays, the pin chooser and page/state changes use short fades, and distinct haptic pulses mark navigation, a confirmed gameplay change and a refused action. Native map geometry, fog, landmarks, fonts, icons and Equipment artwork are decoded from the player's own installation at runtime; the package ships no game art.",
   "debug_page": false,
   "map": {
     "areas_src": "module:belmont:areas"
@@ -3926,7 +3927,7 @@
             0,
             60
           ],
-          "text": "\u2014",
+          "text": "—",
           "text_scale": 8,
           "color": "#FFC9B46A",
           "align": "center",
@@ -3989,7 +3990,7 @@
             0,
             60
           ],
-          "text": "\u2014",
+          "text": "—",
           "text_scale": 8,
           "color": "#FFC9B46A",
           "align": "center",
@@ -4052,7 +4053,7 @@
             0,
             60
           ],
-          "text": "\u2014",
+          "text": "—",
           "text_scale": 8,
           "color": "#FFC9B46A",
           "align": "center",
@@ -4115,7 +4116,7 @@
             0,
             60
           ],
-          "text": "\u2014",
+          "text": "—",
           "text_scale": 8,
           "color": "#FFC9B46A",
           "align": "center",
@@ -5927,16 +5928,11 @@
       ]
     }
   ],
-  "_status": "UNRELEASED internal candidate. Native source rendering covers nine biomes, ten metadata sources. Desktop gameplay checkpoints include opening StreetsPoor, Sewers and late Sanctuary of Solitude. Equipment matches native early/late reference only where checked. Ending map, secret overlays, full-game coverage and Thor/Android execution remain pending.",
-  "_map_contract": "Module publishes current coherent source area/image/player/home only after native geometry, fog, image, area metadata, English label, font and Rose glyph join succeeds. Unsupported/loading data actively clears readiness.",
-  "_font_contract": "Authored request descriptor +native51coverage. Host wantedcap is5*text_scale; scales10/6/5 =>50/30/25wantedcap. Objective uses the paired native51 atlas rasterized at24wantedcap on a worker, rendered1:1 in1100x64.",
-  "_reset_contract": "Host-only localview reset while map invalid and customview exists. Root must invalidate map across session/area changes and ensure return-home transition before exposing new context.",
   "flags": {
     "ui.area_tier": false,
     "ui.area_applied": false,
     "ui.equipment": false
   },
-  "_layout": "Owner-approved Direction A map with native discovered landmark engraving/ribbon overlays and current objective. Native Equipment context adds a touch tab, equipped Arcana card, weapon illustration, relic names/icons and final stats. Page switching retains map view; Equipment readiness is independent of optional map rendering. Unknown native formulas/assets stay unavailable. Owner correction: native ribbon endcaps uniformly scaled with central spans extended; two-stop Area/Sub-area rail, Reset, session-local native nine-icon pin chooser, presentation dim input veil. Native six-cell inventory view, source GridSlot/SquareSlot, category taps and source-state-gated controller pulses. Pin edit opens chooser before deletion. 2026-10-21 ownercorrection: centeredArea/Sub-area; nativePinbuttonselectsthenarmsplacement; retainedviewveilhastransparentoutline; Equipmentnative2rowstatplateinlineMapontop, body52pxlower; objectiveposition220. Objectiveusesnativefont24pxworkerimage1100x64at100,220,secondaryrole; map/worldunitsunchangedbyscaledmarkerbindings. Equipmentall-ownednative3columnverticalscrollusesstablelogicalpayloads, actualhostclip/hittest, fixedBackleftandMapright; noPrevious/Nextorpageindicator. Ownercompactrevision: statplate720widemaintainsnativefontsize; nativehealth/manaupgrades2x6icons56squareonright; Level992,154; mapPin/Equipmentpositionsswapped; EquipmentMapfixedbottomright.",
   "haptics": {
     "enabled": true,
     "respect_system": true,
