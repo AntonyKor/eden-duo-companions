@@ -65,6 +65,9 @@ SYMBOLS: dict[str, tuple[str, int]] = {
     # IL2CPP generic object-new, called with x0=klass exactly as TryPlaceMarker does
     # at main.bin file offset 0x1DF0320 (independently re-disassembled, see README).
     "belmont_il2cpp_object_new": ("main", 0x5BE780),
+    # TryPlaceMarker's lazy-metadata init call and MapMarkerData_TypeInfo slot.
+    "belmont_il2cpp_init_runtime_metadata": ("main", 0x5BE410),
+    "belmont_map_marker_data_typeinfo": ("main", 0x6D444D8),
     "belmont_map_marker_data_ctor": ("main", 0x1C311A0),
     "belmont_markers_add_marker": ("main", 0x1C2E7A0),
     "belmont_markers_remove_marker": ("main", 0x1C2EF60),
@@ -87,7 +90,7 @@ RELOC_KIND_MAP = {
 # Regression guard: the exact relocation count belmont_guest_helper.S produced the
 # last time this script was run against it. Update deliberately (with a comment
 # saying why) if the .S file's external-symbol references change.
-EXPECTED_RELOCATION_COUNT = 13  # 2 (mailbox adrp+add) + 2 (loading-flag adrp+ldr64) + 9 (bl/b)
+EXPECTED_RELOCATION_COUNT = 18  # 2 (mailbox adrp+add) + 2 (loading-flag adrp+ldr64) + 4 (MapMarkerData slot adrp+add, adrp+ldr64) + 10 (bl/b)
 
 
 class NSOHeader:

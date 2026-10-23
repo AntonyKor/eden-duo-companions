@@ -1149,7 +1149,7 @@ bool HelperStagePin(Module& m,const belmont_map_control::Request& r,const belmon
         q.primary_ptr=found->level;
         if(r.operation==Operation::Change){
             q.op=Op::ChangePin;q.secondary_ptr=found->object;q.tertiary_ptr=m.helper_refs.MarkerType(r.type_guid);
-            if(!q.tertiary_ptr)return false;
+            if(!q.tertiary_ptr||!m.helper_refs.Klass(belmont_helper_refs::Slot::MapMarkerData))return false;
         }else {q.op=Op::RemovePin;q.arg_a=std::uint32_t(r.native_id);}
     }
     q.epoch=m.helper->Epoch();

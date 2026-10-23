@@ -133,6 +133,15 @@ belmont_guest_helper_entry:
 // need to special-case a level with no existing entry.
 // ---------------------------------------------------------------------------
 op_add_pin:
+    // MapMarkerData's TypeInfo slot is lazy: a save whose pins were loaded
+    // from disk leaves it holding the metadata token until the game's own
+    // TryPlaceMarker first runs. Initialize it exactly as TryPlaceMarker does
+    // (0x1DF021C..0x1DF0230: x0 = &slot, bl InitializeRuntimeMetadata) before
+    // any other load -- the call clobbers the caller-saved registers.
+    adrp x0, belmont_map_marker_data_typeinfo
+    add  x0, x0, :lo12:belmont_map_marker_data_typeinfo
+    bl   belmont_il2cpp_init_runtime_metadata
+
     ldr  x9, [x19, #0x40]              // ctx_markers_component
     cbz  x9, refuse_null_context
     ldr  x10, [x9, #0]                   // its klass
@@ -158,8 +167,15 @@ op_add_pin:
     b.ne refuse_class_mismatch_secondary
     ldr  x15, [x15, #0x18]                   // dereference to the resident guid String*
 
-    ldr  x0, [x19, #0x70]                   // class_table[0] = MapMarkerData klass
+    adrp x9, belmont_map_marker_data_typeinfo
+    ldr  x0, [x9, :lo12:belmont_map_marker_data_typeinfo] // initialized klass
     cbz  x0, refuse_not_configured
+    tbnz x0, #0, refuse_not_configured      // still an (odd) metadata token
+    ldr  x10, [x19, #0x70]                  // class_table[0], when the module knows it
+    cbz  x10, add_pin_klass_ok
+    cmp  x0, x10
+    b.ne refuse_not_configured
+add_pin_klass_ok:
     bl   belmont_il2cpp_object_new            // x0 (klass) in -> x0 (new object*) out
     cbz  x0, refuse_alloc_failed
     mov  x21, x0                               // marker_obj, kept across the next call

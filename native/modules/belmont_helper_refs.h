@@ -26,8 +26,10 @@ struct Refs {
   U64 Klass(Slot slot) const { return klass[static_cast<std::size_t>(slot)]; }
   U64 MarkerType(const std::string &guid) const { return Find(marker_types, guid); }
   U64 Level(const std::string &guid) const { return Find(levels, guid); }
+  // ADD_PIN initializes and reads MapMarkerData's klass in the guest itself;
+  // CHANGE_PIN additionally needs Klass(Slot::MapMarkerData) (from a live pin).
   bool PinsReady() const {
-    return Klass(Slot::MapMarkerData) && Klass(Slot::LevelID) &&
+    return Klass(Slot::LevelID) &&
            Klass(Slot::MapMarkerTypeID) && Klass(Slot::MapMarkersComponent) &&
            !marker_types.empty() && !levels.empty();
   }

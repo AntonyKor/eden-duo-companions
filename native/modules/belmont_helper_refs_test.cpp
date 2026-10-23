@@ -148,12 +148,13 @@ int main() {
       m.put<U64>(M::B + belmont_helper_refs::CharmItemDataTypeInfo, 0);
       belmont_helper_refs::Decoder decoder(m);
       const auto r = decoder.Sample(Id(), M::H + 0x30000);
-      Check(!r.Klass(Slot::MapMarkerData) && !r.PinsReady(), "lazy marker data");
+      // ADD needs no module-side MapMarkerData klass (the guest initializes it).
+      Check(!r.Klass(Slot::MapMarkerData) && r.PinsReady(), "lazy marker data");
       Check(!r.EquipReady(3) && r.EquipReady(2), "lazy charm only");
       // A live pin object supplies the klass the lazy slot does not.
       m.object(M::H + 0x40000, M::H + 0x41000, "MapMarkerData");
       const auto live = decoder.Sample(Id(), M::H + 0x30000, M::H + 0x40000);
-      Check(live.Klass(Slot::MapMarkerData) == M::H + 0x41000 && live.PinsReady(), "live marker klass");
+      Check(live.Klass(Slot::MapMarkerData) == M::H + 0x41000, "live marker klass");
       m.klass(M::H + 0x41000, "LevelID");
       Check(!decoder.Sample(Id(), M::H + 0x30000, M::H + 0x40000).Klass(Slot::MapMarkerData), "live marker class check");
     }
