@@ -622,6 +622,41 @@ void* Create(const EdenDsmodHostApi* h, const char*) {
     catch (...) { return nullptr; }
 }
 void Destroy(void* p) { try { delete static_cast<Module*>(p); } catch (...) {} }
+// Publish() runs every Sample() tick and formerly rebuilt these key-name
+// strings (prefix concatenation + std::to_string) from scratch each time even
+// though they never depend on game state -- only the published values differ
+// per tick. Build each table once; Publish() only ever looks up a cached
+// c_str(), which removes hundreds of per-tick heap allocations without
+// changing any published key or value.
+struct PinKindKeys { std::string name, image; };
+const std::array<PinKindKeys, belmont_pins::KindCount> PinKindKeyTable = [] {
+    std::array<PinKindKeys, belmont_pins::KindCount> out;
+    for (std::size_t n = 0; n < belmont_pins::KindCount; ++n)
+        out[n] = {"belmont.pin_kind_" + std::to_string(n) + "_image", belmont_pins::Image(n)};
+    return out;
+}();
+struct PinSlotKeys { std::string ready, x, y, image; };
+const std::array<PinSlotKeys, belmont_pins::Capacity> PinSlotKeyTable = [] {
+    std::array<PinSlotKeys, belmont_pins::Capacity> out;
+    for (std::size_t n = 0; n < belmont_pins::Capacity; ++n) {
+        const auto prefix = "belmont.pin." + std::to_string(n);
+        out[n] = {prefix + ".ready", prefix + ".x", prefix + ".y", prefix + ".image"};
+    }
+    return out;
+}();
+const std::array<std::string, 16> EquipmentCharmKeyTable = [] {
+    std::array<std::string, 16> out;
+    for (unsigned n = 0; n < 16; ++n) out[n] = "belmont.equipment_charm_" + std::to_string(n);
+    return out;
+}();
+const std::array<std::array<std::string, 6>, 2> UpgradeImageKeyTable = [] {
+    std::array<std::array<std::string, 6>, 2> out;
+    for (unsigned kind = 0; kind < 2; ++kind) {
+        const std::string prefix = kind ? "belmont.mana_upgrade_" : "belmont.health_upgrade_";
+        for (unsigned n = 0; n < 6; ++n) out[kind][n] = prefix + std::to_string(n) + "_image";
+    }
+    return out;
+}();
 void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = nullptr, const belmont_objectives::Snapshot& ob = {}, const belmont_equipment::Snapshot& equipment = {},const belmont_equipment_stats::Snapshot& stats = {},bool dim=false,const belmont::Snapshot* live=nullptr,bool blocked=true) {
     const auto i = [&](const char* key, std::int64_t v) { h.publish_i64(h.userdata, key, v); };
     const auto t = [&](const char* key, const char* v) { h.publish_text(h.userdata, key, v); };
@@ -721,12 +756,12 @@ void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = 
         t("belmont.native_pins_reason",m->native_pins.reason.c_str());
         i("belmont.pin_capture_pending",m->pins.Waiting());i("belmont.pin_armed",m->pins.Armed());
         i("belmont.pin_picker",m->pins.Picker());i("belmont.pin_editing",m->pins.Editing());
-        for(std::size_t n=0;n<belmont_pins::KindCount;++n){const auto name="belmont.pin_kind_"+std::to_string(n)+"_image";const auto image=belmont_pins::Image(n);t(name.c_str(),image.c_str());}
+        for(std::size_t n=0;n<belmont_pins::KindCount;++n)t(PinKindKeyTable[n].name.c_str(),PinKindKeyTable[n].image.c_str());
         for(std::size_t n=0;n<belmont_pins::Capacity;++n){
-            const auto& pin=m->pins.All()[n];const auto prefix="belmont.pin."+std::to_string(n);
+            const auto& pin=m->pins.All()[n];const auto& keys=PinSlotKeyTable[n];
             const bool show=ready&&pin&&pin->area==rendered->area_key;
-            i((prefix+".ready").c_str(),show);f((prefix+".x").c_str(),show?pin->x:0);f((prefix+".y").c_str(),show?pin->y:0);
-            const auto image=show?belmont_pins::Image(pin->kind):"";t((prefix+".image").c_str(),image.c_str());
+            i(keys.ready.c_str(),show);f(keys.x.c_str(),show?pin->x:0);f(keys.y.c_str(),show?pin->y:0);
+            const auto image=show?belmont_pins::Image(pin->kind):std::string();t(keys.image.c_str(),image.c_str());
         }
     }
     if(m){
@@ -906,7 +941,7 @@ void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = 
     t("belmont.equipment_spell",equipment_ready?equipment.spell.id.c_str():"");
     t("belmont.equipment_skin",equipment_ready?equipment.skin.id.c_str():"");
     i("belmont.equipment_charm_slots",equipment_ready?equipment.charms.size():0);
-    for(unsigned n=0;n<16;++n) {const auto key="belmont.equipment_charm_"+std::to_string(n);t(key.c_str(),equipment_ready&&n<equipment.charms.size()?equipment.charms[n].id.c_str():"");}
+    for(unsigned n=0;n<16;++n)t(EquipmentCharmKeyTable[n].c_str(),equipment_ready&&n<equipment.charms.size()?equipment.charms[n].id.c_str():"");
     const bool assets_ready=equipment_ready&&rendered&&rendered->equipment_prepared&&m&&m->equipment_exposed;
     i("belmont.equipment_assets_ready",assets_ready);
     const auto publish_item=[&](const std::string& slot,const belmont_equipment::Item& item) {
@@ -949,13 +984,12 @@ void Publish(const EdenDsmodHostApi& h, const belmont::Snapshot& s, Module* m = 
         const auto& completed=kind?stats.mana_upgrades:stats.health_upgrades;
         const auto& fragments=kind?stats.mana_fragments:stats.health_fragments;
         const auto& needed=kind?stats.mana_fragments_needed:stats.health_fragments_needed;
-        const std::string prefix=kind?"belmont.mana_upgrade_":"belmont.health_upgrade_";
         bool row_ready=stat_ready;
         for(unsigned n=0;n<6;++n){
             const auto pieces=belmont_equipment_stats::UpgradePieces(completed,fragments,needed,n);
             row_ready=row_ready&&pieces.ready;
-            const auto key=stat_ready&&pieces.ready?std::string(UpgradePrefix)+std::to_string(kind)+":"+std::to_string(pieces.value):"";
-            t((prefix+std::to_string(n)+"_image").c_str(),key.c_str());
+            const auto key=stat_ready&&pieces.ready?std::string(UpgradePrefix)+std::to_string(kind)+":"+std::to_string(pieces.value):std::string();
+            t(UpgradeImageKeyTable[kind][n].c_str(),key.c_str());
         }
         i(kind?"belmont.mana_upgrades_ready":"belmont.health_upgrades_ready",row_ready);
     }
