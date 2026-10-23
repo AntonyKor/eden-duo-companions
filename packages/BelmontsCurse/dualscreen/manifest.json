@@ -1214,62 +1214,6 @@
     {
       "name": "ui.map_cursor_8",
       "expr": "belmont.map_cursor_pulse == 8 && !belmont.presentation_blocked"
-    },
-    {
-      "name": "ui.m_title",
-      "expr": "@flag:ui.anim ? ui.title : 1"
-    },
-    {
-      "name": "ui.m_wait_art",
-      "expr": "@flag:ui.anim ? ui.wait_art : 1"
-    },
-    {
-      "name": "ui.m_map",
-      "expr": "@flag:ui.anim ? ui.map : 1"
-    },
-    {
-      "name": "ui.m_area",
-      "expr": "@flag:ui.anim ? ui.area : 1"
-    },
-    {
-      "name": "ui.m_sub",
-      "expr": "@flag:ui.anim ? ui.sub : 1"
-    },
-    {
-      "name": "ui.m_focus_on",
-      "expr": "@flag:ui.anim ? (ui.map && 'view_custom:belmont_map' != 0) : 1"
-    },
-    {
-      "name": "ui.m_equipment_page",
-      "expr": "@flag:ui.anim ? ui.equipment_page : 1"
-    },
-    {
-      "name": "ui.m_eq_overview",
-      "expr": "@flag:ui.anim ? ui.eq_overview : 1"
-    },
-    {
-      "name": "ui.m_eq_arcana",
-      "expr": "@flag:ui.anim ? ui.eq_arcana : 1"
-    },
-    {
-      "name": "ui.m_eq_weapon_card",
-      "expr": "@flag:ui.anim ? ui.eq_weapon_card : 1"
-    },
-    {
-      "name": "ui.m_eq_weapon",
-      "expr": "@flag:ui.anim ? ui.eq_weapon : 1"
-    },
-    {
-      "name": "ui.m_eq_spell",
-      "expr": "@flag:ui.anim ? ui.eq_spell : 1"
-    },
-    {
-      "name": "ui.m_pin_picker",
-      "expr": "@flag:ui.anim ? ui.pin_picker : 1"
-    },
-    {
-      "name": "ui.m_eq_picker",
-      "expr": "@flag:ui.anim ? ui.eq_picker : 1"
     }
   ],
   "enforce": [
@@ -1813,11 +1757,6 @@
       "frames": 4,
       "enabled_bind": "ui.map_cursor_8",
       "haptic": "off"
-    },
-    "settings_open": {
-      "kind": "page",
-      "page": "@settings",
-      "transition": "fade"
     }
   },
   "pages": [
@@ -1888,7 +1827,7 @@
           "color": "#00000000",
           "frame": 0,
           "anim": {
-            "bind": "ui.m_title",
+            "bind": "ui.title",
             "from": "fade",
             "ms": 220,
             "easing": "ease_out",
@@ -1912,7 +1851,7 @@
           "need_bind": "ui.title",
           "tint": "#FFCCCCCC",
           "anim": {
-            "bind": "ui.m_title",
+            "bind": "ui.title",
             "from": "fade",
             "ms": 220,
             "easing": "ease_out",
@@ -1936,7 +1875,7 @@
           "need_bind": "ui.title",
           "tint": "#FFCCCCCC",
           "anim": {
-            "bind": "ui.m_title",
+            "bind": "ui.title",
             "from": "fade",
             "ms": 220,
             "easing": "ease_out",
@@ -1960,7 +1899,7 @@
           "need_bind": "ui.title",
           "tint": "#FFCCCCCC",
           "anim": {
-            "bind": "ui.m_title",
+            "bind": "ui.title",
             "from": "fade",
             "ms": 220,
             "easing": "ease_out",
@@ -1984,7 +1923,7 @@
           "need_bind": "ui.title",
           "tint": "#FFCCCCCC",
           "anim": {
-            "bind": "ui.m_title",
+            "bind": "ui.title",
             "from": "fade",
             "ms": 220,
             "easing": "ease_out",
@@ -2007,7 +1946,7 @@
           "src": "module:native:atlas-t_ui_maintitle_housebundlend_spriteatlas_assets_all_5703934dabf061107f38f076957418bb.bundle#-2700243943468672124",
           "need_bind": "ui.title",
           "anim": {
-            "bind": "ui.m_title",
+            "bind": "ui.title",
             "from": "fade",
             "ms": 220,
             "easing": "ease_out",
@@ -2030,7 +1969,7 @@
           "src": "module:native:atlas-t_ui_maintitle_housebundlend_spriteatlas_assets_all_5703934dabf061107f38f076957418bb.bundle#5475906166278085232",
           "need_bind": "ui.title",
           "anim": {
-            "bind": "ui.m_title",
+            "bind": "ui.title",
             "from": "fade",
             "ms": 220,
             "easing": "ease_out",
@@ -2054,7 +1993,7 @@
           "need_bind": "ui.title",
           "flip_x": true,
           "anim": {
-            "bind": "ui.m_title",
+            "bind": "ui.title",
             "from": "fade",
             "ms": 220,
             "easing": "ease_out",
@@ -2077,7 +2016,7 @@
           "src": "module:native:atlas-t_ui_commonall_cards_assets_all_44dfd9cf5fef7440f0f32398be8fb808.bundle#-4984553437625016568",
           "need_bind": "ui.title",
           "anim": {
-            "bind": "ui.m_title",
+            "bind": "ui.title",
             "from": "fade",
             "ms": 220,
             "easing": "ease_out",
@@ -2100,7 +2039,7 @@
           "src": "module:native:atlas-t_ui_maintitle_housebundlend_spriteatlas_assets_all_5703934dabf061107f38f076957418bb.bundle#-3775048146746077750",
           "need_bind": "ui.title",
           "anim": {
-            "bind": "ui.m_title",
+            "bind": "ui.title",
             "from": "fade",
             "ms": 220,
             "easing": "ease_out",
@@ -2124,7 +2063,7 @@
           "need_bind": "ui.title",
           "tint": "#40110A0E",
           "anim": {
-            "bind": "ui.m_title",
+            "bind": "ui.title",
             "from": "fade",
             "ms": 220,
             "easing": "ease_out",
@@ -2150,7 +2089,7 @@
           "color": "#00000000",
           "frame": 0,
           "anim": {
-            "bind": "ui.m_wait_art",
+            "bind": "ui.wait_art",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -2179,7 +2118,7 @@
             1
           ],
           "anim": {
-            "bind": "ui.m_wait_art",
+            "bind": "ui.wait_art",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -2205,7 +2144,7 @@
           "color": "#00000000",
           "frame": 0,
           "anim": {
-            "bind": "ui.m_wait_art",
+            "bind": "ui.wait_art",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -2228,7 +2167,7 @@
           "src": "module:native:atlas-t_ui_loading_atlas_assets_all_3e3d7325eb562ae25546c80bd8a4ba09.bundle#4376938908137726197",
           "need_bind": "ui.wait_art",
           "anim": {
-            "bind": "ui.m_wait_art",
+            "bind": "ui.wait_art",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -2252,7 +2191,7 @@
           "need_bind": "ui.wait_art",
           "tint": "#40110A0E",
           "anim": {
-            "bind": "ui.m_wait_art",
+            "bind": "ui.wait_art",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -2312,7 +2251,7 @@
           "marker_scale": 0.00390625,
           "bind": "@flag:ui.area_tier",
           "anim": {
-            "bind": "ui.m_map",
+            "bind": "ui.map",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -2338,7 +2277,7 @@
           "hide_bind": "ui.equipment_page",
           "hide_eq": 1,
           "anim": {
-            "bind": "ui.m_map",
+            "bind": "ui.map",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -2369,7 +2308,7 @@
           "hide_bind": "ui.equipment_page",
           "hide_eq": 1,
           "anim": {
-            "bind": "ui.m_map",
+            "bind": "ui.map",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -2401,7 +2340,7 @@
           "hide_bind": "ui.equipment_page",
           "hide_eq": 1,
           "anim": {
-            "bind": "ui.m_map",
+            "bind": "ui.map",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -2433,7 +2372,7 @@
           "hide_bind": "ui.equipment_page",
           "hide_eq": 1,
           "anim": {
-            "bind": "ui.m_map",
+            "bind": "ui.map",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -2466,7 +2405,7 @@
           "hide_bind": "ui.equipment_page",
           "hide_eq": 1,
           "anim": {
-            "bind": "ui.m_map",
+            "bind": "ui.map",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -2498,7 +2437,7 @@
             1
           ],
           "anim": {
-            "bind": "ui.m_map",
+            "bind": "ui.map",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -2530,7 +2469,7 @@
             1
           ],
           "anim": {
-            "bind": "ui.m_map",
+            "bind": "ui.map",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -2562,7 +2501,7 @@
             1
           ],
           "anim": {
-            "bind": "ui.m_map",
+            "bind": "ui.map",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -2593,7 +2532,7 @@
             1
           ],
           "anim": {
-            "bind": "ui.m_map",
+            "bind": "ui.map",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -2624,7 +2563,7 @@
             1
           ],
           "anim": {
-            "bind": "ui.m_map",
+            "bind": "ui.map",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -2655,7 +2594,7 @@
             1
           ],
           "anim": {
-            "bind": "ui.m_map",
+            "bind": "ui.map",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -2686,7 +2625,7 @@
           "hide_bind": "ui.equipment_page",
           "hide_eq": 1,
           "anim": {
-            "bind": "ui.m_map",
+            "bind": "ui.map",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -2717,7 +2656,7 @@
           "hide_bind": "ui.equipment_page",
           "hide_eq": 1,
           "anim": {
-            "bind": "ui.m_map",
+            "bind": "ui.map",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -2742,7 +2681,7 @@
           "hide_bind": "ui.equipment_page",
           "hide_eq": 1,
           "anim": {
-            "bind": "ui.m_map",
+            "bind": "ui.map",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -2767,7 +2706,7 @@
           "hide_bind": "ui.equipment_page",
           "hide_eq": 1,
           "anim": {
-            "bind": "ui.m_map",
+            "bind": "ui.map",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -2792,7 +2731,7 @@
           "hide_bind": "ui.equipment_page",
           "hide_eq": 1,
           "anim": {
-            "bind": "ui.m_map",
+            "bind": "ui.map",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -2817,7 +2756,7 @@
           "hide_bind": "ui.equipment_page",
           "hide_eq": 1,
           "anim": {
-            "bind": "ui.m_area",
+            "bind": "ui.area",
             "from": "fade",
             "ms": 140,
             "easing": "ease_out",
@@ -2842,7 +2781,7 @@
           "hide_bind": "ui.equipment_page",
           "hide_eq": 1,
           "anim": {
-            "bind": "ui.m_sub",
+            "bind": "ui.sub",
             "from": "fade",
             "ms": 140,
             "easing": "ease_out",
@@ -2872,7 +2811,7 @@
           "hide_bind": "ui.equipment_page",
           "hide_eq": 1,
           "anim": {
-            "bind": "ui.m_area",
+            "bind": "ui.area",
             "from": "fade",
             "ms": 140,
             "easing": "ease_out",
@@ -2902,7 +2841,7 @@
           "hide_bind": "ui.equipment_page",
           "hide_eq": 1,
           "anim": {
-            "bind": "ui.m_sub",
+            "bind": "ui.sub",
             "from": "fade",
             "ms": 140,
             "easing": "ease_out",
@@ -2932,7 +2871,7 @@
           "hide_bind": "ui.equipment_page",
           "hide_eq": 1,
           "anim": {
-            "bind": "ui.m_sub",
+            "bind": "ui.sub",
             "from": "fade",
             "ms": 140,
             "easing": "ease_out",
@@ -2962,7 +2901,7 @@
           "hide_bind": "ui.equipment_page",
           "hide_eq": 1,
           "anim": {
-            "bind": "ui.m_area",
+            "bind": "ui.area",
             "from": "fade",
             "ms": 140,
             "easing": "ease_out",
@@ -2991,7 +2930,7 @@
           "hide_bind": "ui.equipment_page",
           "hide_eq": 1,
           "anim": {
-            "bind": "ui.m_map",
+            "bind": "ui.map",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -3020,7 +2959,7 @@
           "hide_bind": "ui.equipment_page",
           "hide_eq": 1,
           "anim": {
-            "bind": "ui.m_map",
+            "bind": "ui.map",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -3053,7 +2992,7 @@
           "hide_bind": "ui.equipment_page",
           "hide_eq": 1,
           "anim": {
-            "bind": "ui.m_focus_on",
+            "bind": "ui.focus_on",
             "from": "fade",
             "ms": 160,
             "easing": "ease_out",
@@ -3083,7 +3022,7 @@
           "hide_bind": "ui.equipment_page",
           "hide_eq": 1,
           "anim": {
-            "bind": "ui.m_focus_on",
+            "bind": "ui.focus_on",
             "from": "fade",
             "ms": 160,
             "easing": "ease_out",
@@ -3112,7 +3051,7 @@
           "hide_bind": "ui.equipment_page",
           "hide_eq": 1,
           "anim": {
-            "bind": "ui.m_focus_on",
+            "bind": "ui.focus_on",
             "from": "fade",
             "ms": 160,
             "easing": "ease_out",
@@ -3141,7 +3080,7 @@
           "hide_bind": "ui.equipment_page",
           "hide_eq": 1,
           "anim": {
-            "bind": "ui.m_focus_on",
+            "bind": "ui.focus_on",
             "from": "fade",
             "ms": 160,
             "easing": "ease_out",
@@ -3304,7 +3243,7 @@
             1
           ],
           "anim": {
-            "bind": "ui.m_equipment_page",
+            "bind": "ui.equipment_page",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -3327,7 +3266,7 @@
           "src": "module:native:atlas-t_ui_equipmentview_atlas_assets_all_2c61514a8ac6629497b9fc7b089963f1.bundle#-2579267114377335263",
           "need_bind": "ui.eq_overview",
           "anim": {
-            "bind": "ui.m_eq_overview",
+            "bind": "ui.eq_overview",
             "from": "fade",
             "ms": 160,
             "easing": "ease_out",
@@ -3350,7 +3289,7 @@
           "src": "module:native:atlas-t_ui_equipmentview_atlas_assets_all_2c61514a8ac6629497b9fc7b089963f1.bundle#-871547866862412041",
           "need_bind": "ui.eq_overview",
           "anim": {
-            "bind": "ui.m_eq_overview",
+            "bind": "ui.eq_overview",
             "from": "fade",
             "ms": 160,
             "easing": "ease_out",
@@ -3379,7 +3318,7 @@
             1
           ],
           "anim": {
-            "bind": "ui.m_eq_overview",
+            "bind": "ui.eq_overview",
             "from": "fade",
             "ms": 160,
             "easing": "ease_out",
@@ -3408,7 +3347,7 @@
             1
           ],
           "anim": {
-            "bind": "ui.m_eq_overview",
+            "bind": "ui.eq_overview",
             "from": "fade",
             "ms": 160,
             "easing": "ease_out",
@@ -3437,7 +3376,7 @@
             1
           ],
           "anim": {
-            "bind": "ui.m_eq_overview",
+            "bind": "ui.eq_overview",
             "from": "fade",
             "ms": 160,
             "easing": "ease_out",
@@ -3465,7 +3404,7 @@
           "max_lines": 1,
           "need_bind": "ui.eq_overview",
           "anim": {
-            "bind": "ui.m_eq_overview",
+            "bind": "ui.eq_overview",
             "from": "fade",
             "ms": 160,
             "easing": "ease_out",
@@ -3493,7 +3432,7 @@
           "max_lines": 1,
           "need_bind": "ui.eq_overview",
           "anim": {
-            "bind": "ui.m_eq_overview",
+            "bind": "ui.eq_overview",
             "from": "fade",
             "ms": 160,
             "easing": "ease_out",
@@ -3521,7 +3460,7 @@
           "max_lines": 1,
           "need_bind": "ui.eq_overview",
           "anim": {
-            "bind": "ui.m_eq_overview",
+            "bind": "ui.eq_overview",
             "from": "fade",
             "ms": 160,
             "easing": "ease_out",
@@ -3544,7 +3483,7 @@
           "src": "module:native:atlas-t_ui_commonall_cards_assets_all_44dfd9cf5fef7440f0f32398be8fb808.bundle#-6336479726096033747",
           "need_bind": "ui.eq_arcana",
           "anim": {
-            "bind": "ui.m_eq_arcana",
+            "bind": "ui.eq_arcana",
             "from": "fade",
             "ms": 140,
             "easing": "ease_out",
@@ -3568,7 +3507,7 @@
           "need_bind": "ui.eq_arcana",
           "src_bind": "belmont.equipment_arcana_image",
           "anim": {
-            "bind": "ui.m_eq_arcana",
+            "bind": "ui.eq_arcana",
             "from": "fade",
             "ms": 140,
             "easing": "ease_out",
@@ -3591,7 +3530,7 @@
           "src": "module:native:atlas-t_ui_commonall_cards_assets_all_44dfd9cf5fef7440f0f32398be8fb808.bundle#6895951126441889451",
           "need_bind": "ui.eq_arcana",
           "anim": {
-            "bind": "ui.m_eq_arcana",
+            "bind": "ui.eq_arcana",
             "from": "fade",
             "ms": 140,
             "easing": "ease_out",
@@ -3620,7 +3559,7 @@
           "need_bind": "ui.eq_arcana",
           "bind_text": "belmont.equipment_arcana_name",
           "anim": {
-            "bind": "ui.m_eq_arcana",
+            "bind": "ui.eq_arcana",
             "from": "fade",
             "ms": 140,
             "easing": "ease_out",
@@ -3644,7 +3583,7 @@
           "need_bind": "ui.eq_weapon_card",
           "src_bind": "belmont.equipment_weapon_card_image",
           "anim": {
-            "bind": "ui.m_eq_weapon_card",
+            "bind": "ui.eq_weapon_card",
             "from": "fade",
             "ms": 140,
             "easing": "ease_out",
@@ -3667,7 +3606,7 @@
           "src": "module:native:atlas-t_ui_commonall_cards_assets_all_44dfd9cf5fef7440f0f32398be8fb808.bundle#6895951126441889451",
           "need_bind": "ui.eq_weapon_card",
           "anim": {
-            "bind": "ui.m_eq_weapon_card",
+            "bind": "ui.eq_weapon_card",
             "from": "fade",
             "ms": 140,
             "easing": "ease_out",
@@ -3696,7 +3635,7 @@
           "need_bind": "ui.eq_weapon",
           "bind_text": "belmont.equipment_weapon_name",
           "anim": {
-            "bind": "ui.m_eq_weapon",
+            "bind": "ui.eq_weapon",
             "from": "fade",
             "ms": 140,
             "easing": "ease_out",
@@ -3720,7 +3659,7 @@
           "need_bind": "ui.eq_spell",
           "src_bind": "belmont.equipment_spell_image",
           "anim": {
-            "bind": "ui.m_eq_spell",
+            "bind": "ui.eq_spell",
             "from": "fade",
             "ms": 140,
             "easing": "ease_out",
@@ -3749,7 +3688,7 @@
           "need_bind": "ui.eq_spell",
           "bind_text": "belmont.equipment_spell_name",
           "anim": {
-            "bind": "ui.m_eq_spell",
+            "bind": "ui.eq_spell",
             "from": "fade",
             "ms": 140,
             "easing": "ease_out",
@@ -3935,7 +3874,7 @@
             24
           ],
           "anim": {
-            "bind": "ui.m_equipment_page",
+            "bind": "ui.equipment_page",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -3963,7 +3902,7 @@
           "max_lines": 1,
           "need_bind": "ui.equipment_page",
           "anim": {
-            "bind": "ui.m_equipment_page",
+            "bind": "ui.equipment_page",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -4026,7 +3965,7 @@
           "max_lines": 1,
           "need_bind": "ui.equipment_page",
           "anim": {
-            "bind": "ui.m_equipment_page",
+            "bind": "ui.equipment_page",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -4089,7 +4028,7 @@
           "max_lines": 1,
           "need_bind": "ui.equipment_page",
           "anim": {
-            "bind": "ui.m_equipment_page",
+            "bind": "ui.equipment_page",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -4152,7 +4091,7 @@
           "max_lines": 1,
           "need_bind": "ui.equipment_page",
           "anim": {
-            "bind": "ui.m_equipment_page",
+            "bind": "ui.equipment_page",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -4211,7 +4150,7 @@
           "need_bind": "ui.equipment_page",
           "tint": "#38110A0E",
           "anim": {
-            "bind": "ui.m_equipment_page",
+            "bind": "ui.equipment_page",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -4240,7 +4179,7 @@
             0.41211
           ],
           "anim": {
-            "bind": "ui.m_equipment_page",
+            "bind": "ui.equipment_page",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -4270,7 +4209,7 @@
           ],
           "flip_x": true,
           "anim": {
-            "bind": "ui.m_equipment_page",
+            "bind": "ui.equipment_page",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -4300,7 +4239,7 @@
           ],
           "flip_y": true,
           "anim": {
-            "bind": "ui.m_equipment_page",
+            "bind": "ui.equipment_page",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -4331,7 +4270,7 @@
           "flip_x": true,
           "flip_y": true,
           "anim": {
-            "bind": "ui.m_equipment_page",
+            "bind": "ui.equipment_page",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -4415,7 +4354,7 @@
           ],
           "tint": "#FF5E5E5E",
           "anim": {
-            "bind": "ui.m_equipment_page",
+            "bind": "ui.equipment_page",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -4443,7 +4382,7 @@
           "max_lines": 1,
           "need_bind": "ui.equipment_page",
           "anim": {
-            "bind": "ui.m_equipment_page",
+            "bind": "ui.equipment_page",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -4468,10 +4407,8 @@
           "border": 0,
           "need_bind": "ui.equipment_page",
           "on_tap": "equipment_close",
-          "on_hold": "settings_open",
-          "hold_ms": 650,
           "anim": {
-            "bind": "ui.m_equipment_page",
+            "bind": "ui.equipment_page",
             "from": "fade",
             "ms": 200,
             "easing": "ease_out",
@@ -4658,7 +4595,7 @@
           "color": "#00000000",
           "frame": 0,
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -4688,7 +4625,7 @@
           ],
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -4716,7 +4653,7 @@
           "max_lines": 1,
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -4739,7 +4676,7 @@
           "src": "module:native:atlas-t_ui_commongame_slots_assets_all_61b979ae308a40dc07803d10b84457da.bundle#-4040006041819812751",
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -4762,7 +4699,7 @@
           "src_bind": "belmont.pin_kind_0_image",
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -4789,7 +4726,7 @@
           "on_tap": "pin_kind_0",
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -4812,7 +4749,7 @@
           "src": "module:native:atlas-t_ui_commongame_slots_assets_all_61b979ae308a40dc07803d10b84457da.bundle#-4040006041819812751",
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -4835,7 +4772,7 @@
           "src_bind": "belmont.pin_kind_1_image",
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -4862,7 +4799,7 @@
           "on_tap": "pin_kind_1",
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -4885,7 +4822,7 @@
           "src": "module:native:atlas-t_ui_commongame_slots_assets_all_61b979ae308a40dc07803d10b84457da.bundle#-4040006041819812751",
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -4908,7 +4845,7 @@
           "src_bind": "belmont.pin_kind_2_image",
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -4935,7 +4872,7 @@
           "on_tap": "pin_kind_2",
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -4958,7 +4895,7 @@
           "src": "module:native:atlas-t_ui_commongame_slots_assets_all_61b979ae308a40dc07803d10b84457da.bundle#-4040006041819812751",
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -4981,7 +4918,7 @@
           "src_bind": "belmont.pin_kind_3_image",
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -5008,7 +4945,7 @@
           "on_tap": "pin_kind_3",
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -5031,7 +4968,7 @@
           "src": "module:native:atlas-t_ui_commongame_slots_assets_all_61b979ae308a40dc07803d10b84457da.bundle#-4040006041819812751",
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -5054,7 +4991,7 @@
           "src_bind": "belmont.pin_kind_4_image",
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -5081,7 +5018,7 @@
           "on_tap": "pin_kind_4",
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -5104,7 +5041,7 @@
           "src": "module:native:atlas-t_ui_commongame_slots_assets_all_61b979ae308a40dc07803d10b84457da.bundle#-4040006041819812751",
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -5127,7 +5064,7 @@
           "src_bind": "belmont.pin_kind_5_image",
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -5154,7 +5091,7 @@
           "on_tap": "pin_kind_5",
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -5177,7 +5114,7 @@
           "src": "module:native:atlas-t_ui_commongame_slots_assets_all_61b979ae308a40dc07803d10b84457da.bundle#-4040006041819812751",
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -5200,7 +5137,7 @@
           "src_bind": "belmont.pin_kind_6_image",
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -5227,7 +5164,7 @@
           "on_tap": "pin_kind_6",
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -5250,7 +5187,7 @@
           "src": "module:native:atlas-t_ui_commongame_slots_assets_all_61b979ae308a40dc07803d10b84457da.bundle#-4040006041819812751",
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -5273,7 +5210,7 @@
           "src_bind": "belmont.pin_kind_7_image",
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -5300,7 +5237,7 @@
           "on_tap": "pin_kind_7",
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -5323,7 +5260,7 @@
           "src": "module:native:atlas-t_ui_commongame_slots_assets_all_61b979ae308a40dc07803d10b84457da.bundle#-4040006041819812751",
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -5346,7 +5283,7 @@
           "src_bind": "belmont.pin_kind_8_image",
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -5373,7 +5310,7 @@
           "on_tap": "pin_kind_8",
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -5403,7 +5340,7 @@
           ],
           "tint": "#FF5E5E5E",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -5431,7 +5368,7 @@
           "max_lines": 1,
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -5457,7 +5394,7 @@
           "on_tap": "pin_cancel",
           "need_bind": "ui.pin_picker",
           "anim": {
-            "bind": "ui.m_pin_picker",
+            "bind": "ui.pin_picker",
             "from": "fade",
             "ms": 180,
             "easing": "ease_out",
@@ -5579,7 +5516,7 @@
           ],
           "need_bind": "ui.eq_picker",
           "anim": {
-            "bind": "ui.m_eq_picker",
+            "bind": "ui.eq_picker",
             "from": "fade",
             "ms": 160,
             "easing": "ease_out",
@@ -5608,7 +5545,7 @@
           ],
           "need_bind": "ui.eq_picker",
           "anim": {
-            "bind": "ui.m_eq_picker",
+            "bind": "ui.eq_picker",
             "from": "fade",
             "ms": 160,
             "easing": "ease_out",
@@ -5637,7 +5574,7 @@
           ],
           "need_bind": "ui.eq_picker",
           "anim": {
-            "bind": "ui.m_eq_picker",
+            "bind": "ui.eq_picker",
             "from": "fade",
             "ms": 160,
             "easing": "ease_out",
@@ -5666,7 +5603,7 @@
           ],
           "need_bind": "ui.eq_picker",
           "anim": {
-            "bind": "ui.m_eq_picker",
+            "bind": "ui.eq_picker",
             "from": "fade",
             "ms": 160,
             "easing": "ease_out",
@@ -5695,7 +5632,7 @@
           "max_lines": 1,
           "need_bind": "ui.eq_picker",
           "anim": {
-            "bind": "ui.m_eq_picker",
+            "bind": "ui.eq_picker",
             "from": "fade",
             "ms": 160,
             "easing": "ease_out",
@@ -5799,7 +5736,7 @@
           "repeat_row_dy": 310,
           "scroll": "equipment_picker",
           "anim": {
-            "bind": "ui.m_eq_picker",
+            "bind": "ui.eq_picker",
             "from": "fade",
             "ms": 160,
             "easing": "ease_out",
@@ -5878,7 +5815,7 @@
           ],
           "tint": "#FF5E5E5E",
           "anim": {
-            "bind": "ui.m_eq_picker",
+            "bind": "ui.eq_picker",
             "from": "fade",
             "ms": 160,
             "easing": "ease_out",
@@ -5906,7 +5843,7 @@
           "max_lines": 1,
           "need_bind": "ui.eq_picker",
           "anim": {
-            "bind": "ui.m_eq_picker",
+            "bind": "ui.eq_picker",
             "from": "fade",
             "ms": 160,
             "easing": "ease_out",
@@ -5993,8 +5930,7 @@
   "flags": {
     "ui.area_tier": false,
     "ui.area_applied": false,
-    "ui.equipment": false,
-    "ui.anim": true
+    "ui.equipment": false
   },
   "_layout": "Owner-approved Direction A map with native discovered landmark engraving/ribbon overlays and current objective. Native Equipment context adds a touch tab, equipped Arcana card, weapon illustration, relic names/icons and final stats. Page switching retains map view; Equipment readiness is independent of optional map rendering. Unknown native formulas/assets stay unavailable. Owner correction: native ribbon endcaps uniformly scaled with central spans extended; two-stop Area/Sub-area rail, Reset, session-local native nine-icon pin chooser, presentation dim input veil. Native six-cell inventory view, source GridSlot/SquareSlot, category taps and source-state-gated controller pulses. Pin edit opens chooser before deletion. 2026-10-21 ownercorrection: centeredArea/Sub-area; nativePinbuttonselectsthenarmsplacement; retainedviewveilhastransparentoutline; Equipmentnative2rowstatplateinlineMapontop, body52pxlower; objectiveposition220. Objectiveusesnativefont24pxworkerimage1100x64at100,220,secondaryrole; map/worldunitsunchangedbyscaledmarkerbindings. Equipmentall-ownednative3columnverticalscrollusesstablelogicalpayloads, actualhostclip/hittest, fixedBackleftandMapright; noPrevious/Nextorpageindicator. Ownercompactrevision: statplate720widemaintainsnativefontsize; nativehealth/manaupgrades2x6icons56squareonright; Level992,154; mapPin/Equipmentpositionsswapped; EquipmentMapfixedbottomright.",
   "haptics": {
@@ -6003,13 +5939,5 @@
     "tap": "click",
     "marker": "click",
     "refused": "reject"
-  },
-  "settings": [
-    {
-      "flag": "ui.anim",
-      "label": "Animations",
-      "type": "toggle",
-      "default": true
-    }
-  ]
+  }
 }
