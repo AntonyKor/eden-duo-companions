@@ -33,7 +33,7 @@ This repository holds the companion source code, packages, documentation and scr
 | 13 | [Chained Echoes](#chained-echoes) | `0100C510166F0000` | 1.41 | [.dsmod.zip](https://github.com/igawa6/eden-duo-companions/releases/tag/chained-echoes-1.0.0) | 🥇 <a href="https://ko-fi.com/U7U31RLL6S"><img src="https://img.shields.io/badge/Jadesigns-F16061?style=flat-square&logo=ko-fi&logoColor=white" style="vertical-align: middle;" alt="Jadesigns"></a> |
 | 14 | [Yoru Tomosu](#yoru-tomosu) | `0100C2901153C000` | 1.0.0 | [.dsmod.zip](https://github.com/igawa6/eden-duo-companions/releases/tag/yoru-tomosu-1.0.0) | 🥇 <a href="https://ko-fi.com/igawa6/commissions"><img src="https://img.shields.io/badge/Anon.-F16061?style=flat-square&logo=ko-fi&logoColor=white" style="vertical-align: middle;" alt="Anon."></a> |
 | 15 | [Diablo III: Eternal Collection](#diablo-iii-eternal-collection) | `01001B300B9BE000` | 2.7.7, 2.7.6 | [.dsmod.zip](https://github.com/igawa6/eden-duo-companions/releases/tag/diablo-iii-eternal-collection-1.0.0) | 🥇 <a href="https://ko-fi.com/Z2B723BQK6"><img src="https://img.shields.io/badge/shy-F16061?style=flat-square&logo=ko-fi&logoColor=white" style="vertical-align: middle;" alt="shy"></a> |
-| 16 | [Farming Simulator: Nintendo Switch Edition](#farming-simulator-nintendo-switch-edition) | `0100D04004176000` | 1.5.0.1 | [.dsmod.zip](https://github.com/igawa6/eden-duo-companions/releases/tag/farming-simulator-nintendo-switch-edition-1.0.0) | 🥇 <a href="https://ko-fi.com/igawa6/commissions"><img src="https://img.shields.io/badge/Anon.-F16061?style=flat-square&logo=ko-fi&logoColor=white" style="vertical-align: middle;" alt="Anon."></a> |
+| 16 | [Farming Simulator: Nintendo Switch Edition](#farming-simulator-nintendo-switch-edition) | `0100D04004176000` | 1.5.0.1 | [.dsmod.zip](https://github.com/igawa6/eden-duo-companions/releases/tag/farming-simulator-nintendo-switch-edition-1.0.1) | 🥇 <a href="https://ko-fi.com/igawa6/commissions"><img src="https://img.shields.io/badge/Anon.-F16061?style=flat-square&logo=ko-fi&logoColor=white" style="vertical-align: middle;" alt="Anon."></a> |
 | 17 | [VA-11 Hall-A: Cyberpunk Bartender Action](#va-11-hall-a-cyberpunk-bartender-action) | `010086500D3C8000` | 1.0.0 | [.dsmod.zip](https://github.com/igawa6/eden-duo-companions/releases/tag/va-11-hall-a-1.0.0) | ⭐ <a href="https://ko-fi.com/matinc"><img src="https://img.shields.io/badge/Mati-F16061?style=flat-square&logo=ko-fi&logoColor=white" style="vertical-align: middle;" alt="Mati"></a> |
 
 ⭐ Companion contributor. Big thanks for your mods creation!
@@ -422,7 +422,7 @@ The companion ships no game art: portraits, item icons and map art are read from
 
 🥇 <a href="https://ko-fi.com/igawa6/commissions"><img src="https://img.shields.io/badge/Anon.-F16061?style=flat-square&logo=ko-fi&logoColor=white" style="vertical-align: middle;" alt="Anon."></a>
 
-`0100D04004176000` · game version 1.5.0.1 · companion 1.0.0
+`0100D04004176000` · game version 1.5.0.1 · companion 1.0.1
 
 | Map | Garage | Prices |
 |:---:|:---:|:---:|
@@ -430,7 +430,7 @@ The companion ships no game art: portraits, item icons and map art are read from
 
 Run the farm's menus on the second screen while the field stays on the main one.
 
-- **Map.** A pan/zoom field map that keeps your own position marked even while you pan or zoom, with the game's own icons for vehicles, harvesters, trailers, tools, selling points and field jobs. A Filters popup picks which of the 7 marker categories show, Expand fills the screen, and Reset glides back to following you. Crops, growth and soil layers overlay the map on the supported build.
+- **Map.** A pan/zoom field map that keeps your own position marked even while you pan or zoom, with the game's own icons for vehicles, harvesters, trailers, tools, selling points and field jobs. A Filters popup picks which of the 7 marker categories show (hidden markers can't be tapped), Expand fills the screen, and Reset glides back to following you. Crops, growth and soil layers overlay the map on the supported build.
 - **Garage.** Your owned vehicles with their specs; Enter and Reset apply instantly, with no menu to drive through.
 - **Operations, Prices, Finances, Statistics, Animals, Shop and Guide.** The rest of the game's menus, including a five-day price history and finances, session and total statistics, and a static English guide, all on native two-axis scrolling panes.
 
