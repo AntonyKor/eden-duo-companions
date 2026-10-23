@@ -1,0 +1,8 @@
+{
+  "files": {
+    "fonts/latin51sc.bfont": {
+      "origin": "authored",
+      "description": "Font request descriptor (no glyphs); loads native LatinFont at 51cap with small capitals"
+    }
+  }
+}
