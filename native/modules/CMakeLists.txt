@@ -735,3 +735,23 @@ endif()
 
 # VA-11 Hall-A (title 010086500D3C8000): the VAllhalla bartending panel, contributed by Mati.
 include("${CMAKE_CURRENT_LIST_DIR}/va11_hall_a.cmake")
+
+# The Legend of Zelda: Breath of the Wild 1.6.0 (title 01007EF00011E000). One translation unit;
+# the botw_*.h headers are the readers, pages and action bridge. The guest helper that the load
+# plan installs is native/helper/botw/ (rebuilt by tools/botw/build_helper_plan.py).
+dsmod_add_module(dsmod-breath-of-the-wild EXCLUDE_FROM_ALL TITLE 01007EF00011E000
+    SOURCES 01007EF00011E000.cpp
+    EXPORTS eden_dsmod_get_module eden_dsmod_get_extensions)
+target_compile_options(dsmod-breath-of-the-wild PRIVATE -Wall -Wextra -Werror)
+if(NOT ANDROID AND BUILD_TESTING)
+    # Every botw_*_test.cpp is a standalone executable. A few bridge tests use the real steady
+    # clock for 100-250 ms freshness windows and can fail on a heavily loaded host; rerun them alone.
+    file(GLOB BOTW_TESTS CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/botw_*_test.cpp")
+    foreach(test_source IN LISTS BOTW_TESTS)
+        get_filename_component(test_name "${test_source}" NAME_WE)
+        string(REGEX REPLACE "_test$" "" test_name "${test_name}")
+        string(REPLACE "_" "-" test_name "${test_name}")
+        dsmod_add_test(dsmod-${test_name} KEEP_ASSERTS SOURCES "${test_source}"
+            COMPILE_OPTIONS -Wall -Wextra -Werror)
+    endforeach()
+endif()
