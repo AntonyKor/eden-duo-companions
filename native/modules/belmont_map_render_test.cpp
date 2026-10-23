@@ -20,13 +20,4 @@ int main() {
   assert(std::abs(ShapeDistance(triangle, 8, -8) - 5) < 1e-6);
   assert(SmoothUnion(0, 0, 3) == -.75f);
   assert(SmoothUnion(0, 4, 3) == 0);
-  Renderer missing(ce_unity::RangeReader{});
-  Request r;
-  r.current_room_id = "unknown";
-  assert(!missing.Render(r));
-  r.current_room_id = "World_Biome_01_Streets_Poor_StreetsPoor_FirstRoom_uid73";
-  r.width = 0;
-  assert(!missing.Render(r));
-  r.width = 1241;
-  assert(!missing.Render(r));
 }

@@ -439,6 +439,10 @@ struct Renderer::State {
                 emax = Number("_EdgeDetectMax");
     if (emax <= emin)
       return false;
+    // Hoisted out of the per-pixel loop below (same values every iteration);
+    // matches the collision_range/cloud_range/emin/emax hoisting above.
+    const float alpha_range = std::max(Number("_AlphaSDFRange"), .001f),
+                alpha_width = std::max(.0001f, 1.f - Number("_AlphaSDFContrast"));
     for (std::size_t i = 0; i < layout.size(); ++i) {
       auto geometry = tiles.LoadLayer(
           *source, belmont_map_tiles::Source::Geometry, layout[i].layer);
@@ -464,6 +468,10 @@ struct Renderer::State {
           const auto global_noise = zmap
               ? Sample(n->image, wx * global_st.r, wy * global_st.g, true, n->srgb)
               : noise;
+          // Sampled once and reused below (native_selection used to resample
+          // the identical (skyline, u, v) a second time per pixel).
+          const float skyline_r =
+              zmap ? 0.f : Sample(skyline->image, u, v, false, skyline->srgb).r;
           auto clean = Sample(bg->image, wx * bgst.r, wy * bgst.g, true, bg->srgb);
           clean = Scale(clean, Clamp(1.f - .25f * Dot(global_noise, weights)));
           // Native Z branch replaces 1-skyline.R by 1 before min(noise, factor).
@@ -471,15 +479,12 @@ struct Renderer::State {
           const float selection = zmap
               ? std::min(1.f - .25f * Dot(global_noise, background_strength), 1.f)
               : 0.f;
-          clean = Scale(clean, zmap ? 1.f - selection
-              : Sample(skyline->image, u, v, false, skyline->srgb).r);
+          clean = Scale(clean, zmap ? 1.f - selection : skyline_r);
           const auto fields =
               Sample(geometry->image, u, v, false, geometry->srgb);
           const float outline = Smooth((fields.b - emin) / (emax - emin));
           const float opacity =
-              1.f -
-              Smooth((fields.g - std::max(Number("_AlphaSDFRange"), .001f)) /
-                     std::max(.0001f, 1.f - Number("_AlphaSDFContrast")));
+              1.f - Smooth((fields.g - alpha_range) / alpha_width);
           auto ink =
               Scale(Mix(Scale(back, 1.f - fields.r), edge, outline),
                     1.f - .1f * noise.g);
@@ -508,7 +513,7 @@ struct Renderer::State {
           const float cloud = belmont_map_decoration::Gate(fields.g - cloud_range, cloud_width);
           const float open = 1.f - belmont_map_decoration::Gate(fields.g - collision_range, collision_width);
           const float native_selection = std::min(1.f - .25f * Dot(water_noise, background_strength),
-              zmap ? 1.f : 1.f - Sample(skyline->image, u, v, false, skyline->srgb).r);
+              zmap ? 1.f : 1.f - skyline_r);
           // Quantized source-only gate, not another revealed image. The small
           // retained native noise supplies the four moving patterns at time0.
           c.ornament_gate[std::size_t(y) * c.w + x] = std::uint16_t(std::lround(

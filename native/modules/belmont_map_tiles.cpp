@@ -4,8 +4,10 @@
 #include "belmont_map_refs.h"
 #include <cmath>
 #include <cstring>
+#include <map>
 #include <set>
 #include <string>
+#include <utility>
 
 namespace belmont_map_tiles {
 namespace {
@@ -87,23 +89,49 @@ constexpr std::array<std::string_view, 10> ArtCabs{
      "CAB-cedc5d44adf5513b3e2b7afb06f701b7",
      "CAB-8825ee8ad822982561eaec2356473356",
      "CAB-7c1f4a56ec8ae9d92724aaeb1de8a20d", ""}};
+// Per-call memo of ExternalCabs() results keyed by (owner bundle, owner cab).
+// Optional: existing callers that pass nullptr keep the prior per-call behavior
+// exactly (same code path, same result). LoadLayout() below passes one scoped
+// to its own call so that resolving each of up to ~64 tiles' materials against
+// the identical map bundle/cab doesn't reparse that bundle's external-CAB
+// table from scratch every time.
+using CabsCache = std::map<std::pair<std::string, std::string>,
+                           std::optional<std::vector<std::string>>>;
 std::optional<ResolvedRef>
 Resolve(ce_unity::Reader &reader,
         const belmont_map_sources::SourceRecipe &recipe,
-        const ResolvedRef &owner, const V *ptr) {
+        const ResolvedRef &owner, const V *ptr,
+        CabsCache *cabs_cache = nullptr) {
   std::int64_t file{}, id{};
   if (!ptr || !N(ptr->Get("m_FileID"), file) || file < 0 || file > 4096 ||
       !N(ptr->Get("m_PathID"), id) || !id)
     return {};
   if (!file)
     return ResolvedRef{owner.bundle, owner.cab, id};
-  auto bundle = reader.OpenBundle(owner.bundle);
-  const auto *node = bundle ? bundle->FindNode(owner.cab) : nullptr;
-  auto cabs = node ? belmont_map_refs::ExternalCabs(bundle->NodeSource(*node))
-                   : std::nullopt;
-  if (!cabs || std::uint64_t(file) > cabs->size())
+  std::optional<std::vector<std::string>> uncached_cabs;
+  const std::optional<std::vector<std::string>> *cabs;
+  if (cabs_cache) {
+    auto [it, inserted] =
+        cabs_cache->try_emplace({owner.bundle, owner.cab});
+    if (inserted) {
+      auto bundle = reader.OpenBundle(owner.bundle);
+      const auto *node = bundle ? bundle->FindNode(owner.cab) : nullptr;
+      it->second = node
+                       ? belmont_map_refs::ExternalCabs(bundle->NodeSource(*node))
+                       : std::nullopt;
+    }
+    cabs = &it->second;
+  } else {
+    auto bundle = reader.OpenBundle(owner.bundle);
+    const auto *node = bundle ? bundle->FindNode(owner.cab) : nullptr;
+    uncached_cabs = node
+                        ? belmont_map_refs::ExternalCabs(bundle->NodeSource(*node))
+                        : std::nullopt;
+    cabs = &uncached_cabs;
+  }
+  if (!*cabs || std::uint64_t(file) > (*cabs)->size())
     return {};
-  const auto &cab = (*cabs)[file - 1];
+  const auto &cab = (**cabs)[file - 1];
   if (cab.size() != 36 || !cab.starts_with("CAB-"))
     return {};
   const auto ix = static_cast<std::size_t>(recipe.id);
@@ -396,6 +424,11 @@ Reader::LoadLayout(const belmont_map_sources::SourceRecipe &recipe) {
       return {};
     std::vector<Tile> decoded;
     std::set<std::uint32_t> layers;
+    // Every tile's material PPtr is resolved against the same owner
+    // (recipe.map_bundle/map_cab); memoize that owner's external-CAB table for
+    // the duration of this one LoadLayout() call instead of reparsing it once
+    // per tile (up to 128 refs->items).
+    CabsCache cabs_cache;
     for (const auto &ref : refs->items) {
       Tile tile;
       std::int64_t filter{}, go{}, filter_go{}, mesh_renderer{};
@@ -420,7 +453,7 @@ Reader::LoadLayout(const belmont_map_sources::SourceRecipe &recipe) {
           Resolve(unity, recipe,
                   ResolvedRef{std::string(recipe.map_bundle),
                               std::string(recipe.map_cab), mesh_renderer},
-                  &materials->items[0]);
+                  &materials->items[0], &cabs_cache);
       // A missing dependency does not hide authored layout metadata. Keep
       // CAB/PPtr identity from the native table even if its member is not
       // installed/cached.
